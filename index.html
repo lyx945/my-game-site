@@ -1,211 +1,994 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>玩趣岛 | 小游戏集合</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            bgMain: '#f8f7ef',
-            accentRed: '#ef6b4a',
-            cardGreen: '#b2e8d4',
-            cardYellow: '#ffdd94',
-            cardPurple: '#d2c8ff',
-            cardPink: '#ffc8d0',
-            cardBlue: '#b8d8ff',
-          },
-          fontFamily: {
-            sans: ['system-ui', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
-  <style type="text/tailwindcss">
-    @layer utilities {
-      .card-shadow {
-        box-shadow: 0 6px 14px rgba(0,0,0,0.06);
-      }
-      .bg-blob {
-        position:absolute;
-        border-radius:999px;
-        filter: blur(30px);
-        opacity:0.45;
-        z-index:0;
-        pointer-events:none;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>校准</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #2A3A2A;
+  font-family: 'Consolas', 'Monaco', 'Courier New', 'KaiTi', 'STKaiti', monospace;
+  cursor: crosshair;
+  user-select: none;
+}
+#bg { position: fixed; inset: 0; z-index: 0; display: block; }
+
+#cardsLayer {
+  position: fixed; inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.card {
+  position: absolute;
+  background: rgba(26, 42, 26, 0.85);
+  border: 1px dashed #4A6A4A;
+  box-shadow: 0 0 10px rgba(74,106,74,0.2);
+  color: #8AAA8A;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 10px 12px;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  word-break: break-word;
+  line-height: 1.5;
+  max-width: 200px;
+  min-width: 120px;
+}
+.card.visible { opacity: 1; }
+.card.fading { opacity: 0; transition: opacity 0.5s ease; }
+
+#syncWrap {
+  position: fixed;
+  top: 20px; right: 30px;
+  z-index: 20;
+  text-align: right;
+  pointer-events: none;
+}
+#syncLabel {
+  font-size: 10px;
+  color: #6A9A6A;
+  margin-bottom: 4px;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+}
+#syncBar {
+  width: 150px;
+  height: 6px;
+  background: #1A1A1A;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.3s, border 0.3s;
+  border: 1px solid transparent;
+}
+#syncFill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 50%;
+  background: #6A9A6A;
+  transition: width 0.3s ease;
+}
+#syncBar.flash-up {
+  box-shadow: 0 0 10px 2px rgba(106,154,106,0.9);
+}
+#syncBar.flash-down {
+  box-shadow: 0 0 10px 2px rgba(200,40,40,0.9);
+  border: 1px solid #C82828;
+}
+
+#helpBtn {
+  position: fixed;
+  bottom: 20px; left: 20px;
+  z-index: 20;
+  background: transparent;
+  border: none;
+  color: #4A6A4A;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  letter-spacing: 1px;
+}
+#helpBtn:hover { color: #6A8A6A; }
+
+#toastLayer {
+  position: fixed;
+  bottom: 50px; left: 20px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: auto;
+}
+.toast {
+  background: #c0c0c0;
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;
+  width: 260px;
+  font-family: 'Consolas', 'Tahoma', sans-serif;
+  box-shadow: 2px 2px 0 #000;
+}
+.toast-titlebar {
+  background: linear-gradient(to right, #000080, #1084d0);
+  color: white;
+  font-size: 11px;
+  padding: 3px 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.toast-close {
+  background: #c0c0c0;
+  border: 1px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;
+  color: black;
+  width: 16px; height: 16px;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-family: sans-serif;
+}
+.toast-body {
+  padding: 12px;
+  color: black;
+  font-size: 13px;
+}
+
+#goalModal, #helpModal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(26, 42, 26, 0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+#goalModal.active, #helpModal.active { display: flex; }
+.modal-content {
+  max-width: 560px;
+  width: 90%;
+  color: #8AAA8A;
+  font-size: 16px;
+  text-align: center;
+  line-height: 1.7;
+  padding: 40px;
+}
+#helpModal .modal-content {
+  text-align: left;
+  max-height: 80vh;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.9;
+}
+#helpModal h2 {
+  font-size: 18px;
+  margin-bottom: 20px;
+  color: #6A9A6A;
+  text-align: center;
+}
+.modal-btn {
+  margin-top: 30px;
+  background: transparent;
+  border: 1px dashed #4A6A4A;
+  color: #6A8A6A;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 20px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.modal-btn:hover { background: rgba(74,106,74,0.2); }
+
+#centerText {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  color: #8AAA8A;
+  font-size: 18px;
+  opacity: 0;
+  pointer-events: none;
+  text-align: center;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  letter-spacing: 2px;
+}
+#centerText.show { animation: centerFade 1.2s ease-out forwards; }
+@keyframes centerFade {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+#centerText.long { animation-duration: 2.5s; }
+
+#bottomScroll {
+  position: fixed;
+  bottom: 8px; left: 0; right: 0;
+  z-index: 30;
+  color: #4A6A4A;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: center;
+}
+#bottomScroll.show { opacity: 1; transition: opacity 0.3s; }
+#bottomScroll .scroll-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scrollText 2s linear;
+}
+@keyframes scrollText {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+#flashOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+#flashOverlay.flash { animation: flashWhite 80ms ease-out; }
+@keyframes flashWhite {
+  0% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+</style>
 </head>
-<body class="bg-bgMain min-h-screen relative overflow-x-hidden">
-  <!-- 装饰色块背景，小屏幕自动缩小 -->
-  <div class="bg-blob w-[clamp(80px,20vw,160px)] h-[clamp(80px,20vw,160px)] bg-pink-200 top-[15vh] -left-[8vw]"></div>
-  <div class="bg-blob w-[clamp(100px,25vw,200px)] h-[clamp(100px,25vw,200px)] bg-teal-200 top-[5vh] -right-[8vw]"></div>
+<body>
+<canvas id="bg"></canvas>
+<div id="cardsLayer"></div>
+<div id="syncWrap">
+  <div id="syncLabel">同步率：50.00%</div>
+  <div id="syncBar"><div id="syncFill"></div></div>
+</div>
+<button id="helpBtn">帮助 / 指南</button>
+<div id="toastLayer"></div>
+<div id="centerText"></div>
+<div id="bottomScroll"></div>
+<div id="flashOverlay"></div>
 
-  <!-- 导航栏：移动端收起菜单 -->
-  <header class="relative z-10 max-w-7xl mx-auto px-[clamp(1rem,3vw,2rem)] py-4 md:py-6 flex justify-between items-center">
-    <div class="flex items-center gap-2">
-      <div class="w-9 h-9 md:w-10 md:h-10 bg-yellow-400 rounded-xl flex items-center justify-center">
-        <i class="fa fa-star text-white text-lg"></i>
-      </div>
-      <div>
-        <div class="font-bold text-base md:text-lg">玩趣岛</div>
-        <div class="text-[10px] text-gray-500">PLAYFUL ARCADE</div>
-      </div>
-    </div>
-    <nav class="hidden md:flex gap-6 lg:gap-8 text-sm font-medium">
-      <a href="#" class="font-bold">发现游戏</a>
-      <a href="#">关于展览</a>
-    </nav>
-    <button class="px-3 py-1.5 md:px-4 md:py-2 bg-white rounded-full text-xs md:text-sm shadow-sm">随便玩一个</button>
-  </header>
-
-  <main class="relative z-10 max-w-7xl mx-auto px-[clamp(1rem,3vw,2rem)] pb-12 md:pb-20">
-    <!-- 头部介绍区域：移动端单列，桌面双列 -->
-    <section class="mt-6 md:mt-12 grid md:grid-cols-2 gap-6 md:gap-10 items-start">
-      <div>
-        <span class="inline-flex items-center gap-2 text-[11px] md:text-xs bg-teal-100 text-teal-700 px-2.5 py-1 rounded-full">
-          <span class="w-1.5 h-1.5 bg-teal-500 rounded-full"></span>今日展览 · 12款小游戏
-        </span>
-        <h1 class="text-[clamp(2rem,6vw,3.5rem)] font-black mt-3 md:mt-4 leading-tight">
-          把无聊的<br/>
-          <span class="text-accentRed">五分钟</span>变好玩。
-        </h1>
-        <p class="text-gray-600 mt-3 md:mt-4 max-w-xl text-sm md:text-base">
-          欢迎来到玩趣岛。这里没有排行榜，也不用注册，只有一大盒彩色的小游戏，等你随手挑一个开心一下。
-        </p>
-        <div class="mt-6 md:mt-8">
-          <div class="text-[10px] uppercase tracking-widest text-orange-600">EXPLORE ALL</div>
-          <h2 class="text-xl md:text-2xl font-bold mt-1">今天想玩什么?</h2>
-        </div>
-      </div>
-      <!-- 岛上广播卡片 -->
-      <div class="mt-4 md:mt-0 flex md:justify-end">
-        <div class="bg-gray-900 text-white p-4 md:p-5 rounded-2xl w-full max-w-xs shadow-lg relative" style="border-bottom:8px solid #facc15;">
-          <div class="text-xs text-gray-300 mb-2">岛上广播 <i class="fa fa-volume-up float-right"></i></div>
-          <div class="text-lg md:text-xl font-medium">“今天也要轻松玩一局。”</div>
-          <div class="mt-3 md:mt-4 text-xs flex items-center gap-2">
-            <span class="w-5 h-5 bg-red-500 rounded-full inline-flex items-center justify-center">
-              <i class="fa fa-user text-white text-xs"></i>
-            </span>
-            适合所有年龄层的快乐
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 游戏卡片列表：响应式网格 -->
-    <section class="mt-6 md:mt-8">
-      <div class="text-right text-sm text-gray-500 mb-2 md:mb-3">共 <span id="gameCount">0</span> 个发现</div>
-      <div id="gameList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5">
-        <!-- JS自动渲染卡片 -->
-      </div>
-    </section>
-  </main>
-
-  <!-- 详情弹窗：手机端全屏，大屏限制最大宽度 -->
-  <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-3 md:p-4">
-    <div class="bg-white rounded-2xl md:rounded-2xl w-full h-full md:h-auto md:max-w-lg md:w-full md:max-h-[85vh] overflow-auto p-5 md:p-6 relative">
-      <button id="closeModal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-800 text-xl">
-        <i class="fa fa-times"></i>
-      </button>
-      <div id="modalContent"></div>
-    </div>
+<div id="goalModal">
+  <div class="modal-content">
+    <div id="goalText"></div>
+    <button class="modal-btn" id="goalBtn"></button>
   </div>
+</div>
+
+<div id="helpModal">
+  <div class="modal-content">
+    <h2>论荒诞世界中的主体性定位</h2>
+    <div id="helpArticle"></div>
+    <button class="modal-btn" id="helpCloseBtn">我懂了，关闭</button>
+  </div>
+</div>
 
 <script>
-// ========== 游戏数据在这里新增修改 ==========
-const gameData = [
-  {
-    id:1,
-    name:"螃蟹快快夹",
-    tag:"反应力挑战",
-    desc:"手速够快，才能夹住快乐。",
-    color:"bg-cardGreen",
-    icon:"🦀",
-    detail:"螃蟹快快夹｜反应力小游戏\n\n考验你的手指反应速度，看准时机按下按键夹住四处乱跑的小螃蟹。没有分数排行榜，纯粹享受抓螃蟹的轻松乐趣。"
-  },
-  {
-    id:2,
-    name:"西瓜连连看",
-    tag:"休闲益智",
-    desc:"连起同样的水果，清爽一夏。",
-    color:"bg-cardYellow",
-    icon:"🍉",
-    detail:"西瓜连连看｜休闲消消乐\n\n把相同水果配对消除，难度平缓，适合摸鱼五分钟放松大脑。"
-  },
-  {
-    id:3,
-    name:"星际小飞侠",
-    tag:"躲避冒险",
-    desc:"穿过星云，飞向下一颗星星。",
-    color:"bg-cardPurple",
-    icon:"🚀",
-    detail:"星际小飞侠｜躲避类小游戏\n\n操控火箭躲开飞来的陨石，在宇宙里飞得更远。"
-  },
-  {
-    id:4,
-    name:"猫咪咖啡屋",
-    tag:"治愈模拟",
-    desc:"给忙碌的猫咪端上一杯。",
-    color:"bg-cardPink",
-    icon:"🐱",
-    detail:"猫咪咖啡屋｜治愈小模拟\n\n接待前来喝咖啡的小猫，简单治愈，没有压力。"
-  },
-  {
-    id:5,
-    name:"气球不落地",
-    tag:"节奏反应",
-    desc:"保持节奏，让气球一直飞。",
-    color:"bg-cardBlue",
-    icon:"🎈",
-    detail:"气球不落地｜节奏小游戏\n\n不停点击把气球顶上去，千万不要让它落到地面。"
-  }
+// ==================== 文本库 ====================
+const CARD_TEXTS = [
+  // 日常类
+  "你记得昨天买过牛奶，但冰箱是空的。",
+  "门口的鞋子少了一只。",
+  "电视里的人在对你说话。",
+  "手机收到一条短信，来自你自己。",
+  "厨房的水龙头在滴水，频率是每分钟47下。",
+  "镜子里的你慢了半秒才眨眼。",
+  "你写的备忘录，墨迹已经干透了。",
+  "钥匙在桌上，但你没带回来过。",
+  "昨天买的花今天开了，但花瓶是空的。",
+  "闹钟定在凌晨3点14分，但你没设过。",
+  "邻居家的狗对着空气吠了三声。",
+  "银行卡余额比记忆中少了47元。",
+  "你刚才说了什么？没人记得。",
+  "雨停了，但伞还在滴水。",
+  "你刚刚打了一个字，又删掉了。",
+  // 哲学类
+  "存在先于本质，但本质在哪里？",
+  "他者即地狱，而你是自己的他者。",
+  "西西弗斯是幸福的，因为他放弃了意义。",
+  "缸中之脑，但缸是谁造的？",
+  "时间是一种幻觉，但午餐时间除外。",
+  "我思故我在，但谁在思考\"我在\"？",
+  "自由是枷锁中最沉重的那一条。",
+  "真理不存在，这句话是真的吗？",
+  "语言是存在的家，但家里没人。",
+  "上帝已死，但遗嘱没找到。",
+  "他人即天堂，只是你进不去。",
+  "你看见的，是你想看见的吗？",
+  "意义是意义的反义词。",
+  "唯物主义否认唯心主义，唯心主义否认这个句子。",
+  "自我是一段被反复修改的剧本。",
+  // 荒诞类
+  "一棵树在森林里倒下时，没有发出声音。",
+  "三角形在梦里变成了圆形。",
+  "昨天和明天同时出现在了今天。",
+  "红色的蓝色并不存在。",
+  "你正在阅读这句话时，世界多了一个像素。",
+  "数字7对数字3怀有敌意。",
+  "星期三是一周中唯一不存在的日子。",
+  "猫在盒子里既死又活，盒子在猫里既存在又不存在。",
+  "三角形的第四条边藏在影子里。",
+  "反义词的反义词是反义词。"
 ];
 
-const gameListDom = document.getElementById('gameList');
-const gameCountDom = document.getElementById('gameCount');
-const modal = document.getElementById('detailModal');
-const modalContent = document.getElementById('modalContent');
-const closeModal = document.getElementById('closeModal');
+const CONNECTOR_WORDS = [
+  "因此","所以","因为","于是",
+  "但是","然而","反之","却",
+  "像香蕉一样","在星期二之后","仿佛记得","不如说",
+  "从理论上讲","实际上","与此同时","换句话说",
+  "在某种意义上","如果不是","那么或许","似乎可能"
+];
 
-gameCountDom.innerText = gameData.length;
+const HISTORY_EVENTS = [
+  "公元前340年，雅典，亚里士多德提出第五元素。",
+  "1066年，英格兰，诺曼底公爵征服。",
+  "1492年，大西洋，哥伦布发现新大陆。",
+  "1889年，维也纳，希特勒出生。",
+  "1927年，布鲁塞尔，索尔维会议召开。",
+  "1969年，月球，阿姆斯特朗迈出一步。",
+  "1999年，互联网，全球恐慌未发生。",
+  "2023年，某处，一个AI开始写诗。",
+  "公元前399年，雅典，苏格拉底饮下毒堇。",
+  "1517年，维滕贝格，路德钉下九十五条论纲。",
+  "1789年，巴黎，巴士底狱被攻陷。",
+  "1859年，伦敦，达尔文出版《物种起源》。",
+  "1905年，伯尔尼，爱因斯坦发表狭义相对论。",
+  "1945年，广岛，一道闪光改写了时间。",
+  "1969年，加州，ARPANET发出第一条信息\"lo\"。",
+  "1989年，柏林，墙在一夜之间倒塌。",
+  "1991年，日内瓦，万维网首次公开。",
+  "2001年，纽约，两座塔消失了。",
+  "2012年，日内瓦，希格斯玻色子被找到。",
+  "2020年，全球，时间似乎停了一年。",
+  "公元前48年，亚历山大图书馆，火焰吞没了答案。",
+  "1453年，君士坦丁堡，一千年终于结束。",
+  "1666年，伦敦，大火烧了四天。",
+  "1815年，滑铁卢，一场雨改变了历史。",
+  "1914年，萨拉热窝，一颗子弹开始了世纪。",
+  "1947年，新墨西哥，沙漠里开出一朵金属花。",
+  "1953年，剑桥，DNA的双螺旋被解开。",
+  "1971年，纽约，纳尔逊·洛克菲勒站错了边。",
+  "1998年，宇宙，一颗超新星爆发但没人看见。",
+  "2046年，未来，你正在回忆这件事。"
+];
 
-// 渲染卡片
-gameData.forEach(game=>{
-  const card = document.createElement('div');
-  card.className = `${game.color} rounded-2xl p-4 md:p-5 card-shadow cursor-pointer transform hover:-translate-y-1 transition-all duration-200`;
-  card.innerHTML = `
-    <div class="text-[clamp(2.5rem,8vw,4rem)] mb-2 md:mb-3">${game.icon}</div>
-    <span class="inline-block bg-white/70 px-2 py-1 rounded text-[11px] md:text-xs">${game.tag}</span>
-    <h3 class="font-bold mt-2 md:mt-3 text-sm md:text-base">${game.name}</h3>
-    <p class="text-[11px] md:text-xs text-gray-700 mt-1">${game.desc}</p>
-  `;
-  card.onclick = ()=>{
-    modalContent.innerHTML = `
-      <div class="text-[clamp(3rem,10vw,5rem)] mb-3 md:mb-4">${game.icon}</div>
-      <span class="inline-block bg-gray-100 px-3 py-1 rounded text-xs">${game.tag}</span>
-      <h2 class="text-xl md:text-2xl font-bold mt-2 md:mt-3">${game.name}</h2>
-      <p class="mt-3 md:mt-4 whitespace-pre-line text-gray-700 text-sm md:text-base">${game.detail}</p>
-      <div class="mt-5 md:mt-6 flex gap-3">
-        <button class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">开始游玩</button>
-      </div>
-    `;
-    modal.classList.remove('hidden');
-  };
-  gameListDom.appendChild(card);
-})
+const GOAL_POPUPS = [
+  { time: 30000,  text: "主要目标已更新：找到隐藏在混乱背后的唯一真理。", btn: "我明白了", clearCards: false },
+  { time: 135000, text: "线索就在你眼前，只是你还没看懂。",             btn: "继续观察", clearCards: false },
+  { time: 280000, text: "答案在第五次点击时——但你数错了吗？",           btn: "我数了",   clearCards: false },
+  { time: 440000, text: "真相就在这张卡片上。",                          btn: "……？",    clearCards: true  },
+  { time: 600000, text: "别找了。",                                       btn: "好的",     clearCards: false }
+];
 
-// 关闭弹窗
-closeModal.onclick = ()=> modal.classList.add('hidden');
-modal.onclick = (e)=>{
-  if(e.target === modal) modal.classList.add('hidden');
+const ACHIEVEMENTS = ["徒劳的探索者", "无用的坚持", "虚空观察者", "逻辑破坏者"];
+
+const HELP_ARTICLE = `当你打开这份文档时，你已经预设了一个前提：存在着一种可被定位的"主体"。然而，这正是问题所在。
+
+主体不是一个名词，而是一个动词——它正在发生，但永远不发生于当下。你试图抓住它，就像试图用手指抓水：每一次握紧都让水从指缝流出。你不是在水之外观察水，你就是水。
+
+在世界之中存在意味着，世界与你并非两个并列的实体，而是一对相互构成的褶皱。你看见一棵树，但这"看见"本身就是树的颜色、光的角度、你视网膜的生理结构的共谋。那么，树是真实的，还是你的看见是真实的？
+
+答案是：两者都不是。
+
+荒诞不在于世界缺乏意义，而在于意义本身是一个永远指向自身的指针。当你试图寻找"意义"时，你正在使用一个由意义构成的概念去定义意义。这是一个无法被解开的递归，但它并非错误——它是存在的基本结构。
+
+所以，如何定位主体？
+
+不要去定位。任何定位都会预设一个坐标系，而坐标系本身需要主体来选择。当你选定了一个方向，方向就消失在选定它的动作里。当你拒绝选择，拒绝本身又成为了一种选择。
+
+这里给出的建议是：放弃建议。这里描述的方法是：不要描述。这里指向的真理是：真理不是被指向的。
+
+如果这份文档让你感到困惑，那么困惑就是它唯一可靠的产物。如果你的"我懂了"是真诚的，那么你什么都没懂。如果你关闭了它，它仍然在背景中运行——就像你的潜意识，就像世界本身。
+
+关闭它吧。它从未真正打开过。`;
+
+const E1_TEXTS = ["观察者效应坍缩", "波函数已退化", "因果律局部失效"];
+const E3_SHAPES = ['eye', 'question', 'face', 'triangle'];
+
+// ==================== Canvas 初始化 ====================
+const bg = document.getElementById('bg');
+const ctx = bg.getContext('2d');
+let W = 0, H = 0;
+
+const noiseCanvas = document.createElement('canvas');
+const NOISE_W = 240, NOISE_H = 160;
+noiseCanvas.width = NOISE_W;
+noiseCanvas.height = NOISE_H;
+const noiseCtx = noiseCanvas.getContext('2d');
+let noiseImageData = noiseCtx.createImageData(NOISE_W, NOISE_H);
+
+const tempCanvas = document.createElement('canvas');
+tempCanvas.width = 40;
+tempCanvas.height = 40;
+const tempCtx = tempCanvas.getContext('2d');
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  bg.width = W;
+  bg.height = H;
 }
+resize();
+window.addEventListener('resize', resize);
+
+// ==================== 粒子 ====================
+const particles = [];
+for (let i = 0; i < 200; i++) {
+  particles.push({
+    x: Math.random() * 1200,
+    y: Math.random() * 800,
+    size: 2 + Math.random() * 3,
+    vx: (Math.random() - 0.5) * 0.2,
+    vy: (Math.random() - 0.5) * 0.2,
+    alpha: 0.05 + Math.random() * 0.15
+  });
+}
+const snowParticles = [];
+for (let i = 0; i < 150; i++) {
+  snowParticles.push({
+    x: Math.random() * 1200,
+    y: Math.random() * 800,
+    flickerSpeed: 0.001 + Math.random() * 0.004,
+    phase: Math.random() * Math.PI * 2
+  });
+}
+
+// ==================== 悬停状态 ====================
+let hoverStart = null;
+let hoverProgress = 0;
+let snowAlpha = 0;
+const COLOR_BASE  = { r: 42, g: 58, b: 42 };  // #2A3A2A
+const COLOR_HOVER = { r: 42, g: 42, b: 58 };  // #2A2A3A
+let currentBg = { ...COLOR_BASE };
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(c1, c2, t) {
+  return { r: lerp(c1.r, c2.r, t), g: lerp(c1.g, c2.g, t), b: lerp(c1.b, c2.b, t) };
+}
+function isOverBlank(target) {
+  return target === bg || target === document.body || target.id === 'cardsLayer';
+}
+document.addEventListener('mousemove', (e) => {
+  if (isOverBlank(e.target)) {
+    if (hoverStart === null) hoverStart = Date.now();
+  } else {
+    hoverStart = null;
+  }
+});
+
+// ==================== 卡片系统 ====================
+const cardsLayer = document.getElementById('cardsLayer');
+let cards = [];
+let nextCardAt = Date.now() + 2000 + Math.random() * 2000;
+
+function overlapsCard(x, y, w, h) {
+  for (const c of cards) {
+    if (x < c.x + c.w + 10 && x + w + 10 > c.x &&
+        y < c.y + c.h + 10 && y + h + 10 > c.y) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function spawnCard() {
+  if (cards.length >= 10) {
+    const old = cards.shift();
+    if (old.el.parentNode) old.el.remove();
+  }
+  const text = CARD_TEXTS[Math.floor(Math.random() * CARD_TEXTS.length)];
+  const width = 120 + Math.random() * 80;
+
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.textContent = text;
+  el.style.width = width + 'px';
+  cardsLayer.appendChild(el);
+
+  const rect = el.getBoundingClientRect();
+  const h = rect.height;
+
+  let x = 0, y = 0;
+  let found = false;
+  for (let attempts = 0; attempts < 30; attempts++) {
+    x = (0.05 + Math.random() * 0.90) * W;
+    y = (0.05 + Math.random() * 0.85) * H;
+    if (x > W - 200 && y < 60) continue;
+    if (!overlapsCard(x, y, width, h)) { found = true; break; }
+  }
+  if (!found) {
+    x = Math.max(10, Math.min(W - width - 10, x + (Math.random() - 0.5) * 60));
+    y = Math.max(10, Math.min(H - h - 30,  y + (Math.random() - 0.5) * 60));
+  }
+  x = Math.max(10, Math.min(W - width - 10, x));
+  y = Math.max(10, Math.min(H - h - 30, y));
+
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.offsetWidth;
+  el.classList.add('visible');
+
+  const lifetime = 10000 + Math.random() * 5000;
+  const card = { el, x, y, w: width, h, birthTime: Date.now(), lifetime, text };
+  cards.push(card);
+  setTimeout(() => removeCard(card), lifetime);
+
+  if (cards.length >= 2) addConnectionLine(card);
+}
+
+function removeCard(card) {
+  const idx = cards.indexOf(card);
+  if (idx === -1) return;
+  cards.splice(idx, 1);
+  if (!card.el.parentNode) {
+    lines = lines.filter(l => l.a !== card && l.b !== card);
+    return;
+  }
+  card.el.classList.add('fading');
+  setTimeout(() => { if (card.el.parentNode) card.el.remove(); }, 500);
+  lines = lines.filter(l => l.a !== card && l.b !== card);
+}
+
+// ==================== 连线系统 ====================
+let lines = [];
+function addConnectionLine(newCard) {
+  let nearest = null, minDist = Infinity;
+  for (const c of cards) {
+    if (c === newCard) continue;
+    const dx = (c.x + c.w/2) - (newCard.x + newCard.w/2);
+    const dy = (c.y + c.h/2) - (newCard.y + newCard.h/2);
+    const d = dx*dx + dy*dy;
+    if (d < minDist) { minDist = d; nearest = c; }
+  }
+  if (!nearest) return;
+  if (lines.length >= 5) lines.shift();
+  lines.push({
+    a: newCard, b: nearest,
+    ctrlOffsetX: (Math.random() - 0.5) * 100,
+    ctrlOffsetY: (Math.random() - 0.5) * 100,
+    label: CONNECTOR_WORDS[Math.floor(Math.random() * CONNECTOR_WORDS.length)],
+    birthTime: Date.now()
+  });
+}
+
+function drawLines(t) {
+  for (const line of lines) {
+    if (!line.a.el.parentNode || !line.b.el.parentNode) continue;
+    const ax = line.a.x + line.a.w / 2;
+    const ay = line.a.y + line.a.h;
+    const bx = line.b.x + line.b.w / 2;
+    const by = line.b.y;
+    const midX = (ax + bx) / 2 + line.ctrlOffsetX;
+    const midY = (ay + by) / 2 + line.ctrlOffsetY;
+    const breathe = 0.5 + 0.5 * Math.sin(t / 600 + line.birthTime / 200);
+
+    ctx.strokeStyle = `rgba(74, 106, 74, ${0.4 * breathe})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(midX, midY, bx, by);
+    ctx.stroke();
+
+    const lx = 0.25 * ax + 0.5 * midX + 0.25 * bx;
+    const ly = 0.25 * ay + 0.5 * midY + 0.25 * by;
+    ctx.font = 'italic 12px Consolas, monospace';
+    ctx.fillStyle = `rgba(106, 138, 106, ${breathe})`;
+    ctx.textAlign = 'center';
+    ctx.fillText(line.label, lx, ly);
+  }
+}
+
+// ==================== 同步率 ====================
+let syncRate = 50.0;
+const syncFill  = document.getElementById('syncFill');
+const syncLabel = document.getElementById('syncLabel');
+const syncBar   = document.getElementById('syncBar');
+let lastSyncDisplayUpdate = 0;
+
+function changeSync(delta) {
+  const old = syncRate;
+  syncRate = Math.max(0, Math.min(100, syncRate + delta));
+  if (syncRate > old) {
+    syncBar.classList.add('flash-up');
+    syncBar.classList.remove('flash-down');
+    setTimeout(() => syncBar.classList.remove('flash-up'), 300);
+  } else if (syncRate < old) {
+    syncBar.classList.add('flash-down');
+    syncBar.classList.remove('flash-up');
+    setTimeout(() => syncBar.classList.remove('flash-down'), 300);
+  }
+  if (syncRate >= 100) triggerReset();
+}
+
+function updateSyncDisplayIfDue(now) {
+  if (now - lastSyncDisplayUpdate < 100) return;
+  lastSyncDisplayUpdate = now;
+  const jitter = (Math.random() - 0.5) * 0.2;
+  const display = Math.max(0, Math.min(100, syncRate + jitter));
+  syncFill.style.width = display + '%';
+  syncLabel.textContent = '同步率：' + display.toFixed(2) + '%';
+}
+
+function scheduleAutoDrift() {
+  setTimeout(() => {
+    changeSync((Math.random() - 0.5) * 4);
+    scheduleAutoDrift();
+  }, 5000 + Math.random() * 5000);
+}
+
+// ==================== 重置循环 ====================
+function triggerReset() {
+  syncRate = 50;
+  for (const c of [...cards]) {
+    if (c.el.parentNode) c.el.remove();
+  }
+  cards = [];
+  lines = [];
+  showCenterText('校准完成，重新评估基本假设。', 2500, true);
+  restartGoalCycle();
+}
+
+// ==================== 点击效果 ====================
+let lastClickTime = 0;
+const flashOverlay = document.getElementById('flashOverlay');
+const centerText   = document.getElementById('centerText');
+const bottomScroll = document.getElementById('bottomScroll');
+
+function showCenterText(text, duration, long) {
+  centerText.textContent = text;
+  centerText.classList.remove('show', 'long');
+  void centerText.offsetWidth;
+  if (long) centerText.classList.add('long');
+  centerText.classList.add('show');
+  setTimeout(() => centerText.classList.remove('show', 'long'), duration);
+}
+
+function showBottomScroll(text) {
+  bottomScroll.innerHTML = '<span class="scroll-text">' + text + '</span>';
+  bottomScroll.classList.add('show');
+  setTimeout(() => {
+    bottomScroll.classList.remove('show');
+    setTimeout(() => { bottomScroll.innerHTML = ''; }, 400);
+  }, 2000);
+}
+
+function flashScreen() {
+  flashOverlay.classList.remove('flash');
+  void flashOverlay.offsetWidth;
+  flashOverlay.classList.add('flash');
+}
+
+function drawBlurryShape(shape) {
+  const cx = W / 2, cy = H / 2;
+  ctx.save();
+  ctx.fillStyle = 'rgba(138, 170, 138, 0.35)';
+  ctx.filter = 'blur(3px)';
+  if (shape === 'eye') {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 80, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (shape === 'question') {
+    ctx.font = 'bold 140px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', cx, cy);
+  } else if (shape === 'face') {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx - 20, cy - 10, 5, 0, Math.PI * 2);
+    ctx.arc(cx + 20, cy - 10, 5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (shape === 'triangle') {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 60);
+    ctx.lineTo(cx - 60, cy + 50);
+    ctx.lineTo(cx + 60, cy + 50);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+let blurryShape = null;
+let blurryShapeEnd = 0;
+function triggerE3() {
+  blurryShape = E3_SHAPES[Math.floor(Math.random() * E3_SHAPES.length)];
+  blurryShapeEnd = Date.now() + 800;
+}
+
+const teleports = [];
+function triggerE2() {
+  const size = 20;
+  const fromX = Math.floor(Math.random() * Math.max(1, W - size));
+  const fromY = Math.floor(Math.random() * Math.max(1, H - size));
+  const toX   = Math.floor(Math.random() * Math.max(1, W - size));
+  const toY   = Math.floor(Math.random() * Math.max(1, H - size));
+  try {
+    const imgData = ctx.getImageData(fromX, fromY, size, size);
+    teleports.push({ toX, toY, size, imgData, born: Date.now() });
+  } catch(e) {}
+}
+
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playRandomSound() {
+  ensureAudio();
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const type = Math.floor(Math.random() * 3);
+  if (type === 0) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 60 + Math.random() * 40;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.15, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.35);
+  } else if (type === 1) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 1500 + Math.random() * 1500;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.06);
+  } else {
+    const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.2, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() - 0.5) * 0.5;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    src.connect(gain); gain.connect(audioCtx.destination);
+    src.start(now);
+  }
+}
+
+function triggerClickEffect() {
+  const now = Date.now();
+  if (now - lastClickTime < 300) return;
+  lastClickTime = now;
+  switch (Math.floor(Math.random() * 6)) {
+    case 0:
+      flashScreen();
+      showCenterText(E1_TEXTS[Math.floor(Math.random() * 3)], 1200);
+      break;
+    case 1:
+      triggerE2();
+      break;
+    case 2:
+      triggerE3();
+      break;
+    case 3:
+      showBottomScroll(HISTORY_EVENTS[Math.floor(Math.random() * HISTORY_EVENTS.length)]);
+      break;
+    case 4: {
+      const delta = (Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 7);
+      changeSync(delta);
+      break;
+    }
+    case 5:
+      playRandomSound();
+      break;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (t.id === 'helpBtn' || t.id === 'goalBtn' || t.id === 'helpCloseBtn' ||
+      t.closest('.toast') || t.closest('#goalModal') || t.closest('#helpModal')) {
+    return;
+  }
+  ensureAudio();
+  triggerClickEffect();
+});
+
+// ==================== 伪目标弹窗 ====================
+const goalModal = document.getElementById('goalModal');
+const goalText  = document.getElementById('goalText');
+const goalBtn   = document.getElementById('goalBtn');
+let goalTimers = [];
+
+function restartGoalCycle() {
+  goalTimers.forEach(t => clearTimeout(t));
+  goalTimers = [];
+  const variation = 1 + (Math.random() - 0.5) * 0.4;
+  GOAL_POPUPS.forEach((p, i) => {
+    const delay = p.time * variation;
+    goalTimers.push(setTimeout(() => showGoalPopup(i), delay));
+  });
+}
+function showGoalPopup(index) {
+  if (index >= GOAL_POPUPS.length) return;
+  const p = GOAL_POPUPS[index];
+  if (p.clearCards) {
+    for (const c of [...cards]) {
+      if (c.el.parentNode) c.el.remove();
+    }
+    cards = [];
+    lines = [];
+  }
+  goalText.textContent = p.text;
+  goalBtn.textContent = p.btn;
+  goalModal.classList.add('active');
+}
+goalBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  goalModal.classList.remove('active');
+});
+
+// ==================== 成就 Toast ====================
+const toastLayer = document.getElementById('toastLayer');
+function showToast(achievement) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML =
+    '<div class="toast-titlebar"><span>系统通知</span><button class="toast-close">×</button></div>' +
+    '<div class="toast-body">🎉 成就解锁：' + achievement + '</div>';
+  toastLayer.appendChild(toast);
+  const close = toast.querySelector('.toast-close');
+  const dismiss = () => {
+    toast.style.transition = 'opacity 0.3s';
+    toast.style.opacity = '0';
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+  };
+  close.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
+  toast.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
+  setTimeout(dismiss, 12000);
+}
+function scheduleAchievements() {
+  const firstDelay = (5 * 60 + (Math.random() - 0.5) * 60) * 1000;
+  setTimeout(() => {
+    showToast("徒劳的探索者");
+    const recur = () => {
+      const delay = (10 * 60 + Math.random() * 5 * 60) * 1000;
+      setTimeout(() => {
+        const ach = ACHIEVEMENTS[Math.floor(Math.random() * ACHIEVEMENTS.length)];
+        showToast(ach);
+        recur();
+      }, delay);
+    };
+    recur();
+  }, firstDelay);
+}
+
+// ==================== 帮助 ====================
+const helpModal = document.getElementById('helpModal');
+const helpArticle = document.getElementById('helpArticle');
+helpArticle.textContent = HELP_ARTICLE;
+helpArticle.style.whiteSpace = 'pre-wrap';
+document.getElementById('helpBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  helpModal.classList.add('active');
+});
+document.getElementById('helpCloseBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  helpModal.classList.remove('active');
+});
+
+// ==================== 渲染循环 ====================
+function drawNoise() {
+  const data = noiseImageData.data;
+  const r = Math.round(currentBg.r);
+  const g = Math.round(currentBg.g);
+  const b = Math.round(currentBg.b);
+  const r2 = Math.min(255, r + 16);
+  const g2 = Math.min(255, g + 16);
+  const b2 = Math.min(255, b + 16);
+  for (let i = 0; i < data.length; i += 4) {
+    if (Math.random() < 0.005) {
+      data[i] = r2; data[i+1] = g2; data[i+2] = b2;
+    } else {
+      data[i] = r; data[i+1] = g; data[i+2] = b;
+    }
+    data[i+3] = 255;
+  }
+  noiseCtx.putImageData(noiseImageData, 0, 0);
+  ctx.drawImage(noiseCanvas, 0, 0, W, H);
+}
+
+function animate() {
+  const now = Date.now();
+  if (hoverStart !== null) {
+    const elapsed = (now - hoverStart) / 1000;
+    if (elapsed < 3) {
+      hoverProgress = 0;
+      snowAlpha = Math.max(0, snowAlpha - 0.016);
+    } else if (elapsed <= 8) {
+      hoverProgress = (elapsed - 3) / 5;
+      snowAlpha = Math.max(0, snowAlpha - 0.016);
+    } else {
+      hoverProgress = 1;
+      snowAlpha = Math.min(1, snowAlpha + 0.02);
+    }
+  } else {
+    hoverProgress = Math.max(0, hoverProgress - 0.016);
+    snowAlpha = Math.max(0, snowAlpha - 0.016);
+  }
+  currentBg = lerpColor(COLOR_BASE, COLOR_HOVER, hoverProgress);
+
+  ctx.fillStyle = `rgb(${Math.round(currentBg.r)},${Math.round(currentBg.g)},${Math.round(currentBg.b)})`;
+  ctx.fillRect(0, 0, W, H);
+
+  drawNoise();
+
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    ctx.fillStyle = `rgba(74,106,74,${p.alpha})`;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+
+  if (snowAlpha > 0) {
+    for (const s of snowParticles) {
+      const a = (0.1 + 0.2 * (0.5 + 0.5 * Math.sin(now * s.flickerSpeed + s.phase))) * snowAlpha;
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.fillRect(s.x, s.y, 1, 1);
+    }
+  }
+
+  for (let i = teleports.length - 1; i >= 0; i--) {
+    const t = teleports[i];
+    if (now - t.born > 2000) { teleports.splice(i, 1); continue; }
+    if (tempCanvas.width !== t.size) {
+      tempCanvas.width = t.size; tempCanvas.height = t.size;
+    }
+    tempCtx.putImageData(t.imgData, 0, 0);
+    ctx.drawImage(tempCanvas, t.toX, t.toY);
+  }
+
+  if (blurryShape && now < blurryShapeEnd) {
+    drawBlurryShape(blurryShape);
+  } else {
+    blurryShape = null;
+  }
+
+  drawLines(now);
+
+  if (now > nextCardAt &&
+      !goalModal.classList.contains('active') &&
+      !helpModal.classList.contains('active')) {
+    spawnCard();
+    nextCardAt = now + 5000 + Math.random() * 7000;
+  }
+
+  updateSyncDisplayIfDue(now);
+
+  requestAnimationFrame(animate);
+}
+
+// ==================== 启动 ====================
+restartGoalCycle();
+scheduleAchievements();
+scheduleAutoDrift();
+animate();
 </script>
 </body>
 </html>
