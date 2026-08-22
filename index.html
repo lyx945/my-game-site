@@ -1,29 +1,211 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>我的游戏网站</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 50px;
-            background: #1a1a2e;
-            color: #fff;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>玩趣岛 | 小游戏集合</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bgMain: '#f8f7ef',
+            accentRed: '#ef6b4a',
+            cardGreen: '#b2e8d4',
+            cardYellow: '#ffdd94',
+            cardPurple: '#d2c8ff',
+            cardPink: '#ffc8d0',
+            cardBlue: '#b8d8ff',
+          },
+          fontFamily: {
+            sans: ['system-ui', 'sans-serif'],
+          }
         }
-        h1 {
-            font-size: 48px;
-            color: #e94560;
-        }
-        p {
-            font-size: 20px;
-            color: #ccc;
-        }
-    </style>
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .card-shadow {
+        box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+      }
+      .bg-blob {
+        position:absolute;
+        border-radius:999px;
+        filter: blur(30px);
+        opacity:0.45;
+        z-index:0;
+        pointer-events:none;
+      }
+    }
+  </style>
 </head>
-<body>
-    <h1>🎮 我的游戏网站</h1>
-    <p>第一个小游戏即将上线...</p>
+<body class="bg-bgMain min-h-screen relative overflow-x-hidden">
+  <!-- 装饰色块背景，小屏幕自动缩小 -->
+  <div class="bg-blob w-[clamp(80px,20vw,160px)] h-[clamp(80px,20vw,160px)] bg-pink-200 top-[15vh] -left-[8vw]"></div>
+  <div class="bg-blob w-[clamp(100px,25vw,200px)] h-[clamp(100px,25vw,200px)] bg-teal-200 top-[5vh] -right-[8vw]"></div>
+
+  <!-- 导航栏：移动端收起菜单 -->
+  <header class="relative z-10 max-w-7xl mx-auto px-[clamp(1rem,3vw,2rem)] py-4 md:py-6 flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 md:w-10 md:h-10 bg-yellow-400 rounded-xl flex items-center justify-center">
+        <i class="fa fa-star text-white text-lg"></i>
+      </div>
+      <div>
+        <div class="font-bold text-base md:text-lg">玩趣岛</div>
+        <div class="text-[10px] text-gray-500">PLAYFUL ARCADE</div>
+      </div>
+    </div>
+    <nav class="hidden md:flex gap-6 lg:gap-8 text-sm font-medium">
+      <a href="#" class="font-bold">发现游戏</a>
+      <a href="#">关于展览</a>
+    </nav>
+    <button class="px-3 py-1.5 md:px-4 md:py-2 bg-white rounded-full text-xs md:text-sm shadow-sm">随便玩一个</button>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-[clamp(1rem,3vw,2rem)] pb-12 md:pb-20">
+    <!-- 头部介绍区域：移动端单列，桌面双列 -->
+    <section class="mt-6 md:mt-12 grid md:grid-cols-2 gap-6 md:gap-10 items-start">
+      <div>
+        <span class="inline-flex items-center gap-2 text-[11px] md:text-xs bg-teal-100 text-teal-700 px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 bg-teal-500 rounded-full"></span>今日展览 · 12款小游戏
+        </span>
+        <h1 class="text-[clamp(2rem,6vw,3.5rem)] font-black mt-3 md:mt-4 leading-tight">
+          把无聊的<br/>
+          <span class="text-accentRed">五分钟</span>变好玩。
+        </h1>
+        <p class="text-gray-600 mt-3 md:mt-4 max-w-xl text-sm md:text-base">
+          欢迎来到玩趣岛。这里没有排行榜，也不用注册，只有一大盒彩色的小游戏，等你随手挑一个开心一下。
+        </p>
+        <div class="mt-6 md:mt-8">
+          <div class="text-[10px] uppercase tracking-widest text-orange-600">EXPLORE ALL</div>
+          <h2 class="text-xl md:text-2xl font-bold mt-1">今天想玩什么?</h2>
+        </div>
+      </div>
+      <!-- 岛上广播卡片 -->
+      <div class="mt-4 md:mt-0 flex md:justify-end">
+        <div class="bg-gray-900 text-white p-4 md:p-5 rounded-2xl w-full max-w-xs shadow-lg relative" style="border-bottom:8px solid #facc15;">
+          <div class="text-xs text-gray-300 mb-2">岛上广播 <i class="fa fa-volume-up float-right"></i></div>
+          <div class="text-lg md:text-xl font-medium">“今天也要轻松玩一局。”</div>
+          <div class="mt-3 md:mt-4 text-xs flex items-center gap-2">
+            <span class="w-5 h-5 bg-red-500 rounded-full inline-flex items-center justify-center">
+              <i class="fa fa-user text-white text-xs"></i>
+            </span>
+            适合所有年龄层的快乐
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 游戏卡片列表：响应式网格 -->
+    <section class="mt-6 md:mt-8">
+      <div class="text-right text-sm text-gray-500 mb-2 md:mb-3">共 <span id="gameCount">0</span> 个发现</div>
+      <div id="gameList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5">
+        <!-- JS自动渲染卡片 -->
+      </div>
+    </section>
+  </main>
+
+  <!-- 详情弹窗：手机端全屏，大屏限制最大宽度 -->
+  <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-3 md:p-4">
+    <div class="bg-white rounded-2xl md:rounded-2xl w-full h-full md:h-auto md:max-w-lg md:w-full md:max-h-[85vh] overflow-auto p-5 md:p-6 relative">
+      <button id="closeModal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-800 text-xl">
+        <i class="fa fa-times"></i>
+      </button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+<script>
+// ========== 游戏数据在这里新增修改 ==========
+const gameData = [
+  {
+    id:1,
+    name:"螃蟹快快夹",
+    tag:"反应力挑战",
+    desc:"手速够快，才能夹住快乐。",
+    color:"bg-cardGreen",
+    icon:"🦀",
+    detail:"螃蟹快快夹｜反应力小游戏\n\n考验你的手指反应速度，看准时机按下按键夹住四处乱跑的小螃蟹。没有分数排行榜，纯粹享受抓螃蟹的轻松乐趣。"
+  },
+  {
+    id:2,
+    name:"西瓜连连看",
+    tag:"休闲益智",
+    desc:"连起同样的水果，清爽一夏。",
+    color:"bg-cardYellow",
+    icon:"🍉",
+    detail:"西瓜连连看｜休闲消消乐\n\n把相同水果配对消除，难度平缓，适合摸鱼五分钟放松大脑。"
+  },
+  {
+    id:3,
+    name:"星际小飞侠",
+    tag:"躲避冒险",
+    desc:"穿过星云，飞向下一颗星星。",
+    color:"bg-cardPurple",
+    icon:"🚀",
+    detail:"星际小飞侠｜躲避类小游戏\n\n操控火箭躲开飞来的陨石，在宇宙里飞得更远。"
+  },
+  {
+    id:4,
+    name:"猫咪咖啡屋",
+    tag:"治愈模拟",
+    desc:"给忙碌的猫咪端上一杯。",
+    color:"bg-cardPink",
+    icon:"🐱",
+    detail:"猫咪咖啡屋｜治愈小模拟\n\n接待前来喝咖啡的小猫，简单治愈，没有压力。"
+  },
+  {
+    id:5,
+    name:"气球不落地",
+    tag:"节奏反应",
+    desc:"保持节奏，让气球一直飞。",
+    color:"bg-cardBlue",
+    icon:"🎈",
+    detail:"气球不落地｜节奏小游戏\n\n不停点击把气球顶上去，千万不要让它落到地面。"
+  }
+];
+
+const gameListDom = document.getElementById('gameList');
+const gameCountDom = document.getElementById('gameCount');
+const modal = document.getElementById('detailModal');
+const modalContent = document.getElementById('modalContent');
+const closeModal = document.getElementById('closeModal');
+
+gameCountDom.innerText = gameData.length;
+
+// 渲染卡片
+gameData.forEach(game=>{
+  const card = document.createElement('div');
+  card.className = `${game.color} rounded-2xl p-4 md:p-5 card-shadow cursor-pointer transform hover:-translate-y-1 transition-all duration-200`;
+  card.innerHTML = `
+    <div class="text-[clamp(2.5rem,8vw,4rem)] mb-2 md:mb-3">${game.icon}</div>
+    <span class="inline-block bg-white/70 px-2 py-1 rounded text-[11px] md:text-xs">${game.tag}</span>
+    <h3 class="font-bold mt-2 md:mt-3 text-sm md:text-base">${game.name}</h3>
+    <p class="text-[11px] md:text-xs text-gray-700 mt-1">${game.desc}</p>
+  `;
+  card.onclick = ()=>{
+    modalContent.innerHTML = `
+      <div class="text-[clamp(3rem,10vw,5rem)] mb-3 md:mb-4">${game.icon}</div>
+      <span class="inline-block bg-gray-100 px-3 py-1 rounded text-xs">${game.tag}</span>
+      <h2 class="text-xl md:text-2xl font-bold mt-2 md:mt-3">${game.name}</h2>
+      <p class="mt-3 md:mt-4 whitespace-pre-line text-gray-700 text-sm md:text-base">${game.detail}</p>
+      <div class="mt-5 md:mt-6 flex gap-3">
+        <button class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">开始游玩</button>
+      </div>
+    `;
+    modal.classList.remove('hidden');
+  };
+  gameListDom.appendChild(card);
+})
+
+// 关闭弹窗
+closeModal.onclick = ()=> modal.classList.add('hidden');
+modal.onclick = (e)=>{
+  if(e.target === modal) modal.classList.add('hidden');
+}
+</script>
 </body>
 </html>
