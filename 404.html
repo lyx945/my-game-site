@@ -69,6 +69,116 @@
             box-shadow: 0 48px 96px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
 
+        /* ===== 全屏遮罩 ===== */
+        .fullscreen-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 12, 41, 0.92);
+            backdrop-filter: blur(20px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .fullscreen-overlay.active {
+            display: flex;
+        }
+
+        .fullscreen-overlay .game-wrapper-full {
+            width: 80%;
+            max-width: 900px;
+            background: rgba(0, 0, 0, 0.30);
+            border-radius: 32px;
+            padding: 24px 28px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            position: relative;
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-container {
+            position: relative;
+            width: 100%;
+            height: 50vh;
+            max-height: 500px;
+            min-height: 200px;
+            overflow: hidden;
+            border-radius: 16px;
+            background: rgba(0, 0, 0, 0.20);
+            cursor: pointer;
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            image-rendering: pixelated;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-container .game-overlay {
+            border-radius: 16px;
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-top-buttons {
+            top: 16px;
+            right: 20px;
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-top-btn {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-top-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-controls {
+            margin-top: 14px;
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-score {
+            font-size: 15px;
+        }
+
+        .fullscreen-overlay .game-wrapper-full .game-restart-btn {
+            font-size: 14px;
+            padding: 8px 22px;
+        }
+
+        /* ===== 关闭全屏按钮 ===== */
+        .fullscreen-close-btn {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.50);
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fullscreen-close-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.80);
+            transform: scale(1.05);
+        }
+
         /* ===== 404 大号数字 ===== */
         .error-code {
             font-size: 140px;
@@ -287,45 +397,6 @@
             border-color: rgba(255, 255, 255, 0.15);
         }
 
-        /* ===== 全屏模式 ===== */
-        .game-container.fullscreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            border-radius: 0;
-            z-index: 1000;
-            background: rgba(15, 12, 41, 0.95);
-            backdrop-filter: blur(20px);
-        }
-
-        .game-container.fullscreen #gameCanvas {
-            border-radius: 0;
-            width: 100vw;
-            height: 100vh;
-        }
-
-        .game-container.fullscreen .game-overlay {
-            border-radius: 0;
-        }
-
-        .game-container.fullscreen .game-top-buttons {
-            top: 20px;
-            right: 24px;
-        }
-
-        .game-container.fullscreen .game-top-btn {
-            width: 44px;
-            height: 44px;
-            font-size: 22px;
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .game-container.fullscreen .game-top-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
         /* ===== 按钮组 ===== */
         .button-group {
             display: flex;
@@ -517,10 +588,26 @@
                 right: 10px;
                 gap: 6px;
             }
-            .game-container.fullscreen .game-top-btn {
-                width: 36px;
-                height: 36px;
-                font-size: 18px;
+
+            .fullscreen-overlay .game-wrapper-full {
+                width: 95%;
+                padding: 16px 16px 14px;
+            }
+            .fullscreen-overlay .game-wrapper-full .game-container {
+                height: 40vh;
+                min-height: 150px;
+            }
+            .fullscreen-overlay .game-wrapper-full .game-top-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 15px;
+            }
+            .fullscreen-close-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+                top: -10px;
+                right: -10px;
             }
         }
 
@@ -543,6 +630,15 @@
                 top: 4px;
                 right: 6px;
                 gap: 4px;
+            }
+
+            .fullscreen-overlay .game-wrapper-full {
+                width: 98%;
+                padding: 12px 10px 10px;
+            }
+            .fullscreen-overlay .game-wrapper-full .game-container {
+                height: 35vh;
+                min-height: 120px;
             }
         }
     </style>
@@ -611,6 +707,30 @@
         </div>
     </div>
 
+    <!-- 全屏遮罩 -->
+    <div class="fullscreen-overlay" id="fullscreenOverlay">
+        <div class="game-wrapper-full">
+            <button class="fullscreen-close-btn" id="fullscreenCloseBtn" title="退出全屏">✕</button>
+            <div class="game-container" id="fullscreenGameContainer">
+                <canvas id="fullscreenCanvas"></canvas>
+                <div class="game-top-buttons">
+                    <button class="game-top-btn" id="fullscreenSoundToggle" title="切换声音">
+                        <span class="btn-icon" id="fullscreenSoundIcon">🔇</span>
+                    </button>
+                </div>
+                <div class="game-overlay visible" id="fullscreenOverlay">
+                    <div class="overlay-icon">🦖</div>
+                    <div class="overlay-text">点击开始游戏</div>
+                    <div class="overlay-hint">空格 / 点击跳跃 · 躲避障碍</div>
+                </div>
+            </div>
+            <div class="game-controls">
+                <div class="game-score">🏆 得分 <span id="fullscreenScoreDisplay">0</span></div>
+                <button class="game-restart-btn" id="fullscreenRestartBtn">↻ 重来</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast">
         📧 已复制邮箱：<span class="highlight">2442311042@qq.com</span>
@@ -660,36 +780,40 @@
         }
 
         // ============================================================
-        //  小恐龙游戏（降低难度版）
+        //  小恐龙游戏（支持全屏 80% 模式）
         // ============================================================
         (function() {
-            // DOM 元素
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            const container = document.getElementById('gameContainer');
-            const overlay = document.getElementById('gameOverlay');
-            const scoreSpan = document.getElementById('scoreDisplay');
-            const restartBtn = document.getElementById('restartBtn');
+            // ---- DOM 元素 ----
+            const mainCanvas = document.getElementById('gameCanvas');
+            const mainCtx = mainCanvas.getContext('2d');
+            const mainContainer = document.getElementById('gameContainer');
+            const mainOverlay = document.getElementById('gameOverlay');
+            const mainScore = document.getElementById('scoreDisplay');
+            const mainRestart = document.getElementById('restartBtn');
+
+            const fsCanvas = document.getElementById('fullscreenCanvas');
+            const fsCtx = fsCanvas.getContext('2d');
+            const fsContainer = document.getElementById('fullscreenGameContainer');
+            const fsOverlay = document.getElementById('fullscreenOverlay');
+            const fsScore = document.getElementById('fullscreenScoreDisplay');
+            const fsRestart = document.getElementById('fullscreenRestartBtn');
+
             const soundToggle = document.getElementById('soundToggle');
             const soundIcon = document.getElementById('soundIcon');
+            const fsSoundToggle = document.getElementById('fullscreenSoundToggle');
+            const fsSoundIcon = document.getElementById('fullscreenSoundIcon');
             const fullscreenToggle = document.getElementById('fullscreenToggle');
-            const fullscreenIcon = document.getElementById('fullscreenIcon');
+            const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+            const fullscreenCloseBtn = document.getElementById('fullscreenCloseBtn');
 
-            // ---- 尺寸 ----
-            let W = 640,
-                H = 150;
-            let scale = 1;
-            let groundY = 130;
-
-            // ---- 游戏状态 ----
+            // ---- 游戏核心数据 ----
             let gameRunning = false;
             let gameOver = false;
             let score = 0;
             let frameId = null;
-            let speed = 4.5; // 降低初始速度
+            let speed = 4.5;
             let obstacleSpawnCounter = 0;
-            let obstacleSpawnInterval = 80; // 增加生成间隔（更简单）
-            let frameCount = 0;
+            let obstacleSpawnInterval = 80;
             let gameInitialized = false;
             let isFullscreen = false;
 
@@ -700,8 +824,8 @@
                 w: 24,
                 h: 30,
                 vy: 0,
-                gravity: 0.5, // 降低重力（跳跃更高，下落更慢）
-                jumpPower: -9, // 降低跳跃力度（更可控）
+                gravity: 0.45,
+                jumpPower: -8.5,
                 grounded: true,
                 legFrame: 0,
                 legTimer: 0
@@ -709,14 +833,24 @@
 
             // ---- 障碍物 ----
             let obstacles = [];
-
-            // ---- 装饰 ----
             let clouds = [];
             let stars = [];
 
             // ---- 声音 ----
             let soundEnabled = false;
             let audioCtx = null;
+
+            // ---- 当前使用的上下文 ----
+            let currentCtx = mainCtx;
+            let currentCanvas = mainCanvas;
+            let currentContainer = mainContainer;
+            let currentOverlay = mainOverlay;
+            let currentScore = mainScore;
+            let currentRestart = mainRestart;
+            let W = 640,
+                H = 150,
+                scale = 1,
+                groundY = 130;
 
             // ==========================================
             //  声音引擎
@@ -783,13 +917,27 @@
                 } catch (_) {}
             }
 
-            // ==========================================
-            //  扬声器切换
-            // ==========================================
+            function updateSoundIcons() {
+                const icon = soundEnabled ? '🔊' : '🔇';
+                soundIcon.textContent = icon;
+                fsSoundIcon.textContent = icon;
+            }
+
+            // ---- 扬声器切换 ----
             soundToggle.addEventListener('click', function(e) {
                 e.stopPropagation();
                 soundEnabled = !soundEnabled;
-                soundIcon.textContent = soundEnabled ? '🔊' : '🔇';
+                updateSoundIcons();
+                if (soundEnabled && !audioCtx) initAudio();
+                if (soundEnabled && audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(function() {});
+                }
+            });
+
+            fsSoundToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                soundEnabled = !soundEnabled;
+                updateSoundIcons();
                 if (soundEnabled && !audioCtx) initAudio();
                 if (soundEnabled && audioCtx && audioCtx.state === 'suspended') {
                     audioCtx.resume().catch(function() {});
@@ -799,61 +947,77 @@
             // ==========================================
             //  全屏切换
             // ==========================================
+            function toggleFullscreen() {
+                isFullscreen = !isFullscreen;
+                fullscreenOverlay.classList.toggle('active', isFullscreen);
+                if (isFullscreen) {
+                    // 同步游戏状态到全屏
+                    syncGameToFullscreen();
+                    setupFullscreenCanvas();
+                }
+            }
+
             fullscreenToggle.addEventListener('click', function(e) {
                 e.stopPropagation();
                 toggleFullscreen();
             });
 
-            function toggleFullscreen() {
-                isFullscreen = !isFullscreen;
-                container.classList.toggle('fullscreen', isFullscreen);
-                fullscreenIcon.textContent = isFullscreen ? '⛶' : '⛶';
-                // 重新调整 Canvas 尺寸
-                setTimeout(function() {
-                    setupCanvas();
-                    draw();
-                }, 50);
-                // ESC 键退出全屏
-                if (isFullscreen) {
-                    document.addEventListener('keydown', handleEscFullscreen);
+            fullscreenCloseBtn.addEventListener('click', function() {
+                if (isFullscreen) toggleFullscreen();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && isFullscreen) {
+                    toggleFullscreen();
+                }
+            });
+
+            // ==========================================
+            //  同步游戏状态到全屏
+            // ==========================================
+            function syncGameToFullscreen() {
+                // 同步得分
+                fsScore.textContent = mainScore.textContent;
+                // 同步覆盖层
+                if (gameOver) {
+                    fsOverlay.classList.add('visible');
+                    fsOverlay.querySelector('.overlay-icon').textContent = '💥';
+                    fsOverlay.querySelector('.overlay-text').textContent = '游戏结束';
+                    fsOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
+                } else if (!gameRunning) {
+                    fsOverlay.classList.add('visible');
+                    fsOverlay.querySelector('.overlay-icon').textContent = '🦖';
+                    fsOverlay.querySelector('.overlay-text').textContent = '点击开始游戏';
+                    fsOverlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
                 } else {
-                    document.removeEventListener('keydown', handleEscFullscreen);
-                }
-            }
-
-            function handleEscFullscreen(e) {
-                if (e.key === 'Escape') {
-                    if (isFullscreen) {
-                        toggleFullscreen();
-                    }
+                    fsOverlay.classList.remove('visible');
                 }
             }
 
             // ==========================================
-            //  尺寸设置
+            //  设置全屏 Canvas
             // ==========================================
-            function setupCanvas() {
-                const rect = container.getBoundingClientRect();
+            function setupFullscreenCanvas() {
+                const rect = fsContainer.getBoundingClientRect();
                 const dpr = window.devicePixelRatio || 1;
                 W = Math.max(200, Math.floor(rect.width * dpr));
                 H = Math.max(80, Math.floor(rect.height * dpr));
-                canvas.width = W;
-                canvas.height = H;
-                canvas.style.width = rect.width + 'px';
-                canvas.style.height = rect.height + 'px';
+                fsCanvas.width = W;
+                fsCanvas.height = H;
+                fsCanvas.style.width = rect.width + 'px';
+                fsCanvas.style.height = rect.height + 'px';
 
                 scale = H / 150;
                 groundY = H - 12 * scale;
 
-                // 更新恐龙尺寸
                 dino.x = 28 * scale;
                 dino.w = 22 * scale;
                 dino.h = 28 * scale;
-                dino.gravity = 0.45 * scale * 0.6; // 降低重力
-                dino.jumpPower = -8.5 * scale * 0.6; // 降低跳跃力
+                dino.gravity = 0.45 * scale * 0.6;
+                dino.jumpPower = -8.5 * scale * 0.6;
                 dino.y = groundY - dino.h;
 
-                // 生成星星
+                // 生成星星（如果还没有）
                 if (stars.length === 0) {
                     for (let i = 0; i < 30; i++) {
                         stars.push({
@@ -865,7 +1029,6 @@
                     }
                 }
 
-                // 生成云朵
                 if (clouds.length === 0) {
                     for (let i = 0; i < 3; i++) {
                         clouds.push({
@@ -877,12 +1040,75 @@
                     }
                 }
 
+                currentCtx = fsCtx;
+                currentCanvas = fsCanvas;
+                currentContainer = fsContainer;
+                currentOverlay = fsOverlay;
+                currentScore = fsScore;
+                currentRestart = fsRestart;
+
                 gameInitialized = true;
                 draw();
             }
 
             // ==========================================
-            //  生成障碍物（更稀疏）
+            //  设置主 Canvas
+            // ==========================================
+            function setupMainCanvas() {
+                const rect = mainContainer.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                W = Math.max(200, Math.floor(rect.width * dpr));
+                H = Math.max(80, Math.floor(rect.height * dpr));
+                mainCanvas.width = W;
+                mainCanvas.height = H;
+                mainCanvas.style.width = rect.width + 'px';
+                mainCanvas.style.height = rect.height + 'px';
+
+                scale = H / 150;
+                groundY = H - 12 * scale;
+
+                dino.x = 28 * scale;
+                dino.w = 22 * scale;
+                dino.h = 28 * scale;
+                dino.gravity = 0.45 * scale * 0.6;
+                dino.jumpPower = -8.5 * scale * 0.6;
+                dino.y = groundY - dino.h;
+
+                if (stars.length === 0) {
+                    for (let i = 0; i < 30; i++) {
+                        stars.push({
+                            x: Math.random() * W,
+                            y: Math.random() * (H * 0.6),
+                            r: (0.5 + Math.random() * 1.2) * scale * 0.5,
+                            a: 0.2 + Math.random() * 0.3
+                        });
+                    }
+                }
+
+                if (clouds.length === 0) {
+                    for (let i = 0; i < 3; i++) {
+                        clouds.push({
+                            x: Math.random() * W,
+                            y: 10 * scale + Math.random() * 30 * scale,
+                            w: 40 * scale + Math.random() * 30 * scale,
+                            speed: 0.15 + Math.random() * 0.25
+                        });
+                    }
+                }
+
+                currentCtx = mainCtx;
+                currentCanvas = mainCanvas;
+                currentContainer = mainContainer;
+                currentOverlay = mainOverlay;
+                currentScore = mainScore;
+                currentRestart = mainRestart;
+
+                gameInitialized = true;
+                draw();
+            }
+
+            // ==========================================
+            //  游戏逻辑（保持不变）
             // ==========================================
             function spawnObstacle() {
                 const types = [
@@ -891,7 +1117,7 @@
                     { w: 12, h: 18 }
                 ];
                 const type = types[Math.floor(Math.random() * types.length)];
-                const w = type.w * scale * 0.9; // 稍微缩小障碍物
+                const w = type.w * scale * 0.9;
                 const h = type.h * scale * 0.9;
                 obstacles.push({
                     x: W + 30 * scale,
@@ -902,9 +1128,6 @@
                 });
             }
 
-            // ==========================================
-            //  重置游戏
-            // ==========================================
             function resetGame() {
                 gameOver = false;
                 gameRunning = true;
@@ -913,17 +1136,15 @@
                 obstacles = [];
                 obstacleSpawnCounter = 0;
                 obstacleSpawnInterval = 80;
-                frameCount = 0;
 
                 dino.y = groundY - dino.h;
                 dino.vy = 0;
                 dino.grounded = true;
                 dino.legFrame = 0;
 
-                overlay.classList.remove('visible');
-                scoreSpan.textContent = '0';
+                currentOverlay.classList.remove('visible');
+                currentScore.textContent = '0';
 
-                // 延迟生成第一个障碍物
                 setTimeout(function() {
                     if (gameRunning && !gameOver && gameInitialized) {
                         spawnObstacle();
@@ -931,9 +1152,6 @@
                 }, 500);
             }
 
-            // ==========================================
-            //  跳跃
-            // ==========================================
             function jump() {
                 if (!gameRunning || gameOver) return;
                 if (dino.grounded) {
@@ -943,15 +1161,9 @@
                 }
             }
 
-            // ==========================================
-            //  更新（降低难度）
-            // ==========================================
             function update() {
                 if (!gameRunning || gameOver) return;
 
-                frameCount++;
-
-                // 恐龙物理（更柔和）
                 dino.vy += dino.gravity * 0.8;
                 dino.y += dino.vy;
 
@@ -963,7 +1175,6 @@
                     dino.grounded = false;
                 }
 
-                // 走路动画
                 if (dino.grounded) {
                     dino.legTimer++;
                     if (dino.legTimer > 10) {
@@ -974,9 +1185,7 @@
                     dino.legFrame = 0;
                 }
 
-                // 生成障碍物（更慢）
                 obstacleSpawnCounter++;
-                // 难度增加非常缓慢
                 const currentInterval = Math.max(50, obstacleSpawnInterval - Math.floor(score / 150));
                 if (obstacleSpawnCounter >= currentInterval) {
                     obstacleSpawnCounter = 0;
@@ -985,30 +1194,32 @@
                     }
                 }
 
-                // 更新障碍物（速度增加非常缓慢）
                 const currentSpeed = speed + Math.floor(score / 80) * 0.15;
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const ob = obstacles[i];
                     ob.x -= currentSpeed * scale * 0.5;
 
-                    // 得分检测
                     if (!ob.scored && ob.x + ob.w < dino.x) {
                         ob.scored = true;
                         score++;
                         if (score % 20 === 0) {
                             speed += 0.15;
                         }
-                        scoreSpan.textContent = Math.floor(score);
+                        currentScore.textContent = Math.floor(score);
+                        // 同步主屏幕得分
+                        if (isFullscreen) {
+                            mainScore.textContent = Math.floor(score);
+                        } else {
+                            fsScore.textContent = Math.floor(score);
+                        }
                         playScoreSound();
                     }
 
-                    // 移除超出边界
                     if (ob.x + ob.w < -10 * scale) {
                         obstacles.splice(i, 1);
                         continue;
                     }
 
-                    // 碰撞检测（更宽容）
                     const px = dino.x + 4 * scale;
                     const py = dino.y + 3 * scale;
                     const pw = dino.w - 8 * scale;
@@ -1018,16 +1229,27 @@
                         py < ob.y + ob.h && py + ph > ob.y) {
                         gameOver = true;
                         gameRunning = false;
-                        overlay.classList.add('visible');
-                        overlay.querySelector('.overlay-icon').textContent = '💥';
-                        overlay.querySelector('.overlay-text').textContent = '游戏结束';
-                        overlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
+                        currentOverlay.classList.add('visible');
+                        currentOverlay.querySelector('.overlay-icon').textContent = '💥';
+                        currentOverlay.querySelector('.overlay-text').textContent = '游戏结束';
+                        currentOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
+                        // 同步覆盖层
+                        if (isFullscreen) {
+                            mainOverlay.classList.add('visible');
+                            mainOverlay.querySelector('.overlay-icon').textContent = '💥';
+                            mainOverlay.querySelector('.overlay-text').textContent = '游戏结束';
+                            mainOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
+                        } else {
+                            fsOverlay.classList.add('visible');
+                            fsOverlay.querySelector('.overlay-icon').textContent = '💥';
+                            fsOverlay.querySelector('.overlay-text').textContent = '游戏结束';
+                            fsOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
+                        }
                         playGameOverSound();
                         return;
                     }
                 }
 
-                // 云朵
                 clouds.forEach(c => {
                     c.x -= c.speed * scale * 0.2;
                     if (c.x + c.w < -20 * scale) {
@@ -1038,15 +1260,12 @@
                 });
             }
 
-            // ==========================================
-            //  绘制
-            // ==========================================
             function draw() {
                 if (W === 0 || H === 0 || !gameInitialized) return;
 
+                const ctx = currentCtx;
                 ctx.clearRect(0, 0, W, H);
 
-                // 星星
                 stars.forEach(s => {
                     ctx.beginPath();
                     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
@@ -1054,7 +1273,6 @@
                     ctx.fill();
                 });
 
-                // 云朵
                 clouds.forEach(c => {
                     ctx.fillStyle = 'rgba(255,255,255,0.04)';
                     const r = c.w * 0.4;
@@ -1069,11 +1287,9 @@
                     ctx.fill();
                 });
 
-                // 地面
                 ctx.fillStyle = 'rgba(255,255,255,0.04)';
                 ctx.fillRect(0, groundY + 2 * scale, W, 2 * scale);
 
-                // 地面纹理
                 const currentSpeed = speed + Math.floor(score / 80) * 0.15;
                 for (let i = 0; i < W; i += 20 * scale) {
                     const offset = (Date.now() * 0.02 * currentSpeed * 0.15) % (20 * scale);
@@ -1082,7 +1298,6 @@
                     ctx.fillRect(x, groundY + 6 * scale, 3 * scale, 2 * scale);
                 }
 
-                // 障碍物
                 obstacles.forEach(ob => {
                     ctx.fillStyle = 'rgba(200,180,255,0.25)';
                     const r = 2 * scale;
@@ -1102,7 +1317,6 @@
                     ctx.fillRect(ob.x + 2 * scale, ob.y + 2 * scale, ob.w * 0.3, 3 * scale);
                 });
 
-                // ---- 恐龙 ----
                 const dx = dino.x,
                     dy = dino.y,
                     dw = dino.w,
@@ -1122,7 +1336,6 @@
                 ctx.quadraticCurveTo(dx, dy, dx + r2, dy);
                 ctx.fill();
 
-                // 眼睛
                 ctx.fillStyle = 'rgba(255,255,255,0.40)';
                 ctx.beginPath();
                 ctx.arc(dx + dw * 0.75, dy + dh * 0.20, 2.5 * scale, 0, Math.PI * 2);
@@ -1132,7 +1345,6 @@
                 ctx.arc(dx + dw * 0.65, dy + dh * 0.20, 2 * scale, 0, Math.PI * 2);
                 ctx.fill();
 
-                // 嘴巴
                 ctx.strokeStyle = 'rgba(255,255,255,0.10)';
                 ctx.lineWidth = 1.5 * scale;
                 ctx.beginPath();
@@ -1140,18 +1352,15 @@
                 ctx.lineTo(dx + dw * 0.98, dy + dh * 0.35);
                 ctx.stroke();
 
-                // 腿
                 ctx.fillStyle = 'rgba(180,160,255,0.25)';
                 const legOffset = dino.grounded ? (dino.legFrame === 0 ? 2 * scale : -2 * scale) : 0;
                 ctx.fillRect(dx + dw * 0.15, dy + dh * 0.75, 4 * scale, dh * 0.25 + legOffset * 0.3);
                 ctx.fillRect(dx + dw * 0.65, dy + dh * 0.75, 4 * scale, dh * 0.25 - legOffset * 0.3);
 
-                // 手臂
                 ctx.fillStyle = 'rgba(180,160,255,0.20)';
                 ctx.fillRect(dx - 2 * scale, dy + dh * 0.30, 3 * scale, 6 * scale);
                 ctx.fillRect(dx + dw - 1 * scale, dy + dh * 0.30, 3 * scale, 6 * scale);
 
-                // 得分显示在画布右上角
                 ctx.fillStyle = 'rgba(255,255,255,0.06)';
                 ctx.font = `${12 * scale}px "Segoe UI", system-ui, sans-serif`;
                 ctx.textAlign = 'right';
@@ -1159,51 +1368,52 @@
                 ctx.fillText('🏆 ' + Math.floor(score), W - 60 * scale, 8 * scale);
             }
 
-            // ==========================================
-            //  游戏循环
-            // ==========================================
             function gameLoop() {
                 update();
                 draw();
+                // 如果全屏模式，同步绘制到主 Canvas
+                if (isFullscreen) {
+                    // 已经使用 fsCtx 绘制
+                }
                 frameId = requestAnimationFrame(gameLoop);
             }
 
-            // ==========================================
-            //  启动游戏
-            // ==========================================
             function startGame() {
                 if (frameId) {
                     cancelAnimationFrame(frameId);
                     frameId = null;
                 }
                 if (!gameInitialized) {
-                    setupCanvas();
+                    setupMainCanvas();
                 }
                 resetGame();
-                overlay.classList.remove('visible');
-                overlay.querySelector('.overlay-icon').textContent = '🦖';
-                overlay.querySelector('.overlay-text').textContent = '点击开始游戏';
-                overlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
+                currentOverlay.classList.remove('visible');
+                currentOverlay.querySelector('.overlay-icon').textContent = '🦖';
+                currentOverlay.querySelector('.overlay-text').textContent = '点击开始游戏';
+                currentOverlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
                 if (!frameId) {
                     gameLoop();
                 }
             }
 
-            // ==========================================
-            //  事件绑定
-            // ==========================================
-            container.addEventListener('click', function(e) {
-                if (e.target.closest('.game-top-btn')) return;
-                if (!gameRunning && !gameOver) {
-                    startGame();
-                    return;
-                }
-                if (gameOver) {
-                    startGame();
-                    return;
-                }
-                jump();
-            });
+            // ---- 事件绑定 ----
+            function bindEvents(containerEl, overlayEl) {
+                containerEl.addEventListener('click', function(e) {
+                    if (e.target.closest('.game-top-btn')) return;
+                    if (!gameRunning && !gameOver) {
+                        startGame();
+                        return;
+                    }
+                    if (gameOver) {
+                        startGame();
+                        return;
+                    }
+                    jump();
+                });
+            }
+
+            bindEvents(mainContainer, mainOverlay);
+            bindEvents(fsContainer, fsOverlay);
 
             document.addEventListener('keydown', function(e) {
                 if (e.key === ' ' || e.key === 'Space' || e.key === 'ArrowUp') {
@@ -1220,33 +1430,38 @@
                 }
             });
 
-            restartBtn.addEventListener('click', function(e) {
+            mainRestart.addEventListener('click', function(e) {
                 e.stopPropagation();
                 startGame();
             });
 
-            // ==========================================
-            //  窗口变化
-            // ==========================================
+            fsRestart.addEventListener('click', function(e) {
+                e.stopPropagation();
+                startGame();
+            });
+
+            // ---- 窗口变化 ----
             let resizeTimer;
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimer);
                 resizeTimer = setTimeout(function() {
-                    setupCanvas();
+                    if (isFullscreen) {
+                        setupFullscreenCanvas();
+                    } else {
+                        setupMainCanvas();
+                    }
                     draw();
                 }, 150);
             });
 
-            // ==========================================
-            //  初始化
-            // ==========================================
+            // ---- 初始化 ----
             function init() {
                 initAudio();
-                setupCanvas();
-                overlay.classList.add('visible');
-                overlay.querySelector('.overlay-icon').textContent = '🦖';
-                overlay.querySelector('.overlay-text').textContent = '点击开始游戏';
-                overlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
+                setupMainCanvas();
+                mainOverlay.classList.add('visible');
+                mainOverlay.querySelector('.overlay-icon').textContent = '🦖';
+                mainOverlay.querySelector('.overlay-text').textContent = '点击开始游戏';
+                mainOverlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
                 gameRunning = false;
                 if (!frameId) {
                     gameLoop();
