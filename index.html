@@ -6,32 +6,42 @@
 <!--
   ============================================================
   版本记录 / BUILD LOG
-  版本：v1.2 弹性改进 + 背景音乐版
-  日期：2026-11-11
-  基于：v1.1 弹性手感改进版
-        （合成大西瓜-生物做题版_弹性改进_20261111.html，
-          md5 edf0b4bc58befb6ed6065b22aeeaf3af，808925 字节）
-  血脉：v1.0 核心基准（2026-11-08，md5 86f24b79908ec9baf13e85920ae30485，803955 字节）
-        → v1.1 弹性改进 → v1.2 本版本
-  本版新增内容：
-    1. 背景音乐《樱花树下的约定》完整版（2分31秒 / 64kbps 单声道 / 1212038 字节，
-       md5 d6018c14529762b19215ce53d57dc6f9），以独立文件 bgm.mp3 与 HTML 同目录存放，
-       用相对路径 ./bgm.mp3 引用 —— 不内联 base64，HTML 不膨胀，
-       音频可独立替换、可被 CDN 单独缓存
-    2. <audio loop preload="none"> 流式播放，与 beep() 的 AudioContext 音效链路互不干扰
-    3. 在 startGame() 的用户手势中调用 play()，符合浏览器自动播放策略；
-       play() 的 Promise 与 audio error 事件均有静默兜底，音频缺失不影响游戏
-    4. 右上角 🎵 / 🔇 静音开关，音量 0.28，偏好存入 localStorage(bioBgmMuted)
-    5. visibilitychange 切后台暂停、回到前台恢复，避免后台偷跑
-    6. 返回主界面 / 游戏结束时 BGM 继续循环播放（如需停止可另行调整）
-  继承 v1.1 的 8 项弹性改进：分级弹性 bounceOf()、frictionAir 衰减弧线、
-    positionIterations 10、落球初速与自转、合成跳起、撞击反馈 onImpact()、
-    squash & stretch 形变、弹性护栏（详见 v1.1 BUILD LOG）
-  未改动：题库、四种道具、里程碑扩场、计分、UI 布局（仅新增静音按钮）、CG、
-    合成判定逻辑、22 张内联人脸与 CG 图片（与 v1.0 逐字节一致）
-  部署说明：本文件在仓库中名为 index.html，与 bgm.mp3 同处根目录；
-    纯静态托管、无构建流程，push 即生效。音频文件名务必保持小写 bgm.mp3
-    （Linux 大小写敏感；中文名会被 URL 编码）。
+  版本数字：4        （文件名即 4.html；本项目版本以递增整数标识，后续为 5、6、7…）
+  版本：v1.4 设置面板 + 人物图鉴版
+  日期：2026-11-12
+  基于：3.html（v1.3 竖屏友好版，md5 2ee00df0a0803d43fc5f4fb933c2a14e，816313 字节）
+  血脉：v1.0 核心基准 → v1.1 弹性改进 → v1.2 弹性+BGM → v1.3 竖屏友好 → v1.4 本版本
+  本版改动：
+    一、设置面板（入口：主菜单「⚙️ 游戏设置」+ 画布右上常驻「⚙️」小按钮）
+      1. 背景音乐可在 5 首之间切换：BGM1~BGM5，均为同目录独立 MP3，
+         相对路径 ./bgm.mp3、./bgm2.mp3、./bgm3.mp3、./bgm4.mp3、./bgm5.mp3
+         （BGM1 沿用已有《樱花树下的约定》；其余 4 首待补，放进来即自动可用）
+      2. 曲目未放置时给出明确提示并自动回退到可用曲目，不崩溃、不阻塞游戏；
+         主菜单点选即试听，游戏中点选立即换歌
+      3. 弹性系数滑块 0.20×~2.00×（默认 1.00×）：整体缩放 v1.1 的分级弹性，
+         上限钳制 0.95 防止无限弹；对场上已有的球也立即生效
+      4. 重力加速度滑块 0.20~2.50（默认 1.15）：直接作用于 engine.gravity.y，
+         实时生效，重开一局不会重置
+      5. 全部写入 localStorage(bioSettings)，刷新 / 重开自动恢复；「恢复默认」一键还原
+    二、人物图鉴（入口：主菜单「📖 人物图鉴」+ 合成链标题「📖 图鉴」+ 点击合成链任意一行）
+      6. 网格展示 21 位人物的大图（直接复用 v1.0 内联的 22 张 base64 人脸），
+         每格含 Lv 等级、名称、高阶球解锁门槛；点合成链某行会直达并高亮该人物
+      7. 弹窗改为 fixed 全视口居中，竖屏 / 横屏手机都不被 480:720 画布挤压
+    三、兼容与回归
+      8. 主菜单新增 2 个按钮，矮屏横屏下收紧按钮间距，保证 390px 高度不溢出
+      9. 修掉 v1.3 遗留瑕疵：窄屏的 !important 曾让主菜单也显示「做题得道具」，
+         现加 body.game-on 条件，仅游戏中出现；桌面横屏仍走侧栏做题
+     10. 缺文件回退优先回到「上一首能播的曲目」，不再硬跳回 BGM1
+     11. 保留 v1.3 竖屏非强制提示、v1.2 BGM 静音 / 切后台暂停 / 失败兜底、
+         v1.1 全部弹性改进；题库、四种道具、里程碑、计分、合成判定、CG 均未改动
+     12. 矮屏横屏（≤620px 高）设置面板把 5 首 BGM 压成两列、收起说明文字，
+         让弹性/重力滑块和底部按钮同屏可见，不必先滚动
+     13. 加强主菜单标题下方两行文字的描边，避免被背景装饰球糊住
+  配套音频（必须与本 HTML 同一目录，文件名固定小写）：
+    bgm.mp3   BGM1（已有，《樱花树下的约定》）
+    bgm2.mp3  BGM2（待补）   bgm3.mp3  BGM3（待补）
+    bgm4.mp3  BGM4（待补）   bgm5.mp3  BGM5（待补）
+  部署说明：纯静态、无构建流程。HTML 文件名可任意，音频文件名不可变。
   ============================================================
 -->
 <title>12班我最溜 · 合成大西瓜生物版</title>
@@ -121,7 +131,7 @@
   #q-feedback.bad{color:#e74c3c;}
   .modal .close-btn{display:block;margin:6px auto 0;border:none;border-radius:8px;padding:9px 30px;
     background:#b2bec3;color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
-  /* ===== 横屏模式（强制）：做题面板常在右侧，不遮挡落球区 ===== */
+  /* ===== 横屏布局模式：做题面板常在右侧，不遮挡落球区 ===== */
   #side-quiz-card{display:block;}
   #quiz-btn{display:none !important;}
   #quiz-overlay{position:fixed;left:auto;top:12px;right:12px;bottom:12px;width:min(340px,38vw);
@@ -131,13 +141,18 @@
     border:2px solid rgba(255,255,255,.35);}
   body.quiz-side #app{padding-right:min(352px,40vw);}
   body.quiz-side #side{display:none;}
-  /* 竖屏提示 */
+  /* 竖屏提示（v1.3：建议但不强制，可一键关闭） */
   #rotate-tip{position:fixed;inset:0;background:linear-gradient(160deg,#1b2a3a,#2d4a3e);z-index:999;
     display:none;flex-direction:column;justify-content:center;align-items:center;gap:16px;color:#fff;text-align:center;padding:24px;}
   #rotate-tip .ph{font-size:64px;animation:rot 1.6s ease-in-out infinite;}
   @keyframes rot{0%,40%{transform:rotate(0)}70%,100%{transform:rotate(-90deg)}}
   #rotate-tip h2{font-size:22px;margin:0;letter-spacing:2px;}
   #rotate-tip p{font-size:14px;color:#cfe3d8;line-height:1.8;margin:0;}
+  #rotate-tip .tip-btn{margin-top:4px;border:none;border-radius:12px;padding:13px 30px;
+    font-size:15px;font-weight:800;color:#fff;cursor:pointer;
+    background:linear-gradient(150deg,#ff9f43,#ee5a24);box-shadow:0 6px 16px rgba(238,90,36,.5);}
+  #rotate-tip .tip-btn:active{transform:scale(.96);}
+  #rotate-tip .tip-hint{font-size:12px;color:#9fb8aa;line-height:1.5;}
   /* 主界面按钮：跟道具栏同一列，排在它上方，同样在画布外 */
   #home-btn{position:absolute;left:-104px;bottom:274px;width:92px;height:42px;z-index:45;
     border:none;border-radius:12px;cursor:pointer;padding:0;
@@ -158,13 +173,17 @@
     margin:8px 0 4px;text-align:center;outline:none;}
   .modal input:focus{border-color:#74b9ff;}
   /* 主菜单 */
-  #menu-overlay{flex-direction:column;background:rgba(10,20,30,.18);backdrop-filter:none;}
+  /* v1.4：背景略加深，让标题下方白字不被彩色装饰球糊住 */
+  #menu-overlay{flex-direction:column;background:rgba(10,20,30,.38);backdrop-filter:none;}
   #menu-title{font-size:52px;font-weight:900;color:#fff;text-align:center;letter-spacing:4px;
     text-shadow:0 4px 0 #e17055,0 8px 24px rgba(0,0,0,.5);margin-top:6%;}
   #king-count{margin:2px auto 10px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);
-    color:#ffe9a8;font-size:15px;font-weight:700;padding:5px 16px;border-radius:20px;display:inline-block;}
+    color:#ffe9a8;font-size:15px;font-weight:700;padding:5px 16px;border-radius:20px;display:inline-block;
+    text-shadow:0 1px 4px rgba(0,0,0,.9);}
   #king-count b{color:#ffd54a;font-size:18px;}
-  #menu-sub{color:rgba(255,255,255,.92);font-size:14px;text-shadow:0 2px 6px rgba(0,0,0,.5);margin:6px 0 26px;text-align:center;}
+  /* v1.4：菜单背景是彩色装饰球，白字在浅色底上易糊，加强描边保证副标题可读 */
+  #menu-sub{color:rgba(255,255,255,.96);font-size:14px;margin:6px 0 26px;text-align:center;
+    text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.8);}
   .menu-btn{display:block;width:230px;margin:0 auto 14px;border:none;border-radius:14px;padding:14px 0;
     font-size:19px;font-weight:800;cursor:pointer;color:#fff;
     background:linear-gradient(150deg,#ff9f43,#ee5a24);box-shadow:0 6px 16px rgba(0,0,0,.4);}
@@ -218,6 +237,101 @@
     background:#2e86de;box-shadow:0 3px 8px rgba(0,0,0,.3);}
   .mini-btn.orange{background:var(--accent);}
   .mini-btn.gray{background:#8395a7;}
+  /* ===== 竖屏 / 窄屏适配（v1.3）=====
+     注意：必须按「朝向」而不是「宽度」判断竖屏。手机横屏常见 844×390，
+     宽度同样 ≤900，若只用 max-width 会误判成竖屏，把横屏的右侧面板也改成
+     底部全宽、并把画布挤小。放在 CSS 末尾以覆盖横屏模式的 !important。 */
+  /* A. 做题入口：只要侧栏被隐藏（宽度 ≤900），就把入口还给 HUD。
+        横屏手机同样适用，顺带修掉 v1.0 起「侧栏隐藏后点不到做题」的老问题。 */
+  @media (max-width:900px){
+    /* v1.4：加 game-on 条件，避免主菜单里也冒出「做题得道具」按钮 */
+    body.game-on #quiz-btn{display:flex !important;}
+  }
+  /* B. 底部全宽做题面板：仅竖屏且窄屏生效；横屏一律保留右侧面板布局。 */
+  @media (orientation:portrait) and (max-width:900px){
+    #quiz-overlay{left:10px;right:10px;top:auto;bottom:10px;width:auto;height:auto;
+      max-height:52vh;align-items:stretch;pointer-events:none;}
+    #quiz-overlay .modal{width:100%;max-width:100%;max-height:52vh;}
+    body.quiz-side #app{padding-right:10px;}
+  }
+  /* ===== v1.4：设置按钮 / 设置面板 / 人物图鉴 ===== */
+  .menu-btn.gray{background:linear-gradient(150deg,#b2bec3,#7f8c8d);}
+  .menu-btn.teal{background:linear-gradient(150deg,#00cec9,#0984e3);}
+  /* 画布右上常驻设置小按钮：z-index 高于菜单遮罩(20)，菜单与游戏中都可见可点 */
+  #gear-btn{position:absolute;top:206px;right:12px;z-index:46;border:none;border-radius:10px;cursor:pointer;
+    background:rgba(20,30,40,.72);color:#fff;font-size:16px;font-weight:700;line-height:1;
+    padding:7px 11px;box-shadow:0 4px 10px rgba(0,0,0,.4);opacity:.88;}
+  #gear-btn:active{transform:scale(.95);}
+  /* 合成链标题右侧的图鉴入口；每一行也可点击 */
+  #chain-card h3{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  #chain-album-btn{flex:none;border:none;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:800;
+    cursor:pointer;background:linear-gradient(150deg,#00cec9,#0984e3);color:#fff;}
+  #chain-album-btn:active{transform:scale(.95);}
+  .chain-row{cursor:pointer;border-radius:8px;padding:2px 3px;transition:background .15s;}
+  .chain-row:hover{background:rgba(255,122,69,.14);}
+  .chain-row .row-go{margin-left:auto;color:#bbb;font-size:14px;line-height:1;}
+  /* 设置 / 图鉴弹窗：fixed 全视口，不受 480:720 画布宽度限制 */
+  #settings-overlay, #album-overlay{position:fixed;inset:0;z-index:60;border-radius:0;
+    background:rgba(10,20,30,.74);}
+  #settings-overlay .modal, #album-overlay .modal{width:min(440px,92vw);max-width:none;
+    max-height:86vh;pointer-events:auto;}
+  .set-sec{margin:14px 0 0;padding-top:10px;border-top:1px dashed #dfe6e9;}
+  .set-sec h4{margin:0 0 8px;font-size:14px;color:#2c3e50;}
+  .set-row{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:13px;color:#444;}
+  .set-row label{min-width:88px;font-weight:700;color:#34495e;}
+  .set-row input[type=range]{flex:1;min-width:0;accent-color:#ff7a45;}
+  .set-val{min-width:56px;text-align:right;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .set-hint{font-size:11.5px;color:#888;line-height:1.6;margin:4px 0 0;}
+  .bgm-list{display:flex;flex-direction:column;gap:6px;}
+  .bgm-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:2px solid #dfe6e9;
+    background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-size:13px;color:#2c3e50;}
+  .bgm-item:hover{border-color:#74b9ff;}
+  .bgm-item.active{border-color:var(--accent);background:#fff3ea;font-weight:800;}
+  .bgm-item.missing{opacity:.62;}
+  .bgm-item .bgm-i{font-size:16px;}
+  .bgm-item .bgm-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bgm-item .bgm-f{font-size:10px;color:#999;font-family:monospace;}
+  .bgm-item .bgm-s{flex:none;font-size:10px;padding:2px 6px;border-radius:8px;background:#eee;color:#777;font-weight:700;}
+  .bgm-item.active .bgm-s{background:var(--accent);color:#fff;}
+  .set-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
+  .set-actions button{border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:800;
+    cursor:pointer;color:#fff;background:#8395a7;}
+  .set-actions button.primary{background:linear-gradient(150deg,#ff9f43,#ee5a24);}
+  .set-actions button.ghost{background:#dfe6e9;color:#34495e;}
+  /* 人物图鉴网格 */
+  #album-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-top:10px;}
+  .album-cell{background:#fff;border-radius:12px;padding:8px 6px;text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.12);border:2px solid transparent;}
+  .album-cell.focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,122,69,.25);}
+  .album-cell img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;
+    box-shadow:0 0 0 3px var(--rc,#ddd);}
+  .album-cell .an{display:block;margin-top:6px;font-size:12px;font-weight:800;color:#2c3e50;line-height:1.3;}
+  .album-cell .al{display:block;font-size:10px;color:var(--accent);font-weight:700;}
+  .album-cell .lk{display:block;font-size:9.5px;color:#e17055;margin-top:2px;}
+  @media (max-width:900px){
+    #album-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;}
+  }
+  @media (max-height:620px){
+    .menu-btn{padding:7px 0;margin:0 auto 6px;border-radius:10px;}
+    #gear-btn{top:176px;right:10px;font-size:14px;padding:6px 9px;}
+    /* 矮屏横屏：5 首 BGM 改两列、收起说明文字，让弹性/重力滑块与底部按钮同屏可见 */
+    #settings-overlay .modal{width:min(560px,92vw);max-height:98vh;padding:10px;}
+    #settings-overlay .modal h2{font-size:15px;}
+    #settings-overlay .qmeta{font-size:11px;margin-bottom:3px;}
+    .bgm-list{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+    .bgm-item{padding:4px 7px;font-size:11.5px;gap:4px;}
+    .bgm-item .bgm-s{font-size:9px;padding:1px 5px;}
+    .bgm-item .bgm-f{display:none;}
+    .set-sec{margin-top:5px;padding-top:4px;}
+    .set-sec h4{margin:0 0 4px;font-size:13px;}
+    .set-hint{display:none;}
+    .set-row{margin:3px 0;}
+    .set-row label{font-size:12px;min-width:76px;}
+    .set-val{font-size:12px;min-width:48px;}
+    .set-actions{margin-top:4px;}
+    .set-actions button{padding:6px 14px;font-size:12px;}
+  }
+
 </style>
 </head>
 <body>
@@ -235,6 +349,7 @@
     <button id="settle-btn">🏁 结算上榜</button>
     <button id="home-btn">🏠 主界面</button>
     <button id="bgm-btn" type="button" title="关闭背景音乐" aria-label="关闭背景音乐">🎵</button>
+    <button id="gear-btn" type="button" title="游戏设置" aria-label="游戏设置">⚙️</button>
     <div id="streak-tag"></div>
     <div id="props" style="display:none;">
       <button class="prop-btn" id="prop-blender"><span class="ico">🌀</span>搅拌机<span class="cnt" id="cnt-blender">0</span></button>
@@ -253,6 +368,8 @@
       <button class="menu-btn green" id="menu-lb">🏆 排行榜</button>
       <button class="menu-btn gold" id="menu-cg" style="display:none;">🎬 最终CG</button>
       <button class="menu-btn blue" id="menu-help">📖 游戏说明</button>
+      <button class="menu-btn gray" id="menu-settings">⚙️ 游戏设置</button>
+      <button class="menu-btn teal" id="menu-album">📖 人物图鉴</button>
     </div>
 
     <!-- 说明 -->
@@ -332,6 +449,48 @@
       <img id="cg-img" alt="12班全家福">
       <button class="close-btn" id="cg-close">太棒了，继续冲分！</button>
     </div>
+
+    <!-- v1.4 游戏设置 -->
+    <div class="overlay" id="settings-overlay">
+      <div class="modal">
+        <h2>⚙️ 游戏设置</h2>
+        <div class="qmeta">设置自动保存并立即生效，刷新 / 重开也不会丢</div>
+        <div class="set-sec">
+          <h4>🎵 背景音乐（5 首）</h4>
+          <div class="bgm-list" id="bgm-list"></div>
+          <p class="set-hint">音频需与 HTML 放在同一目录。点选即试听；未放置文件的曲目会提示并自动回退，游戏不受影响。</p>
+        </div>
+        <div class="set-sec">
+          <h4>⚽ 物理手感</h4>
+          <div class="set-row">
+            <label for="set-bounce">弹性系数</label>
+            <input type="range" id="set-bounce" min="0.2" max="2" step="0.05" value="1">
+            <span class="set-val" id="val-bounce">1.00×</span>
+          </div>
+          <p class="set-hint">整体缩放「小球更弹、大球更稳」的分级弹性。1.00× 为默认手感。</p>
+          <div class="set-row">
+            <label for="set-gravity">重力加速度</label>
+            <input type="range" id="set-gravity" min="0.2" max="2.5" step="0.05" value="1.15">
+            <span class="set-val" id="val-gravity">1.15</span>
+          </div>
+          <p class="set-hint">数值越大球落得越快。1.15 为默认值；改动对场上已有的球立即生效。</p>
+        </div>
+        <div class="set-actions">
+          <button class="ghost" id="set-reset">恢复默认</button>
+          <button class="primary" id="set-close">完成</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- v1.4 人物图鉴 -->
+    <div class="overlay" id="album-overlay">
+      <div class="modal">
+        <h2>📖 12班人物图鉴</h2>
+        <div class="qmeta">共 <b id="album-count">21</b> 位 · 点击合成链里的任意一行可直达对应人物</div>
+        <div id="album-grid"></div>
+        <div class="set-actions"><button class="primary" id="album-close">关闭</button></div>
+      </div>
+    </div>
   </div>
 
   <div id="side">
@@ -342,7 +501,7 @@
         连对 <b id="side-thres">2/4/6</b> 题直接得道具<br>
         本局正确率 <b id="side-acc">—</b></div>
     </div>
-    <div class="card"><h3>🧬 合成链</h3><div id="chain"></div></div>
+    <div class="card" id="chain-card"><h3>🧬 合成链 <button id="chain-album-btn" type="button">📖 图鉴</button></h3><div id="chain"></div></div>
     <div class="card"><h3>📈 分数里程碑</h3>
       <div style="font-size:12px;color:#666;line-height:1.9">
         💰 <b>1000</b> 自动产分（球越大越多）<br>
@@ -361,11 +520,13 @@
   </div>
 </div>
 
-<!-- 竖屏提示：强制横屏游玩 -->
+<!-- 竖屏提示（v1.3）：只做建议，玩家可点按钮直接竖屏游玩 -->
 <div id="rotate-tip">
   <div class="ph">📱</div>
-  <h2>请横屏游玩</h2>
-  <p>《12班我最溜》采用横屏布局：左侧落球、右侧做题。<br>把手机横过来，体验更顺畅～</p>
+  <h2>横屏体验更佳</h2>
+  <p>《12班我最溜》采用横屏布局：左侧落球、右侧做题。<br>把手机横过来更顺畅，<b>竖屏也能正常游玩</b>。</p>
+  <button class="tip-btn" id="portrait-ok" type="button">仍要竖屏游玩 →</button>
+  <p class="tip-hint">点一次即可，之后竖屏不再提示</p>
 </div>
 
 <script>/*!
@@ -438,9 +599,13 @@ function visH(){ return H / zoom; }
 function dangerY(){ return 128; }
 function dropY(){ return 74; }
 
+/* v1.4 可调物理参数：由设置面板写入，localStorage(bioSettings) 持久化 */
+let bounceScale = 1;      // 分级弹性的整体倍率
+let gravityY = 1.15;      // Matter.js engine.gravity.y
+
 /* ================== 物理 ================== */
 const engine = Matter.Engine.create();
-engine.gravity.y = 1.15;
+engine.gravity.y = gravityY;
 engine.positionIterations = 10;   // 弹性提高后增加迭代，防止高速碰撞穿透
 engine.velocityIterations = 8;
 let wallBodies = [];
@@ -460,7 +625,7 @@ buildWalls();
 let state = "menu";                // menu | playing
 let balls = [];
 let score = 0, gameOver = false, quizOpen = false, gamePaused = false;
-/* 强制横屏布局：不再暂停游戏，做题与落球完全并行 */
+/* 横屏布局：不再暂停游戏，做题与落球完全并行 */
 function isWide(){ return true; }
 let pointerX = 240, canDropAt = 0;
 let curLevel = 0, nextLevel = 0;
@@ -509,7 +674,9 @@ function scoreMult(){ return score >= MS_BIG ? 2 : 1; }  // 5000分以上得分�
 /* 弹性按等级递减：小球像乒乓球，大瓜像实心西瓜；高阶大球几乎不弹，保住堆叠稳定 */
 function bounceOf(level){
   const t = Math.min(1, level / (MAX_LEVEL - 1));
-  return .46 - .30 * t;          // Lv.1 ≈ .46 → 顶级 ≈ .16
+  const base = .46 - .30 * t;    // Lv.1 ≈ .46 → 顶级 ≈ .16
+  // v1.4：乘上设置面板的弹性系数，钳制上限，避免高倍率下无限弹
+  return Math.max(0, Math.min(.95, base * bounceScale));
 }
 function spawnBall(x, y, level, opts){
   opts = opts || {};
@@ -542,22 +709,81 @@ function beep(freq, dur, type, vol){
   }catch(e){}
 }
 
-/* ================== 背景音乐（v1.2） ==================
-   音频是同目录独立文件 ./bgm.mp3，不内联 base64；<audio loop> 流式播放。
-   与上面 beep() 的 AudioContext 音效链路互不干扰。                     */
+/* ================== 背景音乐 / 游戏设置 / 人物图鉴（v1.4） ==================
+   BGM 是同目录独立 MP3，不内联 base64；<audio loop> 流式播放，与 beep() 的
+   AudioContext 链路互不干扰。5 首曲目、弹性系数、重力加速度均可在设置面板调整，
+   统一持久化到 localStorage(bioSettings)。                                   */
 const BGM_MUTE_KEY = "bioBgmMuted";
+const SETTINGS_KEY = "bioSettings";
+const BGM_TRACKS = [
+  {name:"BGM1 · 樱花树下的约定", file:"bgm.mp3"},
+  {name:"BGM2", file:"bgm2.mp3"},
+  {name:"BGM3", file:"bgm3.mp3"},
+  {name:"BGM4", file:"bgm4.mp3"},
+  {name:"BGM5", file:"bgm5.mp3"}
+];
+const DEFAULT_SETTINGS = {bgm:0, bounce:1, gravity:1.15};
 const bgmAudio = document.getElementById("bgm-audio");
 bgmAudio.volume = 0.28;                       // BGM 压低，不盖过撞击/答题音效
 let bgmMuted = false, bgmStarted = false, bgmFailed = false;
+let settings = Object.assign({}, DEFAULT_SETTINGS);
+let bgmIndex = 0;
+/* 曲目状态：ready=已确认可播 / unknown=尚未验证 / missing=确认缺文件 */
+const trackState = BGM_TRACKS.map(function(_, i){ return i === 0 ? "ready" : "unknown"; });
+let lastReadyIdx = 0;            // 缺文件回退时优先回到「上一首能播的」
+
+function sClamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 try{ bgmMuted = localStorage.getItem(BGM_MUTE_KEY) === "1"; }catch(e){}
 bgmAudio.muted = bgmMuted;
+try{
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if(raw){
+    const o = JSON.parse(raw);
+    if(o && typeof o === "object"){
+      if(Number.isFinite(+o.bgm))     settings.bgm     = sClamp(Math.round(+o.bgm), 0, BGM_TRACKS.length-1);
+      if(Number.isFinite(+o.bounce))  settings.bounce  = sClamp(+o.bounce, .2, 2);
+      if(Number.isFinite(+o.gravity)) settings.gravity = sClamp(+o.gravity, .2, 2.5);
+    }
+  }
+}catch(e){}
+function saveSettings(){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){} }
 
+/* ---- 物理参数：设置改变后立即作用于引擎与场上所有球 ---- */
+function applyPhysics(){
+  gravityY = settings.gravity;
+  bounceScale = settings.bounce;
+  engine.gravity.y = gravityY;
+  for(const b of balls){
+    if(b.plugin && typeof b.plugin.level === "number") b.restitution = bounceOf(b.plugin.level);
+  }
+}
+
+/* ---- BGM：5 首切换、缺文件兜底 ---- */
 function syncBgmBtn(){
   const el = document.getElementById("bgm-btn");
   if(!el) return;
   el.textContent = bgmMuted ? "🔇" : "🎵";
   const tip = bgmMuted ? "开启背景音乐" : "关闭背景音乐";
   el.title = tip; el.setAttribute("aria-label", tip);
+}
+function syncBgmList(){
+  const box = document.getElementById("bgm-list");
+  if(!box) return;
+  box.innerHTML = "";
+  BGM_TRACKS.forEach(function(t, i){
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bgm-item" + (i === bgmIndex ? " active" : "") +
+      (trackState[i] === "missing" ? " missing" : "");
+    const st = trackState[i] === "missing" ? "缺文件" :
+      (i === bgmIndex ? (bgmMuted ? "已静音" : "播放中") : "待选");
+    btn.innerHTML = '<span class="bgm-i">' + (i === bgmIndex ? "🎵" : "🎶") + '</span>' +
+      '<span class="bgm-n">' + t.name + '</span>' +
+      '<span class="bgm-f">' + t.file + '</span>' +
+      '<span class="bgm-s">' + st + '</span>';
+    btn.addEventListener("click", function(){ selectBgm(i); });
+    box.appendChild(btn);
+  });
 }
 function bgmPlay(){
   if(bgmMuted || bgmFailed) return;
@@ -568,21 +794,146 @@ function bgmPlay(){
   }catch(e){}
 }
 function bgmStart(){ bgmStarted = true; bgmPlay(); }
-bgmAudio.addEventListener("error", function(){ bgmFailed = true; });
-
+function findReadyTrack(exclude){
+  if(lastReadyIdx !== exclude && trackState[lastReadyIdx] === "ready") return lastReadyIdx;
+  for(let i=0;i<BGM_TRACKS.length;i++)
+    if(i !== exclude && trackState[i] === "ready") return i;
+  return null;
+}
+function bgmApplySrc(idx, autoplay){
+  bgmIndex = idx;
+  bgmFailed = false;
+  try{ bgmAudio.pause(); }catch(e){}
+  try{ bgmAudio.currentTime = 0; }catch(e){}
+  bgmAudio.src = "./" + BGM_TRACKS[idx].file;
+  try{ bgmAudio.load(); }catch(e){}
+  // 允许对「缺文件」的曲目重试（玩家可能刚把音频放进目录）
+  if(trackState[idx] === "missing") trackState[idx] = "unknown";
+  syncBgmList();
+  if(autoplay && !bgmMuted) bgmPlay();
+}
+function selectBgm(i){
+  settings.bgm = i; saveSettings();
+  bgmStarted = true;             // 点选曲目本身是用户手势，允许立即试听
+  bgmApplySrc(i, true);
+  toast("已选择 " + BGM_TRACKS[i].name);
+}
+bgmAudio.addEventListener("canplay", function(){
+  trackState[bgmIndex] = "ready";
+  lastReadyIdx = bgmIndex;
+  syncBgmList();
+});
+bgmAudio.addEventListener("error", function(){
+  bgmFailed = true;
+  const bad = BGM_TRACKS[bgmIndex].file;
+  trackState[bgmIndex] = "missing";
+  const fb = findReadyTrack(bgmIndex);
+  if(fb !== null){
+    settings.bgm = fb; saveSettings();
+    bgmApplySrc(fb, true);
+    toast("未找到 " + bad + "，已切回 " + BGM_TRACKS[fb].name);
+  }else{
+    syncBgmList();
+    toast("未找到音频文件：" + bad + "（游戏仍可正常玩）");
+  }
+});
 document.getElementById("bgm-btn").addEventListener("click", function(){
   bgmMuted = !bgmMuted;
   try{ localStorage.setItem(BGM_MUTE_KEY, bgmMuted ? "1" : "0"); }catch(e){}
   bgmAudio.muted = bgmMuted;
   if(bgmMuted){ try{ bgmAudio.pause(); }catch(e){} }
   else if(bgmStarted){ bgmPlay(); }
-  syncBgmBtn();
+  syncBgmBtn(); syncBgmList();
 });
 document.addEventListener("visibilitychange", function(){
   if(document.hidden){ try{ bgmAudio.pause(); }catch(e){} }
   else if(bgmStarted && !bgmMuted && !bgmFailed){ bgmPlay(); }
 });
+
+/* ---- 设置面板 ---- */
+function syncPhysicsUI(){
+  const b = document.getElementById("set-bounce"), g = document.getElementById("set-gravity");
+  if(!b || !g) return;
+  b.value = settings.bounce; g.value = settings.gravity;
+  document.getElementById("val-bounce").textContent  = (+settings.bounce).toFixed(2) + "×";
+  document.getElementById("val-gravity").textContent = (+settings.gravity).toFixed(2);
+}
+function openSettings(){
+  syncBgmList(); syncPhysicsUI();
+  document.getElementById("settings-overlay").classList.add("show");
+}
+function closeSettings(){ document.getElementById("settings-overlay").classList.remove("show"); }
+document.getElementById("set-bounce").addEventListener("input", function(){
+  settings.bounce = sClamp(+this.value, .2, 2);
+  applyPhysics(); saveSettings(); syncPhysicsUI();
+});
+document.getElementById("set-gravity").addEventListener("input", function(){
+  settings.gravity = sClamp(+this.value, .2, 2.5);
+  applyPhysics(); saveSettings(); syncPhysicsUI();
+});
+document.getElementById("set-reset").addEventListener("click", function(){
+  settings = Object.assign({}, DEFAULT_SETTINGS);
+  applyPhysics(); saveSettings(); syncPhysicsUI();
+  bgmApplySrc(settings.bgm, bgmStarted);
+  toast("已恢复默认设置");
+});
+document.getElementById("set-close").addEventListener("click", closeSettings);
+document.getElementById("menu-settings").addEventListener("click", openSettings);
+document.getElementById("gear-btn").addEventListener("click", openSettings);
+document.getElementById("settings-overlay").addEventListener("click", function(e){
+  if(e.target === this) closeSettings();
+});
+
+/* ---- 人物图鉴：大图 + 名称 ---- */
+function buildAlbum(){
+  const grid = document.getElementById("album-grid");
+  if(!grid || grid.childNodes.length) return;
+  LEVELS.forEach(function(L, i){
+    const cell = document.createElement("div");
+    cell.className = "album-cell";
+    cell.id = "album-cell-" + i;
+    cell.style.setProperty("--rc", L.color);
+    const img = document.createElement("img");
+    img.src = FACES[L.face];
+    img.alt = "Lv." + (i+1) + " " + L.name;
+    const lv = document.createElement("span"); lv.className = "al"; lv.textContent = "Lv." + (i+1);
+    const nm = document.createElement("span"); nm.className = "an"; nm.textContent = L.name;
+    cell.appendChild(img); cell.appendChild(lv); cell.appendChild(nm);
+    if(L.hi){
+      const lk = document.createElement("span"); lk.className = "lk";
+      lk.textContent = "🔒 " + (L.tier || "5000") + " 分解锁";
+      cell.appendChild(lk);
+    }
+    grid.appendChild(cell);
+  });
+  document.getElementById("album-count").textContent = LEVELS.length;
+}
+function openAlbum(focusIdx){
+  buildAlbum();
+  const cells = document.querySelectorAll(".album-cell");
+  for(const c of cells) c.classList.remove("focus");
+  document.getElementById("album-overlay").classList.add("show");
+  const target = (focusIdx === undefined || focusIdx === null) ? null :
+    document.getElementById("album-cell-" + focusIdx);
+  if(target){
+    target.classList.add("focus");
+    setTimeout(function(){ try{ target.scrollIntoView({block:"center"}); }catch(e){} }, 50);
+  }
+}
+function closeAlbum(){ document.getElementById("album-overlay").classList.remove("show"); }
+document.getElementById("album-close").addEventListener("click", closeAlbum);
+document.getElementById("menu-album").addEventListener("click", function(){ openAlbum(); });
+document.getElementById("chain-album-btn").addEventListener("click", function(){ openAlbum(); });
+document.getElementById("album-overlay").addEventListener("click", function(e){
+  if(e.target === this) closeAlbum();
+});
+
+/* ---- 初始化：把持久化的设置应用到引擎与音频 ---- */
+applyPhysics();
+bgmApplySrc(settings.bgm, false);
 syncBgmBtn();
+syncBgmList();
+syncPhysicsUI();
 
 /* ================== 特效/UI 工具 ================== */
 function burst(x, y, color, n, sp){
@@ -1030,6 +1381,12 @@ function answer(idx, btn){
       openQuiz();   // 收起答案 → 直接出下一题
     }, 1000);
   }
+  // v1.3 适配：面板限高时，答题后才出现的反馈与「下一题 / 结束做题」会落在
+  // 可滚动区底部。仅当面板确实溢出时滚到底，保证玩家答完就看到下一步按钮。
+  // 横屏矮屏右侧面板同样受益；不改任何答题 / 计分逻辑。
+  const quizModal = document.querySelector("#quiz-overlay .modal");
+  if(quizModal && quizModal.scrollHeight > quizModal.clientHeight + 4)
+    quizModal.scrollTop = quizModal.scrollHeight;
 }
 document.getElementById("quiz-next").addEventListener("click", function(){
   if(state !== "playing" || gameOver) return;
@@ -1139,6 +1496,7 @@ document.getElementById("menu-cg").addEventListener("click", function(){
 
 /* ================== 菜单 / 开始 / 结束 ================== */
 function toggleGameUI(on){
+  document.body.classList.toggle("game-on", !!on);   // v1.4：供窄屏做题入口显隐使用
   document.getElementById("hud").style.display = on ? "flex" : "none";
   document.getElementById("home-btn").style.display = on ? "block" : "none";
   document.getElementById("quiz-btn").style.display = on ? "flex" : "none";
@@ -1645,6 +2003,11 @@ function drawNext(){
     const label = document.createElement("span");
     label.innerHTML = "<b>Lv." + (i+1) + "</b> " + L.name + (L.hi ? ' <span style="color:#e17055;font-size:10px">🔒' + (L.tier||"5000") + '</span>' : '');
     row.appendChild(dot); row.appendChild(label);
+    const go = document.createElement("span");
+    go.className = "row-go"; go.textContent = "›";
+    row.appendChild(go);
+    row.title = "点击查看人物图鉴";
+    row.addEventListener("click", function(){ openAlbum(i); });
     chain.appendChild(row);
   });
   if(cgUnlocked()) document.getElementById("menu-cg").style.display = "block";
@@ -1656,7 +2019,11 @@ function layoutStage(){
   const side = document.getElementById("side");
   const sideOn = side && getComputedStyle(side).display !== "none";
   const sideW = sideOn ? side.offsetWidth + 14 : 0;
-  const quizPad = document.body.classList.contains("quiz-side") ? Math.min(352, window.innerWidth * .4) : 0;
+  // v1.3：仅「竖屏 + 窄屏」时做题面板是底部全宽，不需要为右侧预留空间；
+  // 横屏（含宽度 ≤900 的手机横屏）仍走右侧面板，保留原有留白，避免误判。
+  const portraitLayout = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+  const quizPad = (document.body.classList.contains("quiz-side") && !portraitLayout)
+    ? Math.min(352, window.innerWidth * .4) : 0;
   const availW = Math.max(140, window.innerWidth - 20 - quizPad - sideW);
   const availH = Math.max(180, window.innerHeight - 20);
   let h = availH, w = h * 480 / 720;
@@ -1671,13 +2038,22 @@ window.addEventListener("resize", layoutStage);
 window.addEventListener("orientationchange", function(){ setTimeout(layoutStage, 120); });
 layoutStage();
 
-/* ================== 强制横屏提示 ================== */
+/* ================== 竖屏提示（v1.3：建议但不强制） ================== */
+const PORTRAIT_OK_KEY = "bioPortraitOk";
+let portraitOk = false;
+try{ portraitOk = localStorage.getItem(PORTRAIT_OK_KEY) === "1"; }catch(e){}
 function checkOrientation(){
   const tip = document.getElementById("rotate-tip");
   const portrait = window.innerHeight > window.innerWidth;
   const small = Math.min(window.innerWidth, window.innerHeight) < 560;
-  tip.style.display = (portrait && small) ? "flex" : "none";
+  tip.style.display = (portrait && small && !portraitOk) ? "flex" : "none";
 }
+document.getElementById("portrait-ok").addEventListener("click", function(){
+  portraitOk = true;
+  try{ localStorage.setItem(PORTRAIT_OK_KEY, "1"); }catch(e){}
+  document.getElementById("rotate-tip").style.display = "none";
+  layoutStage();   // 竖屏下重新量一次画布尺寸
+});
 window.addEventListener("resize", checkOrientation);
 window.addEventListener("orientationchange", function(){ setTimeout(checkOrientation, 120); });
 checkOrientation();
