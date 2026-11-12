@@ -6,37 +6,65 @@
 <!--
   ============================================================
   版本记录 / BUILD LOG
-  版本数字：4        （文件名即 4.html；本项目版本以递增整数标识，后续为 5、6、7…）
-  版本：v1.4 设置面板 + 人物图鉴版
+  版本数字：7        （文件名即 7.html；本项目版本以递增整数标识，后续为 8、9、10…）
+  版本：v1.7 图鉴头像点击全屏详情版
   日期：2026-11-12
-  基于：3.html（v1.3 竖屏友好版，md5 2ee00df0a0803d43fc5f4fb933c2a14e，816313 字节）
-  血脉：v1.0 核心基准 → v1.1 弹性改进 → v1.2 弹性+BGM → v1.3 竖屏友好 → v1.4 本版本
-  本版改动：
-    一、设置面板（入口：主菜单「⚙️ 游戏设置」+ 画布右上常驻「⚙️」小按钮）
-      1. 背景音乐可在 5 首之间切换：BGM1~BGM5，均为同目录独立 MP3，
-         相对路径 ./bgm.mp3、./bgm2.mp3、./bgm3.mp3、./bgm4.mp3、./bgm5.mp3
-         （BGM1 沿用已有《樱花树下的约定》；其余 4 首待补，放进来即自动可用）
-      2. 曲目未放置时给出明确提示并自动回退到可用曲目，不崩溃、不阻塞游戏；
-         主菜单点选即试听，游戏中点选立即换歌
-      3. 弹性系数滑块 0.20×~2.00×（默认 1.00×）：整体缩放 v1.1 的分级弹性，
-         上限钳制 0.95 防止无限弹；对场上已有的球也立即生效
-      4. 重力加速度滑块 0.20~2.50（默认 1.15）：直接作用于 engine.gravity.y，
-         实时生效，重开一局不会重置
-      5. 全部写入 localStorage(bioSettings)，刷新 / 重开自动恢复；「恢复默认」一键还原
-    二、人物图鉴（入口：主菜单「📖 人物图鉴」+ 合成链标题「📖 图鉴」+ 点击合成链任意一行）
-      6. 网格展示 21 位人物的大图（直接复用 v1.0 内联的 22 张 base64 人脸），
-         每格含 Lv 等级、名称、高阶球解锁门槛；点合成链某行会直达并高亮该人物
-      7. 弹窗改为 fixed 全视口居中，竖屏 / 横屏手机都不被 480:720 画布挤压
-    三、兼容与回归
-      8. 主菜单新增 2 个按钮，矮屏横屏下收紧按钮间距，保证 390px 高度不溢出
-      9. 修掉 v1.3 遗留瑕疵：窄屏的 !important 曾让主菜单也显示「做题得道具」，
-         现加 body.game-on 条件，仅游戏中出现；桌面横屏仍走侧栏做题
-     10. 缺文件回退优先回到「上一首能播的曲目」，不再硬跳回 BGM1
-     11. 保留 v1.3 竖屏非强制提示、v1.2 BGM 静音 / 切后台暂停 / 失败兜底、
-         v1.1 全部弹性改进；题库、四种道具、里程碑、计分、合成判定、CG 均未改动
-     12. 矮屏横屏（≤620px 高）设置面板把 5 首 BGM 压成两列、收起说明文字，
-         让弹性/重力滑块和底部按钮同屏可见，不必先滚动
-     13. 加强主菜单标题下方两行文字的描边，避免被背景装饰球糊住
+  基于：6.html（v1.6 移动端竖屏 HUD 紧凑化版，md5 6ca9def44ffe2ac5b1887815152188cb，842415 字节）
+  血脉：v1.0 核心基准 → v1.1 弹性改进 → v1.2 弹性+BGM → v1.3 竖屏友好
+        → v1.4 设置/图鉴 → v1.5 全视口布局 → v1.6 竖屏HUD → v1.7 本版本
+  本版改动（在 6.html 基础上新增，图鉴交互升级，其余全部保持 v1.6 原样）：
+    一、图鉴卡片可点开全屏详情
+      1. 图鉴弹窗内点击任意人物卡片（头像 / 名字均可），弹出独立全屏详情层
+         #person-overlay（z-index:75，盖在图鉴之上），居中显示：
+         · 大圆形头像：直径 min(70vw,320px)，外圈彩色描边环沿用该人物专属色 --rc
+         · 等级：大号「Lv.X」（橙色，沿用 --accent）
+         · 名字：大号加粗白字
+         · 高阶解锁提示：hi 人物显示「🔒 X 分解锁」（金色）
+      2. 关闭三选一：点详情层空白处 / 点「← 返回图鉴」按钮 / 按 Esc；
+         关闭后回到图鉴并保留原状态（滚动位置、焦点均不受影响）
+      3. 通过 #album-grid 事件委托绑定点击，对 21 张卡片统一生效；
+         openPerson(idx) 用 LEVELS[idx] 的 face / color / name / hi / tier 填充
+    二、图鉴副标题同步提示「点任意卡片看大图」
+    三、未改动：图鉴网格、合成链直达、设置面板、BGM、弹性/重力、做题、计分、
+        合成判定、HUD 紧凑化等；person-overlay 作为 body 直接子级，
+        避免祖先 transform 影响 position:fixed 的全屏定位
+  问题背景（用户实测反馈）：
+    手机竖屏下 HUD 按钮太大，遮住画布左上角、右上角和左侧一大条。
+    5.html 在 390×844 实测（坐标相对 370×555 画布左上角）：
+      得分框   50×64  (12,10)
+      做题按钮 112×38 (12,70)    —— 带完整文字，横向吃掉 112px
+      下一颗   60×68  (298,10)
+      音乐图标 34×30  (324,162) / 设置图标 36×30 (322,206) —— 竖排占 74px 高
+      道具列   76×232 (8,313)    —— 单项最大，4 个按钮各 52px 高带文字
+      主界面   76×38  (8,267)
+      HUD 遮挡面积合计 34166 / 画布 205350 = 16.6%
+  本版改动（仅 @media (orientation:portrait) and (max-width:600px)，
+            手机竖屏生效；平板竖屏 / 手机横屏 / 桌面横屏一律保持 v1.5 原样）：
+    一、左上角
+      1. 得分：padding 6/14→3/4、宽 60px、圆角 8px；「得分」标签 11→9px、
+         分数 22→17px、里程碑保留但压到 8px，整体由 50×64 缩成 60×44 角标
+      2. 做题得道具：只保留 📝 图标，112×38 → 32×32 小方钮，贴得分框右侧同一行；
+         保留 title / aria-label，点击行为与做题面板完全不变
+      3. 主界面按钮同步图标化（只留 🏠），32×32 排在做题钮右侧，
+         不再占左下角 76×38
+    二、右上角
+      4. 下一颗：padding 5/10→3/5、标签 11→9px、预览头像 40→26px，
+         60×68 → 约 40×44，仍由 margin-left:auto 缩在顶上最右
+      5. 音乐 / 设置：各 34×30 → 30×30，由「右侧中部上下竖排」改为
+         「下一颗正下方左右并排」，右侧纵向占用由 74px 降到 30px，
+         且上移到 y=56 避开画布内的「⚠ 警戒线」文字
+    三、左下角
+      6. 四个道具由「76×232 竖排带文字」改为「88×88 的 2×2 图标网格」：
+         每格 42×42，只留 emoji 图标 + 右上角数量角标（15×15、9px）；
+         文字用 font-size:0 隐藏，但每个按钮补 title / aria-label，
+         点击时原有的 toast（「🌀 搅拌机启动！」等）仍会显示完整名称，
+         disabled / armed / 数量更新 / 四种道具逻辑一行未改
+      7. #props 的 display 由内联 flex 改为 body.game-on 条件下的 grid，
+         未开始游戏时仍随 toggleGameUI(false) 隐藏，不漏出到主菜单
+    四、配套收紧
+      8. 连对标签、提示气泡、结算按钮位置与字号同步收缩，避开新布局
+      9. 画布尺寸、480:720 比例、v1.5 的竖屏合成链人物带、做题面板、
+         设置面板、人物图鉴、BGM、弹性/重力、题库、计分、合成判定均未改动
   配套音频（必须与本 HTML 同一目录，文件名固定小写）：
     bgm.mp3   BGM1（已有，《樱花树下的约定》）
     bgm2.mp3  BGM2（待补）   bgm3.mp3  BGM3（待补）
@@ -59,7 +87,7 @@
   canvas#game{display:block;width:100%;height:100%;border-radius:14px;
     box-shadow:0 10px 40px rgba(0,0,0,.45);touch-action:none;cursor:crosshair;}
   #side{width:190px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:4px;}
-  @media (max-width:900px){ #side{display:none;} }
+  /* v1.5：不再按宽度隐藏侧栏；按朝向分配位置，规则统一放在 CSS 末尾 */
   .card{background:var(--panel);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.3);}
   .card h3{margin:0 0 8px;font-size:14px;color:#34495e;border-bottom:2px solid #ff7a45;padding-bottom:5px;}
   #chain{display:flex;flex-direction:column;gap:5px;}
@@ -308,6 +336,28 @@
   .album-cell .an{display:block;margin-top:6px;font-size:12px;font-weight:800;color:#2c3e50;line-height:1.3;}
   .album-cell .al{display:block;font-size:10px;color:var(--accent);font-weight:700;}
   .album-cell .lk{display:block;font-size:9.5px;color:#e17055;margin-top:2px;}
+  .album-cell{cursor:pointer;transition:transform .12s,box-shadow .12s;}
+  .album-cell:active{transform:scale(.96);}
+  /* ===== v1.7：人物图鉴 → 点击卡片全屏详情 ===== */
+  #person-overlay{position:fixed;inset:0;z-index:75;display:none;
+    background:radial-gradient(circle at 50% 32%,rgba(30,42,58,.96),rgba(6,10,16,.97));
+    align-items:center;justify-content:center;padding:20px;box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;}
+  #person-overlay.show{display:flex;}
+  .person-stage{position:relative;width:100%;max-width:460px;display:flex;
+    flex-direction:column;align-items:center;text-align:center;gap:16px;}
+  .person-back{position:absolute;top:-6px;left:0;border:none;cursor:pointer;
+    background:rgba(255,255,255,.16);color:#fff;font-size:13px;font-weight:800;
+    padding:7px 13px;border-radius:10px;}
+  .person-back:active{transform:scale(.95);}
+  .person-avatar{width:min(70vw,320px);height:min(70vw,320px);border-radius:50%;
+    background-size:cover;background-position:center;background-repeat:no-repeat;
+    box-shadow:0 0 0 8px var(--rc,#eee),0 14px 44px rgba(0,0,0,.55);}
+  .person-lv{font-size:18px;font-weight:800;color:var(--accent);letter-spacing:.6px;}
+  .person-name{font-size:min(9vw,32px);font-weight:900;color:#fff;line-height:1.2;
+    text-shadow:0 2px 12px rgba(0,0,0,.5);}
+  .person-lock{font-size:13px;color:#ffd479;font-weight:700;}
+  .person-tip{font-size:11px;color:rgba(255,255,255,.45);margin-top:4px;}
   @media (max-width:900px){
     #album-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;}
   }
@@ -332,9 +382,155 @@
     .set-actions button{padding:6px 14px;font-size:12px;}
   }
 
+
+  /* ===== v1.5 全视口布局适配 ==============================================
+     旧版 @media (max-width:900px){#side{display:none}} 会让竖屏 / 平板 / 窄横屏
+     的「合成链」整块消失。本版按朝向重新分配：
+       竖屏     → 画布上方、合成链横滑人物带在画布下方（全宽）
+       窄横屏   → 158px 精简合成链在画布右侧（可纵滑）
+       宽屏横屏 → 保持 v1.0 右侧完整侧栏，合成链改双列一屏看全
+     全部放在样式表末尾，以覆盖前面的隐藏规则。 */
+  #side-toggle{display:none;width:100%;border:1px dashed rgba(255,255,255,.38);
+    border-radius:10px;padding:8px 0;margin-top:2px;background:rgba(255,255,255,.1);
+    color:#e7f2ec;font-size:12px;font-weight:700;cursor:pointer;}
+  #side-toggle:active{transform:scale(.98);}
+
+  /* A. 竖屏：画布在上，合成链人物带在下 */
+  @media (orientation:portrait){
+    /* 只让 html 当滚动容器；body 高度自适应，展开侧栏信息后可顺畅下滑 */
+    html{overflow-y:auto;overflow-x:hidden;}
+    body{overflow:visible;height:auto;min-height:100%;}
+    #app{flex-direction:column;align-items:center;justify-content:flex-start;
+      height:auto;min-height:100%;gap:10px;padding:10px;}
+    #stage-wrap{flex:none;}
+    #side{display:flex !important;width:min(100%,560px);max-width:100%;
+      flex-direction:column;gap:8px;overflow:visible;padding:0;}
+    #side > .card:not(#chain-card){display:none;}
+    body.side-all #side > .card:not(#chain-card){display:block;}
+    #side-toggle{display:block;}
+    #chain-card{flex:none;}
+    #chain-card h3{margin-bottom:6px;}
+    /* 21 位人物：单列横滑，顺序即 Lv.1→Lv.21 */
+    #chain{display:flex;flex-direction:row;gap:7px;overflow-x:auto;overflow-y:hidden;
+      padding:2px 2px 6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;}
+    .chain-row{flex:none;width:66px;flex-direction:column;align-items:center;gap:3px;
+      text-align:center;font-size:9.5px;line-height:1.25;padding:4px 2px 5px;
+      background:rgba(255,255,255,.62);border-radius:10px;border:1px solid rgba(0,0,0,.07);}
+    .chain-dot{width:44px;height:44px;}
+    .chain-row span:not(.row-go){display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+    .chain-row b{font-size:9.5px;color:var(--accent);}
+    .chain-row .row-go{display:none;}
+    body.quiz-side #side{display:flex !important;}   /* 竖屏做题不再藏掉人物带 */
+    body.quiz-side #app{padding-right:10px;}
+  }
+  /* 矮屏竖屏（360×640 一类）：人物带再压紧一档，给画布多留空间 */
+  @media (orientation:portrait) and (max-height:700px){
+    #side{gap:6px;}
+    #chain-card{padding:7px 8px;}
+    #chain-card h3{font-size:12px;margin-bottom:4px;padding-bottom:3px;}
+    #chain-album-btn{font-size:10px;padding:2px 6px;}
+    .chain-row{width:58px;padding:3px 2px 4px;}
+    .chain-dot{width:36px;height:36px;}
+    #side-toggle{padding:6px 0;font-size:11px;}
+  }
+
+  /* B. 窄横屏：手机横屏 844×390 / 桌面窄窗 900×600，右侧精简合成链 */
+  @media (orientation:landscape) and (max-width:900px){
+    #side{display:flex !important;width:158px;gap:6px;padding:2px;overflow-y:auto;}
+    #side > .card:not(#chain-card){display:none;}
+    #side-toggle{display:none;}
+    #side .card{padding:7px 8px;}
+    #chain-card h3{font-size:12px;padding-bottom:4px;margin-bottom:5px;}
+    #chain-album-btn{font-size:10px;padding:2px 6px;}
+    #chain{display:flex;flex-direction:column;gap:3px;}
+    .chain-row{font-size:10px;gap:5px;padding:1px 2px;}
+    .chain-dot{width:20px;height:20px;}
+    .chain-row .row-go{display:none;}
+    body.quiz-side #side{display:none !important;}   /* 右侧让给做题面板 */
+  }
+
+  /* C. 宽屏横屏：桌面 / 笔电，布局不变，21 位人物改双列一屏可见 */
+  @media (orientation:landscape) and (min-width:901px){
+    #side-toggle{display:none;}
+    #side > .card:not(#chain-card){display:block;}
+    #side{width:296px;}
+    #chain{display:grid;grid-template-columns:1fr 1fr;gap:3px 5px;}
+    .chain-row{font-size:10px;gap:4px;padding:1px 2px;min-width:0;overflow:hidden;}
+    .chain-dot{width:21px;height:21px;}
+    .chain-row .row-go{display:none;}
+    .chain-row span:not(.row-go){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* 双列格子窄：高阶球的解锁门槛移到悬浮提示，保证名称完整可读 */
+    .chain-row .chain-lock{display:none;}
+    body.quiz-side #side{display:none;}
+  }
+
+  /* ===== v1.6 移动端竖屏 HUD 紧凑化 ====================================
+     只作用于手机竖屏（≤600px）；平板竖屏、手机横屏、桌面横屏全部保持
+     v1.5 原样。放在样式表最末尾以覆盖前面的默认尺寸与 props-inline 规则。 */
+  @media (orientation:portrait) and (max-width:600px){
+    /* 顶部一行：得分 · 做题 · 主界面 —— 下一颗 —— 音乐/设置 */
+    #hud{top:6px;left:8px;right:8px;gap:5px;}
+    #score-box{width:60px;padding:3px 4px;border-radius:8px;box-sizing:border-box;}
+    #score-box .lbl{font-size:9px;line-height:1.2;}
+    #score{font-size:17px;line-height:1.15;}
+    #milestone{font-size:8px;min-height:0;line-height:1.1;max-width:100%;
+      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+    #next-box{padding:3px 5px;border-radius:8px;}
+    #next-box .lbl{font-size:9px;line-height:1.2;}
+    #next-canvas{width:26px;height:26px;margin:1px auto 0;}
+
+    /* 做题：只留图标，贴得分框右侧 */
+    #quiz-btn{top:6px;left:74px;width:32px;height:32px;padding:0;gap:0;
+      font-size:0;border-radius:9px;justify-content:center;align-items:center;
+      box-shadow:0 2px 7px rgba(0,0,0,.35);}
+    #quiz-btn .ico{font-size:16px;line-height:1;}
+    /* 主界面：同一行再往右，图标化 */
+    #home-btn, body.props-inline #home-btn{
+      top:6px;left:112px;bottom:auto;width:32px;height:32px;padding:0;
+      font-size:0;text-align:center;line-height:32px;border-radius:9px;
+      box-shadow:0 2px 7px rgba(0,0,0,.35);}
+    #home-btn .ico{font-size:15px;line-height:32px;}
+    #home-btn .txt{display:none;}
+
+    /* 音乐 / 设置：30×30 并排缩在「下一颗」正下方，避开警戒线文字 */
+    #bgm-btn,#gear-btn{width:30px;height:30px;padding:0;font-size:14px;
+      line-height:30px;text-align:center;border-radius:9px;
+      box-shadow:0 2px 7px rgba(0,0,0,.35);}
+    #bgm-btn{top:56px;right:8px;}
+    #gear-btn{top:56px;right:44px;}
+
+    /* 连对标签 / 提示气泡 / 结算按钮同步收紧 */
+    #streak-tag{top:44px;left:8px;font-size:10px;padding:2px 7px;border-radius:7px;}
+    #toast{top:96px;font-size:11px;padding:5px 12px;}
+    #settle-btn{top:56px;right:82px;font-size:11px;padding:6px 10px;border-radius:9px;}
+
+    /* 四个道具：2×2 图标网格，只留 emoji + 数量角标 */
+    body.game-on #props{display:grid !important;}
+    #props, body.props-inline #props{
+      left:8px;bottom:8px;width:88px;
+      grid-template-columns:1fr 1fr;gap:4px;}
+    .prop-btn, body.props-inline .prop-btn{
+      width:100%;height:42px;padding:0;border-radius:10px;font-size:0;
+      box-shadow:0 2px 6px rgba(0,0,0,.3);}
+    .prop-btn .ico{font-size:20px;line-height:1;}
+    .prop-btn .cnt{min-width:15px;height:15px;line-height:15px;font-size:9px;
+      top:-5px;right:-4px;padding:0 3px;border-radius:8px;}
+  }
 </style>
 </head>
 <body>
+    <!-- v1.7 人物全屏详情层 -->
+    <div class="person-overlay" id="person-overlay">
+      <div class="person-stage">
+        <button class="person-back" id="person-back" type="button">← 返回图鉴</button>
+        <div class="person-avatar" id="person-avatar"></div>
+        <div class="person-lv" id="person-lv">Lv.1</div>
+        <div class="person-name" id="person-name">名字</div>
+        <div class="person-lock" id="person-lock" style="display:none;"></div>
+        <div class="person-tip">点击任意处返回图鉴 · 或按 Esc</div>
+      </div>
+    </div>
+
 <!-- v1.2 背景音乐：同目录独立文件，相对路径，同源无 CORS；loop 循环，play() 时才加载 -->
 <audio id="bgm-audio" src="./bgm.mp3" loop preload="none"></audio>
 <div id="app">
@@ -345,17 +541,17 @@
       <div id="score-box"><div class="lbl">得分</div><div id="score">0</div><div id="milestone"></div></div>
       <div id="next-box"><div class="lbl">下一颗</div><canvas id="next-canvas" width="80" height="80"></canvas></div>
     </div>
-    <button id="quiz-btn" style="display:none;"><span class="ico">📝</span>做题得道具</button>
+    <button id="quiz-btn" style="display:none;" title="做题得道具" aria-label="做题得道具"><span class="ico">📝</span>做题得道具</button>
     <button id="settle-btn">🏁 结算上榜</button>
-    <button id="home-btn">🏠 主界面</button>
+    <button id="home-btn" title="返回主界面" aria-label="返回主界面"><span class="ico">🏠</span><span class="txt">主界面</span></button>
     <button id="bgm-btn" type="button" title="关闭背景音乐" aria-label="关闭背景音乐">🎵</button>
     <button id="gear-btn" type="button" title="游戏设置" aria-label="游戏设置">⚙️</button>
     <div id="streak-tag"></div>
     <div id="props" style="display:none;">
-      <button class="prop-btn" id="prop-blender"><span class="ico">🌀</span>搅拌机<span class="cnt" id="cnt-blender">0</span></button>
-      <button class="prop-btn" id="prop-bomb"><span class="ico">💣</span>炸药<span class="cnt" id="cnt-bomb">0</span></button>
-      <button class="prop-btn" id="prop-super"><span class="ico">⚡</span>强化球<span class="cnt" id="cnt-super">0</span></button>
-      <button class="prop-btn" id="prop-fast"><span class="ico">⏩</span>加速球<span class="cnt" id="cnt-fast">0</span></button>
+      <button class="prop-btn" id="prop-blender" title="搅拌机" aria-label="搅拌机"><span class="ico">🌀</span>搅拌机<span class="cnt" id="cnt-blender">0</span></button>
+      <button class="prop-btn" id="prop-bomb" title="炸药" aria-label="炸药"><span class="ico">💣</span>炸药<span class="cnt" id="cnt-bomb">0</span></button>
+      <button class="prop-btn" id="prop-super" title="强化球" aria-label="强化球"><span class="ico">⚡</span>强化球<span class="cnt" id="cnt-super">0</span></button>
+      <button class="prop-btn" id="prop-fast" title="加速球" aria-label="加速球"><span class="ico">⏩</span>加速球<span class="cnt" id="cnt-fast">0</span></button>
     </div>
     <div id="toast"></div>
 
@@ -486,7 +682,7 @@
     <div class="overlay" id="album-overlay">
       <div class="modal">
         <h2>📖 12班人物图鉴</h2>
-        <div class="qmeta">共 <b id="album-count">21</b> 位 · 点击合成链里的任意一行可直达对应人物</div>
+        <div class="qmeta">共 <b id="album-count">21</b> 位 · 点任意卡片看大图，或点合成链任一行直达</div>
         <div id="album-grid"></div>
         <div class="set-actions"><button class="primary" id="album-close">关闭</button></div>
       </div>
@@ -517,6 +713,8 @@
         高中生物选择性必修一《稳态与调节》<br>第1~5章 · 共 100 道选择题
       </div>
     </div>
+    <!-- v1.5：竖屏默认只显示合成链，其余信息可一键展开，不丢内容 -->
+    <button id="side-toggle" type="button">ℹ️ 展开侧栏信息（做题统计 / 里程碑 / 题库来源）</button>
   </div>
 </div>
 
@@ -921,6 +1119,37 @@ function openAlbum(focusIdx){
   }
 }
 function closeAlbum(){ document.getElementById("album-overlay").classList.remove("show"); }
+function openPerson(idx){
+  const L = LEVELS[idx]; if(!L) return;
+  const ov = document.getElementById("person-overlay");
+  const av = document.getElementById("person-avatar");
+  av.style.setProperty("--rc", L.color);
+  av.style.backgroundImage = "url(\"" + FACES[L.face] + "\")";
+  document.getElementById("person-lv").textContent = "Lv." + (idx+1);
+  document.getElementById("person-name").textContent = L.name;
+  const lk = document.getElementById("person-lock");
+  if(L.hi){ lk.style.display = "block"; lk.textContent = "🔒 " + (L.tier || "5000") + " 分解锁"; }
+  else { lk.style.display = "none"; }
+  ov.classList.add("show");
+}
+function closePerson(){ document.getElementById("person-overlay").classList.remove("show"); }
+// 图鉴内点击任意卡片 → 全屏详情（事件委托，对 21 张卡片统一生效）
+document.getElementById("album-grid").addEventListener("click", function(e){
+  const c = e.target.closest ? e.target.closest(".album-cell") : null;
+  if(c){ const idx = +String(c.id).replace("album-cell-", ""); openPerson(idx); }
+});
+// 详情层：点空白 / 返回按钮关闭
+document.getElementById("person-overlay").addEventListener("click", function(e){
+  if(e.target === this) closePerson();
+});
+document.getElementById("person-back").addEventListener("click", closePerson);
+// Esc：优先关详情，详情未开时关图鉴
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  if(document.getElementById("person-overlay").classList.contains("show")) closePerson();
+  else if(document.getElementById("album-overlay").classList.contains("show")) closeAlbum();
+});
+
 document.getElementById("album-close").addEventListener("click", closeAlbum);
 document.getElementById("menu-album").addEventListener("click", function(){ openAlbum(); });
 document.getElementById("chain-album-btn").addEventListener("click", function(){ openAlbum(); });
@@ -2001,12 +2230,12 @@ function drawNext(){
     dot.style.setProperty("--rc", L.color);
     dot.style.backgroundImage = "url(" + FACES[L.face] + ")";
     const label = document.createElement("span");
-    label.innerHTML = "<b>Lv." + (i+1) + "</b> " + L.name + (L.hi ? ' <span style="color:#e17055;font-size:10px">🔒' + (L.tier||"5000") + '</span>' : '');
+    label.innerHTML = "<b>Lv." + (i+1) + "</b> " + L.name + (L.hi ? ' <span class="chain-lock" style="color:#e17055;font-size:10px">🔒' + (L.tier||"5000") + '</span>' : '');
     row.appendChild(dot); row.appendChild(label);
     const go = document.createElement("span");
     go.className = "row-go"; go.textContent = "›";
     row.appendChild(go);
-    row.title = "点击查看人物图鉴";
+    row.title = "点击查看人物图鉴" + (L.hi ? "（" + (L.tier||"5000") + " 分解锁）" : "");
     row.addEventListener("click", function(){ openAlbum(i); });
     chain.appendChild(row);
   });
@@ -2017,15 +2246,20 @@ function drawNext(){
 function layoutStage(){
   const wrap = document.getElementById("stage-wrap");
   const side = document.getElementById("side");
-  const sideOn = side && getComputedStyle(side).display !== "none";
+  // v1.5：竖屏侧栏搬到画布「下方」，不再占右侧宽度；若仍按旧逻辑把它的
+  // 宽度从 availW 扣掉，会把画布误算成 140px 宽，必须排除。
+  const portraitLayout = window.innerHeight > window.innerWidth;
+  const sideOn = side && !portraitLayout && getComputedStyle(side).display !== "none";
   const sideW = sideOn ? side.offsetWidth + 14 : 0;
-  // v1.3：仅「竖屏 + 窄屏」时做题面板是底部全宽，不需要为右侧预留空间；
-  // 横屏（含宽度 ≤900 的手机横屏）仍走右侧面板，保留原有留白，避免误判。
-  const portraitLayout = window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+  // 横屏做题面板常在右侧，仍保留原有留白；竖屏做题面板是底部全宽，不留白。
   const quizPad = (document.body.classList.contains("quiz-side") && !portraitLayout)
     ? Math.min(352, window.innerWidth * .4) : 0;
+  // v1.5：竖屏为画布下方的合成链人物带预留高度，保证「画布 + 人物带」一屏可见。
+  // 矮屏（<700px）配合紧凑样式，预留量同步收小，画布尽量保持原尺寸。
+  const portraitPad = window.innerHeight < 700 ? 20 : 30;
+  const bottomReserve = portraitLayout ? Math.min(200, window.innerHeight * .24) + portraitPad : 0;
   const availW = Math.max(140, window.innerWidth - 20 - quizPad - sideW);
-  const availH = Math.max(180, window.innerHeight - 20);
+  const availH = Math.max(180, window.innerHeight - 20 - bottomReserve);
   let h = availH, w = h * 480 / 720;
   if(w > availW){ w = availW; h = w * 720 / 480; }
   wrap.style.width = Math.floor(w) + "px";
@@ -2057,6 +2291,18 @@ document.getElementById("portrait-ok").addEventListener("click", function(){
 window.addEventListener("resize", checkOrientation);
 window.addEventListener("orientationchange", function(){ setTimeout(checkOrientation, 120); });
 checkOrientation();
+
+/* ================== v1.5：竖屏侧栏信息展开 / 收起 ================== */
+(function(){
+  const t = document.getElementById("side-toggle");
+  if(!t) return;
+  t.addEventListener("click", function(){
+    const on = document.body.classList.toggle("side-all");
+    t.textContent = on ? "🔼 收起侧栏信息"
+                       : "ℹ️ 展开侧栏信息（做题统计 / 里程碑 / 题库来源）";
+    layoutStage();
+  });
+})();
 </script>
 </body>
 </html>
