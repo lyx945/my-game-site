@@ -11,6 +11,7 @@
     --text: #1f2434; --muted: #9198ab; --brand: #5b5bd6; --brand-2: #7c6cf0;
     --brand-soft: #eeedff; --bubble-mine: linear-gradient(135deg,#5b5bd6,#7c6cf0);
     --danger: #e5484d; --online: #30c48d; --shadow: 0 8px 30px rgba(31,36,52,.06);
+    --star: #f5a623;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; margin: 0; }
@@ -30,8 +31,8 @@
   #configWarning code { background: #ffedcc; padding: 1px 5px; border-radius: 4px; }
 
   .app { display: flex; height: 100%; max-width: 1100px; margin: 0 auto; background: var(--panel); box-shadow: var(--shadow); }
-  .sidebar { width: 300px; flex: 0 0 300px; border-right: 1px solid var(--line); display: flex; flex-direction: column; background: var(--panel-2); }
-  .side-head { padding: 20px 18px 14px; display: flex; align-items: center; gap: 12px; }
+  .sidebar { width: 320px; flex: 0 0 320px; border-right: 1px solid var(--line); display: flex; flex-direction: column; background: var(--panel-2); }
+  .side-head { padding: 20px 18px 12px; display: flex; align-items: center; gap: 12px; }
   .logo { width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto; background: linear-gradient(135deg,var(--brand),var(--brand-2)); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 18px; }
   .brand-name { font-weight: 700; font-size: 16px; }
   .brand-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
@@ -41,7 +42,22 @@
   .me-info { min-width: 0; flex: 1; }
   .me-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .me-hint { font-size: 11px; color: var(--muted); }
-  .list-title { padding: 6px 18px 8px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+
+  .search-wrap { margin: 0 12px 10px; position: relative; }
+  .search-wrap input {
+    width: 100%; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px 9px 32px; outline: none; background: #fff; font-size: 13px;
+  }
+  .search-wrap input:focus { border-color: var(--brand-2); }
+  .search-wrap .ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; }
+
+  .tabs { display: flex; gap: 6px; padding: 0 12px 8px; }
+  .tab {
+    flex: 1; border: 1px solid var(--line); background: #fff; border-radius: 9px;
+    padding: 7px; font-size: 12px; color: var(--muted); font-weight: 600;
+  }
+  .tab.active { background: var(--brand-soft); color: var(--brand); border-color: #dcd9ff; }
+  .list-title { padding: 4px 18px 8px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
   .dot-online { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--online); margin-right: 5px; }
   .user-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
   .user-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; cursor: pointer; border: 1px solid transparent; }
@@ -60,6 +76,12 @@
   .chat-title { font-weight: 700; font-size: 15px; }
   .chat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; transition: color .2s; }
   .chat-sub.typing { color: var(--brand); font-weight: 600; }
+  .follow-btn {
+    margin-left: auto; border: 1px solid var(--brand-2); background: #fff; color: var(--brand);
+    border-radius: 10px; padding: 7px 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .follow-btn.on { background: var(--brand-soft); border-color: #dcd9ff; }
+  .follow-btn .st { color: var(--star); }
   .messages { flex: 1; overflow-y: auto; padding: 22px 18px; background: var(--panel-2); }
   .empty-chat { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); gap: 10px; text-align: center; }
   .empty-chat .big { font-size: 40px; opacity: .55; }
@@ -113,7 +135,15 @@
       <div class="avatar" id="meAvatar">?</div>
       <div class="me-info"><div class="me-name" id="meName">未设置</div><div class="me-hint">点击修改昵称</div></div>
     </div>
-    <div class="list-title"><span>在线的人</span><span><i class="dot-online"></i><span id="onlineCount">0</span></span></div>
+    <div class="search-wrap">
+      <span class="ico">🔍</span>
+      <input id="searchInput" placeholder="搜索昵称，找到朋友直接开聊" autocomplete="off">
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="tabOnline" data-tab="online">在线</button>
+      <button class="tab" id="tabFollowing" data-tab="following">我的关注</button>
+    </div>
+    <div class="list-title" id="listTitle"><span>在线的人</span><span><i class="dot-online"></i><span id="listCount">0</span></span></div>
     <div class="user-list" id="userList"></div>
   </aside>
 
@@ -122,9 +152,10 @@
       <button class="back-btn" id="backBtn" aria-label="返回">‹</button>
       <div class="avatar" id="peerAvatar">?</div>
       <div><div class="chat-title" id="peerName">选择一个联系人</div><div class="chat-sub" id="peerSub">在线即可聊天</div></div>
+      <button class="follow-btn" id="followBtn" style="display:none">☆ 关注</button>
     </div>
     <div class="messages" id="messages">
-      <div class="empty-chat"><div class="big">💬</div><div>点击左侧在线用户开始私聊</div></div>
+      <div class="empty-chat"><div class="big">💬</div><div>点击左侧用户开始私聊<br>或搜索昵称找到朋友</div></div>
     </div>
     <div class="composer">
       <textarea id="msgInput" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行" disabled></textarea>
@@ -136,7 +167,7 @@
 <div class="modal" id="nickModal">
   <div class="modal-card">
     <h2 id="modalTitle">给自己起个昵称</h2>
-    <p>昵称只用于展示，随时可以修改。你的身份保存在本浏览器，刷新后依然是你。</p>
+    <p>昵称用于展示和搜索，随时可改。身份保存在本浏览器，刷新后依然是你，关注和聊天记录都会保留。</p>
     <input id="nickInput" maxlength="20" placeholder="例如：小明" autocomplete="off">
     <div class="err" id="nickErr"></div>
     <div class="modal-actions">
@@ -157,7 +188,7 @@ const warnBox = $('configWarning');
 const CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_');
 if (!CONFIGURED) {
   warnBox.hidden = false;
-  warnBox.innerHTML = '⚠️ 尚未配置 Supabase：请打开 <code>chat.html</code> 替换顶部 <code>SUPABASE_URL</code> 与 <code>SUPABASE_ANON_KEY</code>。';
+  warnBox.innerHTML = '⚠️ 尚未配置 Supabase：请替换 <code>chat.html</code> 顶部配置。';
 }
 
 let createClient = null;
@@ -169,7 +200,7 @@ for (const url of [
 }
 if (!createClient && CONFIGURED) {
   warnBox.hidden = false;
-  warnBox.innerHTML = '⚠️ Supabase SDK 加载失败，请检查网络，或把页面中的 CDN 换成 <code>https://esm.sh/@supabase/supabase-js@2</code>。';
+  warnBox.innerHTML = '⚠️ Supabase SDK 加载失败，请检查网络，或换用 <code>https://esm.sh/@supabase/supabase-js@2</code>。';
 }
 const sb = CONFIGURED && createClient ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
@@ -190,7 +221,15 @@ function fmtTime(iso) {
   return d.toDateString()===now.toDateString() ? hm : (d.getMonth()+1)+'/'+d.getDate()+' '+hm;
 }
 
-/* ========== 3. 昵称 ========== */
+/* ========== 3. 昵称（写入 profiles 供搜索） ========== */
+async function upsertProfile() {
+  if (!sb || !myNick) return;
+  const { error } = await sb.from('profiles').upsert({
+    client_id: myId, nickname: myNick, last_seen: new Date().toISOString()
+  });
+  if (error) console.error('[upsertProfile]', error.message);
+}
+
 const nickModal=$('nickModal'), nickInput=$('nickInput'), nickErr=$('nickErr');
 function openNickModal(edit) {
   $('modalTitle').textContent = edit ? '修改昵称' : '给自己起个昵称';
@@ -205,6 +244,7 @@ $('nickOk').onclick = async () => {
   myNick = v; localStorage.setItem(LS_NICK, v);
   $('meName').textContent = v; setAvatar($('meAvatar'), myId, v);
   closeNickModal();
+  await upsertProfile();
   if (presenceReady) await presenceCh.track({ client_id: myId, nickname: myNick, online_at: new Date().toISOString() });
 };
 $('nickCancel').onclick = closeNickModal;
@@ -212,15 +252,19 @@ nickInput.addEventListener('keydown', e => { if (e.key==='Enter') $('nickOk').cl
 $('meCard').onclick = () => openNickModal(true);
 
 /* ========== 4. 状态 ========== */
-let peers = [];
+let peers = [];           // presence 在线
+let following = [];       // 关注列表 [{client_id, nickname}]
+let searchResults = [];   // 搜索结果
+let activeTab = 'online'; // online | following
+let searching = false;
 let currentPeer = null;
 let unread = new Map();
 let seenIds = new Set();
 let presenceReady = false;
 let presenceCh = null, msgCh = null, roomCh = null;
-let typingTimer = null;
+let typingTimer = null, searchTimer = null;
 
-/* ========== 5. Presence：实时在线名单 ========== */
+/* ========== 5. Presence：在线名单 ========== */
 function initPresence() {
   presenceCh = sb.channel('lobby', { config: { presence: { key: myId } } });
   presenceCh
@@ -231,7 +275,7 @@ function initPresence() {
         if (p.client_id && p.client_id !== myId) map.set(p.client_id, p);
       });
       peers = Array.from(map.values());
-      renderPeers();
+      renderList();
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -241,32 +285,139 @@ function initPresence() {
     });
 }
 
-function renderPeers() {
-  const box = $('userList');
-  $('onlineCount').textContent = peers.length;
-  if (!peers.length) {
-    box.innerHTML = '<div class="list-empty">暂时没有其他人在线<br>把这个页面发给朋友就能聊啦</div>';
+/* ========== 6. 关注：加载 / 切换 ========== */
+async function loadFollowing() {
+  if (!sb) return;
+  const { data, error } = await sb.from('follows')
+    .select('following_id').eq('follower_id', myId);
+  if (error) { console.error('[loadFollowing]', error.message); return; }
+  const ids = (data || []).map(r => r.following_id);
+  if (!ids.length) { following = []; renderList(); return; }
+  const { data: users } = await sb.from('profiles')
+    .select('client_id, nickname, last_seen').in('client_id', ids);
+  following = (users || []).map(u => ({ client_id: u.client_id, nickname: u.nickname, last_seen: u.last_seen }));
+  renderList();
+}
+
+async function toggleFollow(peerId, nickname) {
+  if (!sb || !peerId) return;
+  const isFollowing = following.some(f => f.client_id === peerId);
+  const btn = $('followBtn');
+  btn.disabled = true;
+  if (isFollowing) {
+    const { error } = await sb.from('follows').delete()
+      .eq('follower_id', myId).eq('following_id', peerId);
+    if (error) console.error('[unfollow]', error.message);
+    else following = following.filter(f => f.client_id !== peerId);
+  } else {
+    const { error } = await sb.from('follows').insert({
+      follower_id: myId, following_id: peerId
+    });
+    if (error) console.error('[follow]', error.message);
+    else if (!following.some(f => f.client_id === peerId)) {
+      following.push({ client_id: peerId, nickname: nickname || '用户' });
+    }
+  }
+  btn.disabled = false;
+  updateFollowBtn();
+  renderList();
+}
+
+function isFollowing(peerId) { return following.some(f => f.client_id === peerId); }
+
+function updateFollowBtn() {
+  const btn = $('followBtn');
+  if (!currentPeer) { btn.style.display = 'none'; return; }
+  btn.style.display = 'inline-block';
+  const on = isFollowing(currentPeer.client_id);
+  btn.className = 'follow-btn' + (on ? ' on' : '');
+  btn.innerHTML = on ? '<span class="st">★</span> 已关注' : '☆ 关注';
+}
+$('followBtn').onclick = () => {
+  if (currentPeer) toggleFollow(currentPeer.client_id, currentPeer.nickname);
+};
+
+/* ========== 7. 搜索（profiles 按昵称） ========== */
+$('searchInput').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  const kw = e.target.value.trim();
+  if (!kw) {
+    searching = false; searchResults = [];
+    renderList();
     return;
   }
-  box.innerHTML = '';
-  peers.forEach(p => {
-    const item = document.createElement('div');
-    item.className = 'user-item' + (currentPeer && currentPeer.client_id===p.client_id ? ' active' : '');
-    const av = document.createElement('div'); av.className='avatar'; setAvatar(av, p.client_id, p.nickname);
-    const meta = document.createElement('div'); meta.className='user-meta';
-    const name = document.createElement('div'); name.className='user-name'; name.textContent=p.nickname;
-    const tm = document.createElement('div'); tm.className='user-time'; tm.textContent='当前在线';
-    meta.append(name, tm);
+  searchTimer = setTimeout(async () => {
+    searching = true;
+    const { data, error } = await sb.from('profiles')
+      .select('client_id, nickname, last_seen')
+      .ilike('nickname', `%${kw}%`)
+      .neq('client_id', myId)
+      .order('last_seen', { ascending: false })
+      .limit(20);
+    if (error) { console.error('[search]', error.message); searchResults = []; }
+    else searchResults = data || [];
+    renderList();
+  }, 280);
+});
+
+/* ========== 8. 列表渲染 ========== */
+function buildUserItem(p, { online, showBadge }) {
+  const item = document.createElement('div');
+  item.className = 'user-item' + (currentPeer && currentPeer.client_id===p.client_id ? ' active' : '');
+  const av = document.createElement('div'); av.className='avatar'; setAvatar(av, p.client_id, p.nickname);
+  const meta = document.createElement('div'); meta.className='user-meta';
+  const name = document.createElement('div'); name.className='user-name'; name.textContent=p.nickname;
+  const tm = document.createElement('div'); tm.className='user-time';
+  tm.innerHTML = online ? '<i class="dot-online"></i>在线' : '离线 · 消息仍会送达';
+  meta.append(name, tm);
+  item.append(av, meta);
+  if (showBadge) {
     const badge = document.createElement('span');
     badge.className='badge' + (unread.get(p.client_id)?' show':'');
     badge.textContent = unread.get(p.client_id) || '';
-    item.append(av, meta, badge);
-    item.onclick = () => openChat(p);
-    box.appendChild(item);
+    item.appendChild(badge);
+  }
+  item.onclick = () => openChat({ client_id: p.client_id, nickname: p.nickname });
+  return item;
+}
+
+function renderList() {
+  const box = $('userList');
+  box.innerHTML = '';
+  let list, title, count, onlineFlag, badgeFlag;
+
+  if (searching) {
+    list = searchResults; title = '搜索结果'; count = list.length;
+    onlineFlag = false; badgeFlag = false;
+  } else if (activeTab === 'following') {
+    list = following; title = '我的关注'; count = list.length;
+    onlineFlag = false; badgeFlag = true;
+  } else {
+    list = peers; title = '在线的人'; count = list.length;
+    onlineFlag = true; badgeFlag = true;
+  }
+
+  $('listTitle').innerHTML = `<span>${title}</span><span>${(activeTab==='online' && !searching) ? '<i class="dot-online"></i>' : ''}<span>${count}</span></span>`;
+  $('tabOnline').classList.toggle('active', activeTab==='online' && !searching);
+  $('tabFollowing').classList.toggle('active', activeTab==='following' && !searching);
+
+  if (!list.length) {
+    const msg = searching ? '没有找到匹配的用户' :
+      (activeTab==='following' ? '还没有关注的人<br>点击聊天窗口右上角的「关注」添加' :
+        '暂时没有其他人在线<br>搜索昵称或把页面发给朋友');
+    box.innerHTML = `<div class="list-empty">${msg}</div>`;
+    return;
+  }
+  list.forEach(p => {
+    const online = peers.some(x => x.client_id === p.client_id);
+    box.appendChild(buildUserItem(p, { online: online && onlineFlag, showBadge: badgeFlag }));
   });
 }
 
-/* ========== 6. 会话 & 房间（Broadcast 输入状态） ========== */
+$('tabOnline').onclick = () => { $('searchInput').value=''; searching=false; searchResults=[]; activeTab='online'; renderList(); };
+$('tabFollowing').onclick = () => { $('searchInput').value=''; searching=false; searchResults=[]; activeTab='following'; renderList(); };
+
+/* ========== 9. 会话 & Broadcast 输入状态 ========== */
 const roomIdOf = (a,b) => [a,b].sort().join('__');
 
 async function joinRoom(peerId) {
@@ -294,7 +445,7 @@ function notifyTyping() {
   }, 1500);
 }
 
-/* ========== 7. 私聊打开 / 历史消息 ========== */
+/* ========== 10. 打开会话 / 历史消息 ========== */
 async function openChat(peer) {
   currentPeer = peer;
   unread.set(peer.client_id, 0);
@@ -303,7 +454,8 @@ async function openChat(peer) {
   setTyping(false);
   setAvatar($('peerAvatar'), peer.client_id, peer.nickname);
   $('msgInput').disabled = false; $('sendBtn').disabled = false;
-  renderPeers();
+  updateFollowBtn();
+  renderList();
   await joinRoom(peer.client_id);
   await loadHistory();
   $('msgInput').focus();
@@ -315,10 +467,11 @@ $('backBtn').onclick = () => {
   currentPeer = null;
   $('app').classList.remove('chat-open');
   $('msgInput').disabled = true; $('sendBtn').disabled = true;
-  renderPeers();
+  updateFollowBtn();
+  renderList();
 };
 
-// 历史消息：从数据库查询，对方上线打开会话即可看到之前的消息
+// 历史消息：按 room_id 从数据库查询，聊天记录一直保留
 async function loadHistory() {
   if (!sb || !currentPeer) return;
   const rid = roomIdOf(myId, currentPeer.client_id);
@@ -326,7 +479,7 @@ async function loadHistory() {
     .select('id, sender_id, sender_nickname, receiver_id, content, created_at')
     .eq('room_id', rid)
     .order('created_at', { ascending: true })
-    .limit(200);
+    .limit(300);
   if (error) { console.error('[loadHistory]', error.message); return; }
   const box = $('messages'); box.innerHTML = '';
   (data || []).forEach(m => { seenIds.add(m.id); renderMessage(m); });
@@ -349,7 +502,7 @@ function renderMessage(m) {
 }
 function scrollBottom() { const el=$('messages'); el.scrollTop=el.scrollHeight; }
 
-/* ========== 8. 发送消息 ========== */
+/* ========== 11. 发送消息（BUG 修复点） ========== */
 async function sendMessage() {
   const input = $('msgInput');
   const content = input.value.trim();
@@ -357,48 +510,61 @@ async function sendMessage() {
   input.value = '';
   if (typingTimer) clearTimeout(typingTimer);
   if (roomCh) roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});
-  const { error } = await sb.from('messages').insert({
+
+  // insert 后 .select() 拿回执，立即在本地渲染自己的气泡
+  const { data, error } = await sb.from('messages').insert({
     room_id: roomIdOf(myId, currentPeer.client_id),
     sender_id: myId,
     sender_nickname: myNick,
     receiver_id: currentPeer.client_id,
     content
-  });
+  }).select();
+
   if (error) {
     console.error('[sendMessage]', error.message);
     input.value = content;
     alert('发送失败：' + error.message);
+    return;
   }
+  (data || []).forEach(m => {
+    if (!seenIds.has(m.id)) { seenIds.add(m.id); renderMessage(m); }
+  });
+  scrollBottom();
 }
 $('sendBtn').onclick = sendMessage;
 $('msgInput').addEventListener('input', notifyTyping);
 $('msgInput').addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 
-/* ========== 9. Postgres Changes：新消息实时到达 ========== */
+/* ========== 12. Postgres Changes：实时收消息（BUG 修复点） ========== */
 function initMessageChanges() {
   msgCh = sb.channel('messages-stream')
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, ({ new: m }) => {
-      if (seenIds.has(m.id)) return;
+      if (seenIds.has(m.id)) return;      // 自己发的已渲染，去重
       seenIds.add(m.id);
-      if (m.receiver_id === myId) {
-        if (currentPeer && m.sender_id === currentPeer.client_id) { renderMessage(m); scrollBottom(); }
-        else {
-          unread.set(m.sender_id, (unread.get(m.sender_id)||0)+1);
-          renderPeers();
-        }
+      const inCurrentChat = currentPeer && (
+        m.sender_id === currentPeer.client_id || m.receiver_id === currentPeer.client_id
+      );
+      if (inCurrentChat) {
+        renderMessage(m); scrollBottom();
+      } else if (m.receiver_id === myId) {
+        unread.set(m.sender_id, (unread.get(m.sender_id)||0)+1);
+        renderList();
       }
     })
     .subscribe();
 }
 
-/* ========== 10. 启动 ========== */
+/* ========== 13. 启动 ========== */
 if (myNick) { $('meName').textContent=myNick; setAvatar($('meAvatar'), myId, myNick); }
 if (sb) {
   initPresence();
   initMessageChanges();
+  upsertProfile();
+  loadFollowing();
   if (!myNick) openNickModal(false);
+  renderList();
 } else {
-  $('userList').innerHTML = '<div class="list-empty">请先配置 Supabase<br>见 chat.html 顶部配置区</div>';
+  $('userList').innerHTML = '<div class="list-empty">请先配置 Supabase</div>';
 }
 </script>
 </body>
