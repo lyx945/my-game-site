@@ -59,6 +59,19 @@
   .admin-pick .item:hover { border-color:var(--brand-2); background:var(--brand-soft); }
   .admin-pick .item .avatar { width:27px; height:27px; font-size:11px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600; }
   .pick-label { font-size:11px; color:var(--muted); font-weight:600; margin:0 0 7px; }
+  .req-item { border:1px solid var(--line); border-radius:12px; padding:13px; margin-bottom:10px; background:var(--panel-2); }
+  .req-head { display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+  .req-name { font-weight:700; font-size:14px; }
+  .req-status { font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; background:#fff0e0; color:#b26a00; }
+  .req-status.approved { background:#e8f7f0; color:#17805c; }
+  .req-status.rejected { background:#ffeded; color:var(--danger); }
+  .req-time { margin-left:auto; font-size:11px; color:var(--muted); }
+  .req-reason { font-size:12px; color:#5a6172; line-height:1.6; margin-bottom:10px; }
+  .req-pass { font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .req-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .req-actions input { flex:1; min-width:160px; border:1px solid var(--line); border-radius:9px; padding:9px 11px; outline:none; background:#fff; font-size:12px; }
+  .btn-ok { background:#2f9e7e; }
+  .btn-no { background:var(--danger); }
   .hidden { display:none !important; }
   #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2434; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:80; }
   #toast.show { opacity:1; }
@@ -93,6 +106,12 @@
       <a class="link-btn" href="chat.html">去聊天页</a>
       <button class="link-btn" id="logoutBtn">退出登录</button>
     </div>
+  </div>
+
+  <div class="card" id="requestCard">
+    <h2>账号申请 <span id="reqCount" style="color:var(--star)"></span></h2>
+    <div class="desc">用户提交的申请在这里审核。批准会按申请时填写的账号密码开通；驳回需填写理由。处理结果会发布到全员「系统消息」。</div>
+    <div id="requestList"></div>
   </div>
 
   <div class="card">
@@ -166,6 +185,90 @@ function showAdmin() {
   $('adminView').classList.remove('hidden');
   $('whoami').textContent = '当前登录：' + admin.username + '（管理员）';
   loadAccounts();
+  loadRequests();
+}
+
+// 账号申请审批
+async function loadRequests(){
+  const box=$('requestList');
+  const {data,error}=await sb.from('account_requests').select('*').order('created_at',{ascending:false}).limit(50);
+  if(error){box.innerHTML='<div class="empty">加载失败：'+error.message+'</div>';return;}
+  const pending=(data||[]).filter(r=>r.status==='pending');
+  $('reqCount').textContent=pending.length?('· '+pending.length+' 待处理'):'';
+  if(!(data||[]).length){box.innerHTML='<div class="empty">暂无申请</div>';return;}
+  box.innerHTML='';
+  (data||[]).forEach(r=>{
+    const item=document.createElement('div');item.className='req-item';
+    const head=document.createElement('div');head.className='req-head';
+    const nm=document.createElement('div');nm.className='req-name';nm.textContent=r.username;
+    const st=document.createElement('div');st.className='req-status '+r.status;
+    st.textContent=r.status==='pending'?'待处理':(r.status==='approved'?'已批准':'已驳回');
+    const tm=document.createElement('div');tm.className='req-time';
+    tm.textContent=new Date(r.created_at).toLocaleString('zh-CN',{hour12:false});
+    head.append(nm,st,tm);
+    const reason=document.createElement('div');reason.className='req-reason';
+    reason.innerHTML='<b>申请理由：</b>'+esc(r.reason);
+    item.append(head,reason);
+    if(r.status==='pending'){
+      const pw=document.createElement('div');pw.className='req-pass';
+      pw.textContent='申请时设置的密码：'+esc(r.password);
+      const actions=document.createElement('div');actions.className='req-actions';
+      const rejectInput=document.createElement('input');rejectInput.placeholder='驳回理由（驳回时填写）';rejectInput.maxLength=1000;
+      const approve=document.createElement('button');approve.className='btn btn-sm btn-ok';approve.textContent='✓ 批准';
+      approve.onclick=()=>processRequest(r,'approve','');
+      const reject=document.createElement('button');reject.className='btn btn-sm btn-no';reject.textContent='✗ 驳回';
+      reject.onclick=()=>{
+        const why=rejectInput.value.trim();
+        if(!why){toast('请填写驳回理由');return;}
+        processRequest(r,'reject',why);
+      };
+      actions.append(approve,rejectInput,reject);
+      item.append(pw,actions);
+    }else if(r.status==='rejected'&&r.reject_reason){
+      const rr=document.createElement('div');rr.className='req-reason';
+      rr.innerHTML='<b>驳回理由：</b>'+esc(r.reject_reason);
+      item.appendChild(rr);
+    }
+    box.appendChild(item);
+  });
+}
+
+async function processRequest(req,action,rejectReason){
+  if(!confirm((action==='approve'?'确认批准':'确认驳回')+'账号「'+req.username+'」的申请？'))return;
+  try{
+    if(action==='approve'){
+      const {data:dup}=await sb.from('accounts').select('id').eq('username',req.username).maybeSingle();
+      if(dup)throw new Error('该账号已存在，无法批准');
+      const {error:e1}=await sb.from('accounts').insert({
+        username:req.username,password:req.password,role:'user',created_by:admin.username
+      });
+      if(e1)throw new Error(e1.message);
+      const {error:e2}=await sb.from('account_requests')
+        .update({status:'approved',processed_at:new Date().toISOString(),processed_by:admin.username})
+        .eq('id',req.id);
+      if(e2)throw new Error(e2.message);
+      const {error:e3}=await sb.from('system_notices').insert({
+        kind:'approved',title:'✅ 账号申请通过',
+        content:'「'+req.username+'」的账号申请已通过管理员审核，账号已创建。请申请者使用申请时填写的账号名与密码登录。',
+        target_user:req.username
+      });
+      if(e3)throw new Error(e3.message);
+      toast('已批准并开通账号');
+    }else{
+      const {error:e1}=await sb.from('account_requests')
+        .update({status:'rejected',reject_reason:rejectReason,processed_at:new Date().toISOString(),processed_by:admin.username})
+        .eq('id',req.id);
+      if(e1)throw new Error(e1.message);
+      const {error:e2}=await sb.from('system_notices').insert({
+        kind:'rejected',title:'❌ 账号申请未通过',
+        content:'「'+req.username+'」的账号申请未通过。\n驳回理由：'+rejectReason+'\n建议：请根据驳回理由调整后重新提交申请，账号名不要与已有账号重复，理由尽量说明清楚。',
+        target_user:req.username
+      });
+      if(e2)throw new Error(e2.message);
+      toast('已驳回并发布通知');
+    }
+    loadRequests();loadAccounts();
+  }catch(e){toast('处理失败：'+e.message);}
 }
 
 // 登录：查 accounts 表校验 role=admin
