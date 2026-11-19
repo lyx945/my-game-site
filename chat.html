@@ -1316,12 +1316,27 @@ async function loadSysChats(){
   sysChats=data||[];
   if(sysView)renderSysNotices();
 }
-function sysAutoReply(text){
-  const hit=SYS_KEYWORDS.some(k=>text.toLowerCase().includes(k.toLowerCase()));
-  if(hit){
-    return '您好，感谢咨询！站长的联系邮箱是：'+SYS_EMAIL+'。您可以通过该邮箱联系站长，我们会尽快回复您。';
+// 常见问题规则表：按顺序匹配，具体规则在前，宽泛的邮箱关键词放最后
+const SYS_FAQ=[
+  {
+    keys:['忘记密码','忘了密码','密码忘了','找回密码','密码忘记','重置密码'],
+    answer:'您好，如果您忘记了登录密码，请通过站长邮箱联系站长协助处理。站长邮箱：'+SYS_EMAIL+'。'
+  },
+  {
+    keys:['有效期','过期','删除','会删','保留多久','保存多久','文件还在','自动清除','清理'],
+    answer:'您好，关于文件保存：本网站的文件没有设置有效期，上传到私聊或公共大厅的文件会一直保存，不会被系统自动删除。请您放心使用。'
+  },
+  {
+    keys:SYS_KEYWORDS, // 邮箱/联系/QQ/邮件/站长（宽泛匹配放最后）
+    answer:'您好，感谢咨询！站长的联系邮箱是：'+SYS_EMAIL+'。您可以通过该邮箱联系站长，我们会尽快回复您。'
   }
-  return '您好，我是系统助手。您可以咨询站长联系方式（例如输入「站长邮箱」），我会自动为您解答。其他问题请留言，站长看到后会通过您留下的方式联系您。';
+];
+function sysAutoReply(text){
+  const t=text.toLowerCase();
+  for(const rule of SYS_FAQ){
+    if(rule.keys.some(k=>t.includes(k.toLowerCase())))return rule.answer;
+  }
+  return '您好，我是系统助手。您可以咨询：站长邮箱、忘记密码、文件保存有效期等常见问题，我会自动为您解答。其他问题请留邮箱，站长看到后会联系您。';
 }
 async function sendSysChat(){
   const input=$('msgInput');const text=input.value.trim();
