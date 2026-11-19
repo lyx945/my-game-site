@@ -325,7 +325,8 @@ async function loadAccounts() {
   let html = '<table><thead><tr><th>账号名称</th><th>角色</th><th>创建时间</th><th>创建人</th></tr></thead><tbody>';
   (data||[]).forEach(a => {
     const t = new Date(a.created_at).toLocaleString('zh-CN', { hour12:false });
-    html += `<tr><td><b>${esc(a.username)}</b></td>
+    html += `<tr style="cursor:pointer" onclick="goChat('${esc(a.id)}','${esc(a.username)}')" title="点击与该账号私聊">
+      <td><b>${esc(a.username)}</b></td>
       <td><span class="pill ${a.role==='admin'?'admin':'user'}">${a.role==='admin'?'管理员':'普通用户'}</span></td>
       <td>${esc(t)}</td><td>${esc(a.created_by||'—')}</td></tr>`;
   });
@@ -333,6 +334,10 @@ async function loadAccounts() {
   box.innerHTML = html;
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// 点击已注册账号 → 带 peer 参数跳聊天页（chat.html 会处理自动登录）
+window.goChat=function(id,name){
+  location.href='chat.html?peer='+encodeURIComponent(id)+'&name='+encodeURIComponent(name);
+};
 
 loadAdminPick();
 if (admin && sb) showAdmin();
