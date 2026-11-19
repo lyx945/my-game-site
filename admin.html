@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>悄悄话 · 管理员后台</title>
+<style>
+  :root {
+    --bg:#f5f6fa; --panel:#fff; --panel-2:#fafbfe; --line:#e8eaf1;
+    --text:#1f2434; --muted:#9198ab; --brand:#5b5bd6; --brand-2:#7c6cf0;
+    --brand-soft:#eeedff; --danger:#e5484d; --ok:#30c48d; --shadow:0 8px 30px rgba(31,36,52,.06);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+  button,input,select { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  .wrap { max-width:920px; margin:0 auto; padding:28px 20px 60px; }
+  .top { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+  .logo { width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--brand-2));display:grid;place-items:center;color:#fff;font-weight:700;font-size:19px;flex:0 0 auto; }
+  h1 { font-size:20px; margin:0; }
+  .sub { color:var(--muted); font-size:12px; margin-top:3px; }
+  .top-actions { margin-left:auto; display:flex; gap:8px; }
+  .link-btn { border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px 14px; font-size:13px; font-weight:600; text-decoration:none; color:var(--brand); }
+  .link-btn:hover { border-color:var(--brand-2); }
+
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:var(--shadow); margin-bottom:18px; }
+  .card h2 { font-size:15px; margin:0 0 4px; }
+  .card .desc { color:var(--muted); font-size:12px; margin-bottom:18px; line-height:1.6; }
+
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:6px; }
+  .field input, .field select {
+    width:100%; border:1px solid var(--line); border-radius:10px; padding:11px 12px;
+    outline:none; background:var(--panel-2);
+  }
+  .field input:focus, .field select:focus { border-color:var(--brand-2); background:#fff; }
+  .btn { border:0; border-radius:10px; padding:11px 20px; color:#fff; font-weight:600; background:linear-gradient(135deg,var(--brand),var(--brand-2)); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-sm { padding:7px 12px; font-size:12px; border-radius:8px; }
+  .btn-outline { background:#fff; color:var(--brand); border:1px solid var(--line); }
+  .msg { font-size:12px; margin-top:12px; min-height:18px; }
+  .msg.err { color:var(--danger); }
+  .msg.ok { color:var(--ok); }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:11px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-size:11px; font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  .pill { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+  .pill.admin { background:#fff0e0; color:#b26a00; }
+  .pill.user { background:var(--brand-soft); color:var(--brand); }
+  .empty { color:var(--muted); text-align:center; padding:24px; font-size:13px; }
+
+  #loginCard { max-width:420px; margin:80px auto; }
+  .lock { font-size:34px; margin-bottom:10px; }
+  .hint { background:#fff6e6; border:1px solid #ffd591; color:#8a5a00; padding:10px 12px; border-radius:10px; font-size:12px; line-height:1.6; margin-bottom:18px; }
+  .hidden { display:none !important; }
+  #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2434; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:80; }
+  #toast.show { opacity:1; }
+  @media (max-width:640px) { .wrap{padding:16px 12px 40px;} .top-actions{flex-wrap:wrap;} table{font-size:12px;} th,td{padding:9px 6px;} }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- 登录视图 -->
+<div id="loginCard" class="card">
+  <div class="lock">🔐</div>
+  <h2>管理员登录</h2>
+  <div class="desc">请输入管理员账号与密码。此入口不对外展示。</div>
+  <div class="hint">演示级安全：账号密码存于数据库且前端可读取，请勿在此填写真实重要密码。</div>
+  <div class="field"><label>账号</label><input id="loginUser" placeholder="管理员账号" autocomplete="off"></div>
+  <div class="field"><label>密码</label><input id="loginPass" type="password" placeholder="密码"></div>
+  <button class="btn" id="loginBtn" style="width:100%">登录后台</button>
+  <div class="msg" id="loginMsg"></div>
+  <div style="margin-top:16px;text-align:center"><a class="link-btn" href="chat.html">← 返回聊天页</a></div>
+</div>
+
+<!-- 后台视图 -->
+<div id="adminView" class="wrap hidden">
+  <div class="top">
+    <div class="logo">管</div>
+    <div><h1>管理员后台</h1><div class="sub" id="whoami">—</div></div>
+    <div class="top-actions">
+      <a class="link-btn" href="chat.html">去聊天页</a>
+      <button class="link-btn" id="logoutBtn">退出登录</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>注册新账号</h2>
+    <div class="desc">为他人下发账号。对方在聊天页点击「已注册」列表中的账号、输入密码即可登录。<br>管理员角色同样拥有「发文件 50MB」特权并可进入本后台。</div>
+    <div class="field"><label>账号名称</label><input id="newUser" placeholder="例如：xiaoming" autocomplete="off" maxlength="30"></div>
+    <div class="field"><label>密码</label><input id="newPass" placeholder="设置登录密码" autocomplete="off" maxlength="60"></div>
+    <div class="field"><label>角色</label>
+      <select id="newRole">
+        <option value="user">普通用户（文件上限 5MB）</option>
+        <option value="admin">管理员（文件上限 50MB，可进后台）</option>
+      </select>
+    </div>
+    <button class="btn" id="createBtn">创建账号</button>
+    <div class="msg" id="createMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>已注册账号</h2>
+    <div class="desc">共 <b id="acctCount">0</b> 个账号。管理员账号不会显示在聊天页的公开列表里。</div>
+    <div id="acctTableWrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>后续功能</h2>
+    <div class="desc">预留：封禁账号、重置密码、删除账号、消息审计、空间配额调整等。需要时告诉我。</div>
+  </div>
+</div>
+
+<script type="module">
+const SUPABASE_URL = 'https://znqiksqldqthcnlbrwzi.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
+const $ = (id) => document.getElementById(id);
+
+let createClient = null;
+for (const url of [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',
+  'https://esm.sh/@supabase/supabase-js@2'
+]) { try { ({ createClient } = await import(url)); break; } catch(e) {} }
+if (!createClient) { $('loginMsg').textContent = 'Supabase SDK 加载失败，请检查网络'; $('loginMsg').className='msg err'; }
+const sb = createClient ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const SESSION_KEY = 'qiaohua_admin_session';
+let admin = null;
+try { admin = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) {}
+
+function toast(m) { const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function showAdmin() {
+  $('loginCard').classList.add('hidden');
+  $('adminView').classList.remove('hidden');
+  $('whoami').textContent = '当前登录：' + admin.username + '（管理员）';
+  loadAccounts();
+}
+
+// 登录：查 accounts 表校验 role=admin
+$('loginBtn').onclick = async () => {
+  const u = $('loginUser').value.trim(), p = $('loginPass').value;
+  const msg = $('loginMsg'); msg.className='msg'; msg.textContent='';
+  if (!u || !p) { msg.textContent='请填写账号和密码'; msg.className='msg err'; return; }
+  if (!sb) { msg.textContent='SDK 未加载'; msg.className='msg err'; return; }
+  $('loginBtn').disabled = true;
+  const { data, error } = await sb.from('accounts')
+    .select('id, username, role').eq('username', u).eq('password', p).eq('role','admin').maybeSingle();
+  $('loginBtn').disabled = false;
+  if (error) { msg.textContent='查询失败：'+error.message; msg.className='msg err'; return; }
+  if (!data) { msg.textContent='账号或密码错误，或该账号不是管理员'; msg.className='msg err'; return; }
+  admin = { id:data.id, username:data.username };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(admin));
+  showAdmin();
+};
+$('loginPass').addEventListener('keydown', e => { if (e.key==='Enter') $('loginBtn').click(); });
+$('logoutBtn').onclick = () => { localStorage.removeItem(SESSION_KEY); location.reload(); };
+
+// 注册账号
+$('createBtn').onclick = async () => {
+  const u = $('newUser').value.trim(), p = $('newPass').value.trim(), r = $('newRole').value;
+  const msg = $('createMsg'); msg.className='msg'; msg.textContent='';
+  if (!u || !p) { msg.textContent='账号名称和密码不能为空'; msg.className='msg err'; return; }
+  if (!sb) { msg.textContent='SDK 未加载'; msg.className='msg err'; return; }
+  $('createBtn').disabled = true;
+  const { data: dup } = await sb.from('accounts').select('id').eq('username', u).maybeSingle();
+  if (dup) {
+    msg.textContent='该账号名称已存在'; msg.className='msg err'; $('createBtn').disabled=false; return;
+  }
+  const { error } = await sb.from('accounts').insert({
+    username: u, password: p, role: r, created_by: admin.username
+  });
+  $('createBtn').disabled = false;
+  if (error) { msg.textContent='创建失败：'+error.message; msg.className='msg err'; return; }
+  msg.textContent='已创建：'+u+'（'+ (r==='admin'?'管理员':'普通用户') +'）'; msg.className='msg ok';
+  $('newUser').value=''; $('newPass').value='';
+  toast('账号创建成功');
+  loadAccounts();
+};
+
+// 账号列表
+async function loadAccounts() {
+  if (!sb) return;
+  const { data, error } = await sb.from('accounts')
+    .select('id, username, role, created_at, created_by')
+    .order('created_at', { ascending: true });
+  const box = $('acctTableWrap');
+  if (error) { box.innerHTML = '<div class="empty">加载失败：'+error.message+'</div>'; return; }
+  $('acctCount').textContent = (data||[]).length;
+  if (!(data||[]).length) { box.innerHTML = '<div class="empty">暂无账号</div>'; return; }
+  let html = '<table><thead><tr><th>账号名称</th><th>角色</th><th>创建时间</th><th>创建人</th></tr></thead><tbody>';
+  (data||[]).forEach(a => {
+    const t = new Date(a.created_at).toLocaleString('zh-CN', { hour12:false });
+    html += `<tr><td><b>${esc(a.username)}</b></td>
+      <td><span class="pill ${a.role==='admin'?'admin':'user'}">${a.role==='admin'?'管理员':'普通用户'}</span></td>
+      <td>${esc(t)}</td><td>${esc(a.created_by||'—')}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+if (admin && sb) showAdmin();
+</script>
+</body>
+</html>
