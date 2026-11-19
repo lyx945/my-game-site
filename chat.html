@@ -287,10 +287,8 @@
       <input id="searchInput" placeholder="搜索已注册账号" autocomplete="off">
     </div>
     <div class="tabs">
-      <button class="tab active" id="tabOnline">在线</button>
-      <button class="tab" id="tabFollowing">关注</button>
-      <button class="tab" id="tabRegistered">已注册</button>
-      <button class="tab" id="tabLobby">公共大厅</button>
+      <button class="tab active" id="tabLobby">公共房间</button>
+      <button class="tab" id="tabRegistered">已注册用户</button>
     </div>
     <div class="list-title" id="listTitle"><span>在线的人</span><span><i class="dot-online"></i><span id="listCount">0</span></span></div>
     <div class="user-list" id="userList"></div>
@@ -709,7 +707,7 @@ function renderMe(){
 
 /* ========== 3. 状态 ========== */
 let peers=[], following=[], registered=[], searchResults=[];
-let activeTab='online', searching=false, view='private';
+let activeTab='lobby', searching=false, view='lobby';
 let currentPeer=null, unread=new Map(), seenIds=new Set(), lobbySeen=new Set();
 let presenceReady=false, presenceCh=null, msgCh=null, roomCh=null, lobbyCh=null;
 let typingTimer=null, searchTimer=null, emojiTarget=null;
@@ -871,18 +869,14 @@ function renderList(){
   box.appendChild(buildSysItem());
   let list,title,showBadge;
   if(searching){list=searchResults;title='搜索结果';showBadge=false;}
-  else if(activeTab==='following'){list=following;title='我的关注';showBadge=true;}
   else if(activeTab==='registered'){list=registered;title='全服已注册用户';showBadge=true;}
-  else{list=peers;title='在线的人';showBadge=true;}
-  $('listTitle').innerHTML=`<span>${title}</span><span>${activeTab==='online'&&!searching?'<i class="dot-online"></i>':''}<span>${list.length}</span></span>`;
-  $('tabOnline').classList.toggle('active',!searching&&view==='private'&&activeTab==='online');
-  $('tabFollowing').classList.toggle('active',!searching&&view==='private'&&activeTab==='following');
+  else{list=[];title='公共房间';showBadge=false;}
+  $('listTitle').innerHTML=`<span>${title}</span><span>${searching?'':('<span>'+list.length+'</span>')}</span>`;
   $('tabRegistered').classList.toggle('active',!searching&&view==='private'&&activeTab==='registered');
   $('tabLobby').classList.toggle('active',view==='lobby');
   if(!list.length){
     const msg=searching?'没有找到匹配的账号':
-      activeTab==='following'?(isLoggedIn?'还没有关注的人':'登录后可查看关注列表'):
-      activeTab==='registered'?'管理员还没下发账号':'暂时没有其他人在线';
+      activeTab==='registered'?'管理员还没下发账号':'';
     const empty=document.createElement('div');empty.className='list-empty';empty.innerHTML=msg;
     box.appendChild(empty);return;
   }
@@ -893,8 +887,6 @@ function setTab(t){
   if(t!=='lobby')switchView('private');
   renderList();
 }
-$('tabOnline').onclick=()=>setTab('online');
-$('tabFollowing').onclick=()=>setTab('following');
 $('tabRegistered').onclick=()=>setTab('registered');
 $('tabLobby').onclick=()=>{
   searching=false;searchResults=[];$('searchInput').value=''; // 清空搜索，避免大厅残留搜索结果
@@ -1171,7 +1163,7 @@ async function handleLobbyFile(file){
   }
 }
 $('guestNickBtn').onclick=()=>openLoginModal('guest');
-$('lobbyBackBtn').onclick=()=>{switchView('private');$('app').classList.remove('chat-open');renderList();};
+$('lobbyBackBtn').onclick=()=>{setTab('registered');$('app').classList.remove('chat-open');renderList();};
 
 /* ========== 8. 登录弹窗 ========== */
 let loginMode='user';
@@ -1807,10 +1799,14 @@ $('spaceBtn').onclick=()=>{$('spaceModal').classList.add('show');loadSpace();};
 $('spaceClose').onclick=()=>$('spaceModal').classList.remove('show');
 async function loadSpace(){
   $('spaceTotal').textContent='加载中…';$('spaceRank').innerHTML='<div class="list-empty">加载中…</div>';
-  const {data,error}=await sb.from('messages').select('room_id, file_size, sender_id, receiver_id').eq('msg_type','file');
-  if(error){$('spaceTotal').textContent='统计失败：'+error.message;$('spaceRank').innerHTML='';return;}
-  const rows=data||[];
-  const used=rows.reduce((s,r)=>s+(r.file_size||0),0);
+  const [privRes,lobbyRes]=await Promise.all([
+    sb.from('messages').select('room_id, file_size').eq('msg_type','file'),
+    sb.from('public_messages').select('file_size').eq('msg_type','file')
+  ]);
+  if(privRes.error||lobbyRes.error){
+    $('spaceTotal').textContent='统计失败：'+((privRes.error||lobbyRes.error).message);$('spaceRank').innerHTML='';return;
+  }
+  const used=[...(privRes.data||[]),...(lobbyRes.data||[])].reduce((s,r)=>s+(r.file_size||0),0);
   const pct=Math.min(100,used/TOTAL_SPACE*100);
   $('spaceTotal').textContent=`已用 ${fmtSize(used)} / 1 GB`;
   $('spaceFill').style.width=pct.toFixed(2)+'%';
@@ -1819,7 +1815,10 @@ async function loadSpace(){
   $('spaceLeft').textContent=fmtSize(Math.max(0,TOTAL_SPACE-used));
 
   const byRoom=new Map();
-  rows.forEach(r=>{const k=r.room_id||'unknown';byRoom.set(k,(byRoom.get(k)||0)+(r.file_size||0));});
+  (privRes.data||[]).forEach(r=>{const k=r.room_id||'unknown';byRoom.set(k,(byRoom.get(k)||0)+(r.file_size||0));});
+  // 公共大厅文件合并为单独一项
+  const lobbySize=(lobbyRes.data||[]).reduce((s,r)=>s+(r.file_size||0),0);
+  if(lobbySize>0)byRoom.set('__lobby__',lobbySize);
   const ranked=[...byRoom.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
   const totalFile=used||1;
   // 取所有账号名做映射
@@ -1829,13 +1828,18 @@ async function loadSpace(){
   if(!ranked.length){box.innerHTML='<div class="list-empty">还没有发送过文件</div>';return;}
   box.innerHTML='';
   ranked.forEach(([rid,size])=>{
-    const parts=String(rid).split('__');
-    const a=nameMap.get(parts[0])||parts[0]?.slice(0,8)||'未知';
-    const b=nameMap.get(parts[1])||parts[1]?.slice(0,8)||'未知';
+    let label;
+    if(rid==='__lobby__')label='📢 公共大厅';
+    else{
+      const parts=String(rid).split('__');
+      const a=nameMap.get(parts[0])||parts[0]?.slice(0,8)||'未知';
+      const b=nameMap.get(parts[1])||parts[1]?.slice(0,8)||'未知';
+      label=`${a} ↔ ${b}`;
+    }
     const share=size/totalFile*100;
     const row=document.createElement('div');row.className='rank-row';
     const head=document.createElement('div');head.className='rank-head';
-    const nm=document.createElement('b');nm.textContent=`${a} ↔ ${b}`;
+    const nm=document.createElement('b');nm.textContent=label;
     const val=document.createElement('span');val.textContent=`${fmtSize(size)} · 占 ${share.toFixed(1)}%`;
     head.append(nm,val);
     const bar=document.createElement('div');bar.className='rank-bar';
@@ -1854,6 +1858,7 @@ if(sb){
   loadLobbyHistory();
   loadSystemNotices();
   loadSysChats();
+  switchView('lobby'); // 默认进入公共房间，同步 DOM 与视图状态
   renderList();
   // 后台跳转：?peer=xxx&name=yyy → 确保管理员登录后自动打开私聊
   const params=new URLSearchParams(location.search);
