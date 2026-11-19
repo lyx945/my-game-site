@@ -159,7 +159,8 @@
   .admin-btn{border:1px solid #ffd591;background:#fffaf0;color:var(--admin);border-radius:9px;padding:6px 10px;font-size:11px;font-weight:600;white-space:nowrap}
   .admin-btn:hover{background:#fff0e0}
 
-  .messages{flex:1;overflow-y:auto;padding:20px 18px;background:var(--panel-2)}
+  .messages{flex:1;overflow-y:auto;padding:20px 18px;background:var(--panel-2);position:relative}
+  .new-msg-hint{position:sticky;bottom:6px;left:50%;transform:translateX(-50%);display:block;margin:8px auto 0;z-index:5;border:0;border-radius:16px;background:var(--brand);color:#fff;font-size:11px;font-weight:600;padding:6px 14px;box-shadow:0 4px 14px rgba(91,91,214,.35)}
   .lobby-note{text-align:center;color:var(--muted);font-size:11px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);line-height:1.6}
   .empty-chat{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:10px;text-align:center}
   .empty-chat .big{font-size:38px;opacity:.55}
@@ -307,7 +308,7 @@
       <button class="tab" id="tabGroups">我的群</button>
       <button class="tab" id="tabRegistered">已注册用户</button>
     </div>
-    <div class="list-title" id="listTitle"><span>在线的人</span><span><i class="dot-online"></i><span id="listCount">0</span></span></div>
+    <div class="list-title" id="listTitle"><span>公共房间</span><span></span></div>
     <div class="user-list" id="userList"></div>
     <div class="side-foot">
       <button class="foot-btn apply-btn" id="applyBtn">📝 申请账号</button>
@@ -605,7 +606,11 @@ const SDK_SOURCES=[
   'https://esm.sh/@supabase/supabase-js@2',
   'https://unpkg.com/@supabase/supabase-js@2/dist/module/index.js'
 ];
-function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('超时')),ms))]);}
+function withTimeout(p,ms){
+  let timer;
+  const timeout=new Promise((_,rej)=>{timer=setTimeout(()=>rej(new Error('超时')),ms);});
+  return Promise.race([p,timeout]).finally(()=>clearTimeout(timer)); // B15: 清理定时器
+}
 let sdkErr=[];
 for (const url of SDK_SOURCES) {
   try { ({ createClient } = await withTimeout(import(url),8000)); if(createClient) break; }
@@ -642,6 +647,13 @@ function colorOf(id){let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>
 function setAvatar(el,id,name){el.style.background=colorOf(id);el.textContent=(name||'?').trim().charAt(0).toUpperCase()||'?';}
 function fmtTime(iso){const d=new Date(iso),n=new Date(),hm=d.toTimeString().slice(0,5);return d.toDateString()===n.toDateString()?hm:(d.getMonth()+1)+'/'+d.getDate()+' '+hm;}
 function fmtSize(n){if(!n&&n!==0)return'';if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(1)+' KB';return (n/1024/1024).toFixed(2)+' MB';}
+// B8: 安全提取文件扩展名（白名单），防路径注入
+function safeExt(name){const m=String(name||'').match(/\.([a-zA-Z0-9]{1,8})$/);return m?'.'+m[1].toLowerCase():'';}
+// B17: 危险后缀拦截（可执行文件/网页脚本）
+function isDangerousFile(name){
+  const ext=safeExt(name);
+  return ['.js','.mjs','.html','.htm','.svg','.xhtml','.php','.jsp','.exe','.bat','.cmd','.sh','.vbs','.ps1'].includes(ext);
+}
 function fileIcon(mime,name){const m=mime||'';if(m.startsWith('image/'))return'🖼️';if(m.includes('pdf'))return'📕';if(m.includes('zip')||m.includes('rar')||m.includes('7z'))return'🗜️';if(m.startsWith('video/'))return'🎬';if(m.startsWith('audio/'))return'🎵';if(m.includes('word')||/\.(doc|docx)$/i.test(name||''))return'📘';if(m.includes('sheet')||/\.(xls|xlsx|csv)$/i.test(name||''))return'📗';return'📎';}
 function isImageMsg(m){return m.msg_type==='file'&&m.file_url&&((m.file_mime||'').startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(m.file_name||''));}
 // 共用的文件/图片消息节点：图片显示缩略图（点击预览），其他显示文件卡片
@@ -698,13 +710,16 @@ function renderGroupPanel(){
     // 操作按钮：群主可踢人/设管理员/转让；管理员只能禁言
     const isSelf=m.user_id===myId;
     if(!isSelf){
+      // B5: 群主可禁言管理员和普通成员；群管理员只能禁言普通成员
+      if(myRole==='owner'||(myRole==='admin'&&m.role==='member')){
+        const mute=document.createElement('button');mute.className='ghost';mute.textContent=(m.muted_until&&new Date(m.muted_until)>new Date())?'解除禁言':'禁言1天';
+        mute.onclick=()=>groupMute(m.user_id,(m.muted_until&&new Date(m.muted_until)>new Date())?0:1);row.appendChild(mute);
+      }
       if(myRole==='owner'){
         const kick=document.createElement('button');kick.textContent='踢出';kick.onclick=()=>groupKick(m.user_id);row.appendChild(kick);
         const adm=document.createElement('button');adm.className='ghost';adm.textContent=m.role==='admin'?'降职':'设管理';
         adm.onclick=()=>groupSetAdmin(m.user_id,m.role==='admin'?'member':'admin');row.appendChild(adm);
         const own=document.createElement('button');own.className='ghost';own.textContent='转让';own.onclick=()=>groupTransfer(m.user_id);row.appendChild(own);
-      }else if(myRole==='admin'&&m.role==='member'){
-        const mute=document.createElement('button');mute.className='ghost';mute.textContent='禁言1天';mute.onclick=()=>groupMute(m.user_id,1);row.appendChild(mute);
       }
     }
     listBox.appendChild(row);
@@ -721,15 +736,15 @@ function renderGroupPanel(){
 async function loadGroupHistory(gid){
   const {data,error}=await sb.from('group_messages').select('*').eq('group_id',gid).order('created_at',{ascending:true}).limit(300);
   if(error){console.error('[loadGroupHistory]',error.message);return;}
-  const box=$('messages');box.innerHTML='';
+  const box=$('messages');box.innerHTML='';groupSeenIds.clear();
   if(!(data||[]).length){box.innerHTML='<div class="empty-chat"><div class="big">👥</div><div>群里还没有消息，说点什么吧</div></div>';return;}
-  (data||[]).forEach(m=>renderGroupMessage(m));
-  scrollBottom();
+  (data||[]).forEach(m=>{groupSeenIds.add(m.id);renderGroupMessage(m);});
+  scrollBottom(true);
 }
 function renderGroupMessage(m){
   const box=$('messages');const ph=box.querySelector('.empty-chat');if(ph)ph.remove();
   const mine=m.sender_id===myId;
-  const row=document.createElement('div');row.className='msg-row '+(mine?'mine':'theirs');
+  const row=document.createElement('div');row.className='msg-row '+(mine?'mine':'theirs');row.dataset.id=m.id;
   const bubble=document.createElement('div');bubble.className='bubble';
   if(!mine){
     const s=document.createElement('div');s.className='msg-sender';
@@ -738,14 +753,16 @@ function renderGroupMessage(m){
   if(m.msg_type==='file'&&m.file_url){bubble.appendChild(buildFileNode(m));}
   else{const t=document.createElement('div');t.className='msg-text';t.textContent=m.content||'';bubble.appendChild(t);}
   const time=document.createElement('div');time.className='msg-time';time.textContent=fmtTime(m.created_at);
-  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);
+  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);trimMessages("messages",300);
 }
 function subscribeGroup(gid){
   if(groupMsgCh)sb.removeChannel(groupMsgCh);
   if(groupMemberCh)sb.removeChannel(groupMemberCh);
   groupMsgCh=sb.channel('group-msg-'+gid)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages',filter:'group_id=eq.'+gid},({new:m})=>{
-      renderGroupMessage(m);scrollBottom();
+      if(groupSeenIds.has(m.id))return; // B3: 与本地渲染去重
+      groupSeenIds.add(m.id);
+      renderGroupMessage(m);scrollBottom(); // B11: Realtime 新消息智能滚动
     }).subscribe();
   groupMemberCh=sb.channel('group-mem-'+gid)
     .on('postgres_changes',{event:'*',schema:'public',table:'group_members',filter:'group_id=eq.'+gid},()=>{
@@ -761,11 +778,14 @@ function openCreateGroupModal(){
   $('createGroupModal').classList.add('show');
 }
 $('cgCancel').onclick=()=>$('createGroupModal').classList.remove('show');
+let cgBusy=false;
 $('cgSubmit').onclick=async()=>{
+  if(cgBusy)return;
   const name=$('cgName').value.trim(),reason=$('cgReason').value.trim(),err=$('cgErr');err.textContent='';
   if(!name){err.textContent='请填写群名称';return;}
   if(!reason){err.textContent='请填写建群理由';return;}
   if(needNet()){err.textContent='网络未连接';return;}
+  cgBusy=true;
   try{
     const {error}=await sb.from('group_requests').insert({
       applicant_id:myId,applicant_name:myNick,group_name:name,reason:reason
@@ -774,6 +794,7 @@ $('cgSubmit').onclick=async()=>{
     $('createGroupModal').classList.remove('show');
     toast('建群申请已提交，等待管理员审批');
   }catch(e){err.textContent='提交失败：'+(e.message||'网络异常');}
+  finally{cgBusy=false;}
 };
 function openJoinGroupModal(){
   if(!isLoggedIn){toast('请先登录账号');return;}
@@ -790,15 +811,22 @@ $('jgSearch').onclick=async()=>{
   if(!no){err.textContent='请输入群号';return;}
   const {data:g}=await sb.from('groups').select('*').eq('group_no',no).maybeSingle();
   if(!g){err.textContent='未找到该群号的群';return;}
-  const isMember=groupMembers.some(x=>x.user_id===myId)&&currentGroup?.id===g.id;
+  // B7: 查库判断是否已在群，避免重复申请
+  const {data:existing}=await sb.from('group_members').select('id').eq('group_id',g.id).eq('user_id',myId).maybeSingle();
+  const {data:dupReq}=await sb.from('group_join_requests').select('id').eq('group_id',g.id).eq('user_id',myId).eq('status','pending').maybeSingle();
   const card=document.createElement('div');card.className='grp-member';card.style.marginTop='10px';
   card.innerHTML='<div style="flex:1"><b>👥 '+esc(g.name)+'</b><div class="group-no">群号 '+esc(g.group_no)+'</div></div>';
-  const btn=document.createElement('button');btn.className='ghost';btn.textContent='申请加入';
-  btn.onclick=async()=>{
-    const {error}=await sb.from('group_join_requests').insert({group_id:g.id,user_id:myId,user_name:myNick});
-    if(error){toast('申请失败：'+error.message);return;}
-    btn.textContent='已申请';btn.disabled=true;toast('已申请加入，等待群主批准');
-  };
+  const btn=document.createElement('button');btn.className='ghost';
+  if(existing){btn.textContent='已在群中';btn.disabled=true;}
+  else if(dupReq){btn.textContent='已申请';btn.disabled=true;}
+  else{
+    btn.textContent='申请加入';
+    btn.onclick=async()=>{
+      const {error}=await sb.from('group_join_requests').insert({group_id:g.id,user_id:myId,user_name:myNick});
+      if(error){toast('申请失败：'+error.message);return;}
+      btn.textContent='已申请';btn.disabled=true;toast('已申请加入，等待群主批准');
+    };
+  }
   card.appendChild(btn);res.appendChild(card);
 };
 // 群管理操作
@@ -824,10 +852,10 @@ async function groupTransfer(uid){
   loadGroupMembers(currentGroup.id).then(renderGroupPanel);loadMyGroups();
 }
 async function groupMute(uid,days){
-  const until=new Date(Date.now()+days*86400000).toISOString();
+  const until=days>0?new Date(Date.now()+days*86400000).toISOString():new Date(0).toISOString();
   const {error}=await sb.from('group_members').update({muted_until:until}).eq('group_id',currentGroup.id).eq('user_id',uid);
-  if(error){toast('禁言失败：'+error.message);return;}
-  toast('已禁言 '+days+' 天');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+  if(error){toast('操作失败：'+error.message);return;}
+  toast(days>0?('已禁言 '+days+' 天'):'已解除禁言');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
 }
 async function groupDissolve(){
   if(!confirm('⚠️ 确认解散群？群内所有消息和文件记录将被删除，不可恢复！'))return;
@@ -1005,6 +1033,8 @@ const SYS_ID='__system__';
 let systemNotices=[], sysUnread=0, sysView=false, sysChats=[];
 // 群聊
 let myGroups=[], currentGroup=null, groupView=false, groupMembers=[], groupMsgCh=null;
+const groupSeenIds=new Set(); // B3/B14: 群消息去重 + 裁剪
+let profileOrigin={view:'private',currentPeer:null,currentGroup:null,groupView:false}; // B4: 个人页返回来源
 const GROUP_PREFIX='group:';
 function isGroupPeer(peer){return peer&&typeof peer.id==='string'&&peer.id.startsWith(GROUP_PREFIX);}
 const SYS_EMAIL='2442311042@qq.com';
@@ -1250,7 +1280,7 @@ async function loadLobbyHistory(){
   const box=$('lobbyMessages');box.innerHTML='';lobbySeen.clear();
   (data||[]).forEach(m=>{lobbySeen.add(m.id);renderLobbyMsg(m);});
   if(!(data||[]).length)box.innerHTML='<div class="empty-chat"><div class="big">🌐</div><div>大厅还没有消息，来打个招呼吧</div></div>';
-  scrollLobby();
+  scrollLobby(true);
   await loadAnnouncements();
   // 已读人数：打开即算、含自己、不实时（用落库重拉后的最终消息集合）
   const {data:finalMsgs}=await sb.from('public_messages').select('id').order('created_at',{ascending:true}).limit(150);
@@ -1281,7 +1311,7 @@ async function loadAnnouncements(){
     const {data:msgs}=await sb.from('public_messages').select('*').order('created_at',{ascending:true}).limit(150);
     const box=$('lobbyMessages');box.innerHTML='';lobbySeen.clear();
     (msgs||[]).forEach(m=>{lobbySeen.add(m.id);renderLobbyMsg(m);});
-    scrollLobby();
+    scrollLobby(true);
   }
   announcements=all.filter(a=>!a.revoked&&a.expires_at>now);
   renderAnnouncements();
@@ -1328,7 +1358,9 @@ $('applyBtn').onclick=()=>{
   $('applyModal').classList.add('show');$('applyUser').focus();
 };
 $('applyCancel').onclick=()=>$('applyModal').classList.remove('show');
+let applyBusy=false;
 $('applySubmit').onclick=async()=>{
+  if(applyBusy)return;
   const u=$('applyUser').value.trim(),p=$('applyPass').value,r=$('applyReason').value.trim(),role=$('applyRole').value;
   const err=$('applyErr');err.textContent='';
   if(!u){err.textContent='请填写账号名称';return;}
@@ -1336,6 +1368,7 @@ $('applySubmit').onclick=async()=>{
   if(p.length<6){err.textContent='密码至少 6 位';return;}
   if(!r){err.textContent='请填写申请理由';return;}
   if(needNet()){err.textContent='网络未连接，请检查后重试（微信内建议右上角···→在浏览器中打开）';return;}
+  applyBusy=true;
   try{
     // 查重：已有账号 + 待处理申请
     const {data:dupAcct}=await sb.from('accounts').select('id').ilike('username',u).maybeSingle();
@@ -1356,12 +1389,17 @@ $('applySubmit').onclick=async()=>{
     toast('申请已提交，请等待管理员审核');
     alert('申请已提交！\n\n管理员批准后，会在「系统消息」里发布通告。\n届时请用自己的账号名和密码登录。');
   }catch(e){console.error('[apply]',e);err.textContent='提交失败：'+(e.message||'网络异常')+'，请重试';}
+  finally{applyBusy=false;}
 };
+let annBusy=false;
 $('annPublish').onclick=async()=>{
+  if(annBusy)return;
   const content=$('annContent').value.trim(),mins=Number($('annDuration').value);
   const err=$('annErr');err.textContent='';
   if(!content){err.textContent='通告内容不能为空';return;}
   if(!isAdmin){err.textContent='仅管理员可发布';return;}
+  annBusy=true;
+  try{
   const now=new Date();
   const {error}=await sb.from('announcements').insert({
     content:content.slice(0,2000),created_by:myNick,created_by_id:myId,
@@ -1370,6 +1408,8 @@ $('annPublish').onclick=async()=>{
   if(error){err.textContent='发布失败：'+error.message;return;}
   $('announceModal').classList.remove('show');toast('通告已发布');
   loadAnnouncements();
+  }catch(e){err.textContent='发布失败：'+(e.message||'网络异常');}
+  finally{annBusy=false;}
 };
 function renderLobbyMsg(m){
   const box=$('lobbyMessages');const ph=box.querySelector('.empty-chat');if(ph)ph.remove();
@@ -1397,9 +1437,9 @@ function renderLobbyMsg(m){
   rd.dataset.role='readers';rd.dataset.id=m.id;
   rd.textContent=(readCounts.get(m.id)||0)+' 人已读';
   time.appendChild(rd);
-  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);
+  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);trimMessages("lobbyMessages",200);
 }
-function scrollLobby(){const el=$('lobbyMessages');el.scrollTop=el.scrollHeight;}
+function scrollLobby(force){const el=$('lobbyMessages');if(force||nearBottom(el))el.scrollTop=el.scrollHeight;}
 
 // 进入大厅：批量上报「我读过所有消息」，并统计每条的已读人数（不实时，仅本次加载）
 async function syncLobbyReads(msgIds,annIds){
@@ -1441,11 +1481,14 @@ function currentLobbyName(){
   if(isLoggedIn)return myNick;
   return guestNick||'游客';
 }
+let lobbySendBusy=false;
 async function sendLobby(){
+  if(lobbySendBusy)return;
   const input=$('lobbyInput');const content=input.value.trim();
   if(!content)return;
   if(!isLoggedIn&&!guestNick){openLoginModal('guest');return;}
   if(needNet())return; // 网络未就绪，保留输入内容
+  lobbySendBusy=true;
   try{
     const {error}=await sb.from('public_messages').insert({
       sender_name:currentLobbyName(),
@@ -1456,6 +1499,7 @@ async function sendLobby(){
     if(error){console.error('[lobbySend]',error.message);toast('发送失败：'+error.message);} // 失败保留输入内容
     else input.value=''; // 只有成功后才清空
   }catch(e){console.error('[lobbySend]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
+  finally{lobbySendBusy=false;}
 }
 $('lobbySendBtn').onclick=sendLobby;
 $('lobbyInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendLobby();}});
@@ -1477,9 +1521,10 @@ $('lobbyFileInput').addEventListener('change',e=>{
 });
 async function handleLobbyFile(file){
   if(!file||!isLoggedIn)return;
+  if(isDangerousFile(file.name)){toast('出于安全考虑，不支持上传该类型文件（'+safeExt(file.name)+'）');return;}
   if(file.size>LIMIT_USER){toast('大厅文件不能超过 5MB');return;}
   const now=new Date();
-  const ext=file.name.includes('.')?'.'+file.name.split('.').pop():'';
+  const ext=safeExt(file.name);
   const path=`lobby/${myId}/${crypto.randomUUID?crypto.randomUUID():now.getTime()+'-'+Math.random().toString(36).slice(2)}${ext}`;
   $('lobbyAttachBtn').disabled=true;$('lobbySendBtn').disabled=true;
   toast('正在上传 '+file.name+' …');
@@ -1579,12 +1624,14 @@ $('loginOk').onclick=async()=>{
   if(!u||!p){err.textContent='请填写账号和密码';return;}
   if(needNet()){err.textContent='网络未连接，请检查后重试（微信内建议右上角···→在浏览器中打开）';return;}
   try{
-    let q=sb.from('accounts').select('id, username, role').eq('username',u).eq('password',p);
-    // 管理员模式必须校验 admin 角色；普通模式允许任意账号（管理员账号已公开）
-    if(loginMode==='admin')q=q.eq('role','admin');
-    const {data,error}=await q.maybeSingle();
-    if(error){err.textContent='查询失败：'+error.message;return;}
-    if(!data){err.textContent=loginMode==='admin'?'账号或密码错误（需管理员账号）':'账号或密码错误';return;}
+    const res=await fetch(SUPABASE_URL+'/functions/v1/account-guard',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'login',username:u,password:p,role:(loginMode==='admin'?'admin':undefined)})
+    });
+    const data=await res.json();
+    if(data.error){err.textContent='登录失败：'+data.error;return;}
+    if(!data.ok){err.textContent=loginMode==='admin'?'账号或密码错误（需管理员账号）':'账号或密码错误';return;}
     localStorage.setItem(LS_SESSION,JSON.stringify({id:data.id,username:data.username,role:data.role}));
     location.reload();
   }catch(e){console.error('[login]',e);err.textContent='登录失败：'+(e.message||'网络异常')+'，请重试';}
@@ -1688,7 +1735,7 @@ function renderSysNotices(){
       row.appendChild(b);box.appendChild(row);
     });
   }
-  scrollBottom();
+  scrollBottom(true);
 }
 async function loadSysChats(){
   if(!sb)return;
@@ -1720,10 +1767,13 @@ function sysAutoReply(text){
   }
   return '您好，我是系统助手。您可以咨询：站长邮箱、忘记密码、文件保存有效期等常见问题，我会自动为您解答。其他问题请留邮箱，站长看到后会联系您。';
 }
+let sysChatBusy=false;
 async function sendSysChat(){
+  if(sysChatBusy)return;
   const input=$('msgInput');const text=input.value.trim();
   if(!text||!sysView)return;
   if(needNet())return;
+  sysChatBusy=true;
   input.value='';
   try{
     const {error}=await sb.from('sys_chats').insert({
@@ -1736,6 +1786,7 @@ async function sendSysChat(){
     if(e2)console.error('[sysAutoReply]',e2.message);
     loadSysChats();
   }catch(e){console.error('[sendSysChat]',e);input.value=text;toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
+  finally{sysChatBusy=false;}
 }
 async function openSysMessages(){
   groupView=false;currentGroup=null;$('grpPanel').classList.remove('show');
@@ -1790,7 +1841,11 @@ async function processAvatarToWebP(file){
   const ctx=canvas.getContext('2d');
   const draw=()=>{ctx.clearRect(0,0,size,size);ctx.drawImage(img,sx,sy,side,side,0,0,size,size);};
   draw();
-  const toBlob=(q)=>new Promise(res=>canvas.toBlob(res,'image/webp',q));
+  // B16: WebP 支持检测，不支持时降级 JPEG
+  const probe=document.createElement('canvas');probe.width=1;probe.height=1;
+  const webpOK=probe.toDataURL('image/webp').indexOf('data:image/webp')===0;
+  const mime=webpOK?'image/webp':'image/jpeg';
+  const toBlob=(q)=>new Promise(res=>canvas.toBlob(res,mime,q));
   let blob=await toBlob(0.82);
   // 先降质量，再降尺寸，直到 ≤16KB
   for(const q of [0.72,0.6,0.5,0.4,0.3,0.2,0.1]){
@@ -1802,17 +1857,18 @@ async function processAvatarToWebP(file){
     blob=await toBlob(0.5);
   }
   if(!blob)throw new Error('头像压缩失败');
-  return {blob,size:blob.size,side:size};
+  return {blob,size:blob.size,side:size,mime};
 }
 async function openProfile(peerId){
   if(!peerId)return;
   // 总是查库取最新资料，避免缓存导致看不到对方刚换的头像
   let acct=profileAccounts.get(peerId)||null;
   if(sb){
-    const {data}=await sb.from('accounts').select('*').eq('id',peerId).maybeSingle();
+    const {data}=await sb.from('accounts').select('id, username, role, created_at, avatar_url, bio, email, wechat, qq, ip_location').eq('id',peerId).maybeSingle();
     if(data){acct=data;profileAccounts.set(peerId,data);}
   }
   const name=acct?acct.username:'用户';
+  profileOrigin={view,currentPeer,currentGroup,groupView}; // B4: 记录来源
   showOnly('profileView');
   setProfileAvatar($('pfAvatar'),acct,name);
   $('pfName').textContent=name;
@@ -1831,7 +1887,24 @@ async function openProfile(peerId){
     b.onclick=()=>openChat({id:peerId,name:name});acts.appendChild(b);
   }
 }
-$('profileBackBtn').onclick=()=>{view='private';showOnly('privateView');renderList();};
+function restoreFromProfile(){
+  // B4/B9: 恢复到进入个人页前的视图与会话
+  view=profileOrigin.view;
+  currentPeer=profileOrigin.currentPeer;
+  currentGroup=profileOrigin.currentGroup;
+  groupView=profileOrigin.groupView;
+  if(view==='lobby'){switchView('lobby');}
+  else{
+    showOnly('privateView');
+    if(groupView&&currentGroup)$('grpPanel').classList.add('show');
+    // B9: 根据会话类型恢复输入框状态
+    if(currentPeer){
+      $('msgInput').placeholder=canSendPrivate?'输入消息，Enter 发送，Shift+Enter 换行':'游客只读 · 登录账号后可发言';
+    }else if(groupView){$('msgInput').placeholder='发消息到群…';}
+  }
+  renderList();
+}
+$('profileBackBtn').onclick=restoreFromProfile;
 $('pfChatBtn').style.display='none'; // 统一用 pfActions 动态按钮
 
 /* ===== 账号设置 ===== */
@@ -1844,8 +1917,8 @@ function openSettings(){
   $('setErr').textContent='';
   if(!isLoggedIn){$('setErr').textContent='请先登录账号';}
 }
-$('settingsEntryBtn').onclick=openSettings;
-$('settingsBackBtn').onclick=()=>{view='private';showOnly('privateView');renderList();};
+$('settingsEntryBtn').onclick=()=>{profileOrigin={view,currentPeer,currentGroup,groupView};openSettings();};
+$('settingsBackBtn').onclick=restoreFromProfile;
 $('setAvatarBtn').onclick=()=>{if(!isLoggedIn){toast('请先登录账号');return;}$('setAvatarInput').click();};
 // 粘贴图片：账号设置页打开时，在页面任意位置粘贴图片即设为头像
 document.addEventListener('paste',e=>{
@@ -1867,9 +1940,10 @@ async function handleAvatarFile(file){
   if(file.size>10*1024*1024){toast('原图不能超过 10MB');return;}
   try{
     // 自动：居中裁剪 1:1 → WebP 压缩到 ≤16KB（用户无需操作）
-    const {blob,size}=await processAvatarToWebP(file);
-    const path=`avatar/${myId}/${crypto.randomUUID?crypto.randomUUID():Date.now()}.webp`;
-    const {error}=await sb.storage.from(BUCKET).upload(path,blob,{cacheControl:'3600',upsert:true,contentType:'image/webp'});
+    const {blob,size,mime}=await processAvatarToWebP(file); // B16: 兼容降级后的 mime
+    const ext=mime==='image/webp'?'webp':'jpg';
+    const path=`avatar/${myId}/${crypto.randomUUID?crypto.randomUUID():Date.now()}.${ext}`;
+    const {error}=await sb.storage.from(BUCKET).upload(path,blob,{cacheControl:'3600',upsert:true,contentType:mime});
     if(error)throw new Error(error.message);
     const {data:urlData}=sb.storage.from(BUCKET).getPublicUrl(path);
     const {error:e2}=await sb.from('accounts').update({avatar_url:urlData.publicUrl}).eq('id',myId);
@@ -1885,17 +1959,25 @@ async function handleAvatarFile(file){
     toast('头像已更新（WebP · '+(size/1024).toFixed(1)+'KB）');
   }catch(err){console.error('[avatar]',err);toast('头像处理失败：'+err.message);}
 }
+let saveBusy=false;
 $('setSaveBtn').onclick=async()=>{
+  if(saveBusy)return;
   if(!isLoggedIn){toast('请先登录账号');return;}
-  const payload={bio:$('setBio').value.trim(),email:$('setEmail').value.trim(),
-    wechat:$('setWechat').value.trim(),qq:$('setQq').value.trim()};
-  const {error}=await sb.from('accounts').update(payload).eq('id',myId);
-  if(error){$('setErr').textContent='保存失败：'+error.message;return;}
-  profileAccounts.set(myId,{...(profileAccounts.get(myId)||{}),...payload});
-  toast('资料已保存');view='private';showOnly('privateView');renderList();
+  saveBusy=true;
+  try{
+    const payload={bio:$('setBio').value.trim(),email:$('setEmail').value.trim(),
+      wechat:$('setWechat').value.trim(),qq:$('setQq').value.trim()};
+    const {error}=await sb.from('accounts').update(payload).eq('id',myId);
+    if(error){$('setErr').textContent='保存失败：'+error.message;return;}
+    profileAccounts.set(myId,{...(profileAccounts.get(myId)||{}),...payload});
+    toast('资料已保存');restoreFromProfile();
+  }catch(e){$('setErr').textContent='保存失败：'+(e.message||'网络异常');}
+  finally{saveBusy=false;}
 };
 
+let chatOpenSeq=0; // B6: 会话切换竞态序号
 async function openChat(peer){
+  const seq=++chatOpenSeq; // B6: 每次打开递增，异步返回后校验
   sysView=false;groupView=false;currentGroup=null;
   $('grpPanel').classList.remove('show');
   if(groupMsgCh){sb.removeChannel(groupMsgCh);groupMsgCh=null;}
@@ -1908,8 +1990,12 @@ async function openChat(peer){
   $('attachBtn').disabled=!canSendPrivate;$('emojiBtn').disabled=!canSendPrivate;
   $('msgInput').placeholder=canSendPrivate?'输入消息，Enter 发送，Shift+Enter 换行':'游客只读 · 登录账号后可发言';
   updateFollowBtn();updateExportBtn();renderList();
-  await joinRoom(peer.id);await loadHistory();markAsRead(peer.id);
-  if(canSendPrivate)$('msgInput').focus();scrollBottom();
+  await joinRoom(peer.id);
+  if(seq!==chatOpenSeq)return; // B6: 期间又切了别的会话，放弃本次加载
+  await loadHistory();
+  if(seq!==chatOpenSeq)return;
+  markAsRead(peer.id);
+  if(canSendPrivate)$('msgInput').focus();scrollBottom(true);
 }
 $('backBtn').onclick=()=>{
   if(typingTimer){clearTimeout(typingTimer);if(roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});}
@@ -1919,6 +2005,7 @@ $('backBtn').onclick=()=>{
   if(groupMemberCh){sb.removeChannel(groupMemberCh);groupMemberCh=null;}
   $('app').classList.remove('chat-open');
   $('msgInput').disabled=true;$('sendBtn').disabled=true;$('attachBtn').disabled=true;$('emojiBtn').disabled=true;
+  $('msgInput').placeholder='登录账号后才能发言'; // B9: 清理群聊残留提示
   updateFollowBtn();updateExportBtn();renderList();
 };
 async function loadHistory(){
@@ -1945,9 +2032,38 @@ function renderMessage(m){
     const st=document.createElement('span');st.className='read-status '+(m.read_at?'read':'unread');st.dataset.role='read';
     st.textContent=m.read_at?'已读':'未读';time.appendChild(st);
   }
-  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);
+  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);trimMessages("messages",300);
 }
-function scrollBottom(){const el=$('messages');el.scrollTop=el.scrollHeight;}
+// B11: 仅当用户已在底部附近时才自动滚动，避免打断上翻查看历史
+function nearBottom(el){return !el||el.scrollHeight-el.scrollTop-el.clientHeight<80;}
+function scrollBottom(force){
+  const el=$('messages');
+  if(force||nearBottom(el))el.scrollTop=el.scrollHeight;
+  else showNewMsgHint('messages');
+}
+// B14: 限制 DOM 消息条数，防止长时间聊天卡顿
+function trimMessages(boxId,max){
+  const box=$(boxId);if(!box)return;
+  const rows=box.querySelectorAll(':scope > .msg-row');
+  if(rows.length>max){
+    for(let i=0;i<rows.length-max;i++){
+      const id=rows[i].dataset.id;
+      if(id){seenIds.delete(Number(id));groupSeenIds.delete(Number(id));} // B15: 同步清理去重集合
+      rows[i].remove();
+    }
+  }
+}
+// 新消息提示条
+function showNewMsgHint(boxId){
+  const box=$(boxId);if(!box)return;
+  let hint=box.querySelector('.new-msg-hint');
+  if(!hint){
+    hint=document.createElement('button');hint.className='new-msg-hint';hint.textContent='↓ 有新消息';
+    hint.onclick=()=>{box.scrollTop=box.scrollHeight;hint.remove();};
+    box.appendChild(hint);
+    setTimeout(()=>hint.remove(),5000);
+  }
+}
 function setReadById(id){const el=document.querySelector(`.msg-row[data-id="${id}"] [data-role="read"]`);if(el){el.textContent='已读';el.className='read-status read';}}
 
 // 点击私聊对象的头像/昵称 → 个人资料
@@ -1956,11 +2072,14 @@ $('peerAvatar').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile
 $('peerName').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile(currentPeer.id);};
 
 /* ========== 11. 发送（私聊） ========== */
+let sendBusy=false;
 async function sendMessage(){
+  if(sendBusy)return; // 防连点重复发送
   if(!groupView&&!canSendPrivate){toast('游客只读，请先登录账号');return;}
   const input=$('msgInput'),content=input.value.trim();
   if(!content)return;
   if(needNet())return;
+  sendBusy=true;
   // 群聊：检查禁言
   if(groupView&&currentGroup){
     const me=groupMembers.find(m=>m.user_id===myId);
@@ -1970,24 +2089,32 @@ async function sendMessage(){
   if(!groupView&&roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});
   try{
     if(groupView&&currentGroup){
-      const {error}=await sb.from('group_messages').insert({
-        group_id:currentGroup.id,sender_id:myId,sender_nickname:myNick,content:content
-      });
-      if(error){toast('发送失败：'+error.message);return;}
-      input.value='';
-    }else{
-      const {data,error}=await sb.from('messages').insert({
-        room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
-        receiver_id:currentPeer.id,content:content
+      // B3: .select() 本地渲染 + groupSeenIds 去重
+      const {data,error}=await sb.from('group_messages').insert({
+        group_id:currentGroup.id,sender_id:myId,sender_nickname:myNick,content:content.slice(0,2000)
       }).select();
       if(error){toast('发送失败：'+error.message);return;}
-      (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom();
+      (data||[]).forEach(m=>{if(!groupSeenIds.has(m.id)){groupSeenIds.add(m.id);renderGroupMessage(m);}});
+      scrollBottom(true);
+      input.value='';
+    }else{
+      // B12: 统一 slice(2000)
+      const {data,error}=await sb.from('messages').insert({
+        room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
+        receiver_id:currentPeer.id,content:content.slice(0,2000)
+      }).select();
+      if(error){toast('发送失败：'+error.message);return;}
+      (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom(true);
       input.value='';
     }
   }catch(e){console.error('[sendMessage]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
+  finally{sendBusy=false;}
 }
 $('sendBtn').onclick=()=>{if(sysView)sendSysChat();else sendMessage();};
-$('msgInput').addEventListener('input',()=>{if(!sysView)notifyTyping();});
+// B13: textarea 自动增高
+function autoGrow(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+$('msgInput').addEventListener('input',e=>{autoGrow(e.target);if(!sysView)notifyTyping();});
+$('lobbyInput').addEventListener('input',e=>autoGrow(e.target));
 $('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(sysView)sendSysChat();else sendMessage();}});
 
 $('attachBtn').onclick=()=>{if(canSendPrivate)$('fileInput').click();else toast('游客只读，请先登录账号');};
@@ -2005,9 +2132,10 @@ async function handlePrivateFile(file){
   if(!file||!sb)return;
   if(!groupView&&(!currentPeer||!canSendPrivate))return;
   if(groupView&&!currentGroup)return;
+  if(isDangerousFile(file.name)){toast('出于安全考虑，不支持上传该类型文件（'+safeExt(file.name)+'）');return;}
   if(file.size>maxFileSize){toast(`文件超过上限 ${fmtSize(maxFileSize)}`);return;}
   const rid=groupView?currentGroup.id:roomIdOf(myId,currentPeer.id);
-  const ext=file.name.includes('.')?'.'+file.name.split('.').pop():'';
+  const ext=safeExt(file.name);
   const path=`${rid}/${myId}/${crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)}${ext}`;
   $('uploadBar').classList.add('show');$('uploadText').textContent='正在上传 '+file.name+' …';
   $('attachBtn').disabled=true;$('sendBtn').disabled=true;
@@ -2033,7 +2161,7 @@ async function handlePrivateFile(file){
       if(error)throw new Error(error.message);
       (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});
     }
-    scrollBottom();toast('文件已发送');
+    scrollBottom(true);toast('文件已发送');
   }catch(err){console.error('[sendFile]',err);toast('上传失败：'+err.message);}
   finally{$('uploadBar').classList.remove('show');$('attachBtn').disabled=false;$('sendBtn').disabled=groupView?false:(canSendPrivate?false:true);}
 }
@@ -2134,7 +2262,7 @@ function initMessageChanges(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>{
       if(seenIds.has(m.id))return;seenIds.add(m.id);
       const inChat=currentPeer&&(m.sender_id===currentPeer.id||m.receiver_id===currentPeer.id);
-      if(inChat){renderMessage(m);if(m.receiver_id===myId)markAsRead(m.sender_id);scrollBottom();}
+      if(inChat){renderMessage(m);if(m.receiver_id===myId)markAsRead(m.sender_id);scrollBottom();} // B11: 智能滚动
       else if(m.receiver_id===myId){unread.set(m.sender_id,(unread.get(m.sender_id)||0)+1);renderList();}
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},({new:m})=>{
