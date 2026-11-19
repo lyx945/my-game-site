@@ -605,7 +605,8 @@ $('fileInput').addEventListener('change', async (e) => {
     const { data: urlData } = sb.storage.from(BUCKET).getPublicUrl(path);
     const { data, error } = await sb.from('messages').insert({
       room_id: rid, sender_id: myId, sender_nickname: myNick,
-      receiver_id: currentPeer.client_id, content: '',
+      // content 有非空约束(1..2000)，文件消息用文件名占位；file 气泡不渲染 content，UI 无影响
+      receiver_id: currentPeer.client_id, content: (file.name || '文件').slice(0, 2000),
       msg_type: 'file', file_name: file.name, file_url: urlData.publicUrl,
       file_size: file.size, file_mime: file.type || 'application/octet-stream', read_at: null
     }).select();
