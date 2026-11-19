@@ -630,6 +630,7 @@ $('ivCopy').onclick=async()=>{
 };
 // 转发
 $('ivForward').onclick=()=>{
+  closeImageViewer(); // 先关预览层，否则高 z-index 遮罩会盖住转发弹窗
   const box=$('forwardList');box.innerHTML='';
   // 公共大厅选项（登录用户才能转发文件）
   if(isLoggedIn){
