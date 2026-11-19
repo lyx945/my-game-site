@@ -523,16 +523,37 @@ const TOTAL_SPACE = 1024 * 1024 * 1024; // 1GB
 /* ===================================== */
 
 const $ = (id) => document.getElementById(id);
+// 全局错误捕获：把静默异常显示到界面，便于微信内置浏览器等环境排查
+window.addEventListener('unhandledrejection',e=>{
+  console.error('[unhandled]',e.reason);
+  try{const t=$('toast');if(t){t.textContent='操作失败：'+((e.reason&&e.reason.message)||'网络异常')+'（可右上角···选择在浏览器打开）';t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),5000);}}catch(_){}
+});
+window.addEventListener('error',e=>{
+  console.error('[error]',e.message);
+});
 const warnBox = $('configWarning');
 const CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR_');
 if (!CONFIGURED) { warnBox.hidden=false; warnBox.innerHTML='⚠️ 请替换 <code>chat.html</code> 顶部 Supabase 配置。'; }
 
 let createClient = null;
-for (const url of ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm','https://esm.sh/@supabase/supabase-js@2']) {
-  try { ({ createClient } = await import(url)); break; } catch(e) {}
+// 多 CDN + 超时兜底：避免微信内置浏览器里某个 CDN 挂起导致整个脚本卡死
+const SDK_SOURCES=[
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',
+  'https://esm.sh/@supabase/supabase-js@2',
+  'https://unpkg.com/@supabase/supabase-js@2/dist/module/index.js'
+];
+function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('超时')),ms))]);}
+let sdkErr=[];
+for (const url of SDK_SOURCES) {
+  try { ({ createClient } = await withTimeout(import(url),8000)); if(createClient) break; }
+  catch(e){ sdkErr.push(url.split('/')[2]+':'+(e.message||'失败')); }
 }
-if (!createClient && CONFIGURED) { warnBox.hidden=false; warnBox.innerHTML='⚠️ SDK 加载失败，请检查网络或换用 <code>https://esm.sh/@supabase/supabase-js@2</code>。'; }
+if (!createClient && CONFIGURED) {
+  warnBox.hidden=false;warnBox.style.display='block';
+  warnBox.innerHTML='⚠️ 网络连接失败，无法加载聊天组件。<br>请检查网络；<b>微信内打开请点右上角「···」→「在浏览器中打开」</b>。<br><small style="opacity:.7">'+sdkErr.join('；')+'</small>';
+}
 const sb = CONFIGURED && createClient ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+function needNet(){if(sb)return false;toast('网络未连接，请检查后重试（微信内建议右上角···→在浏览器中打开）');return true;}
 
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2300); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -979,16 +1000,19 @@ $('applySubmit').onclick=async()=>{
   if(/[^a-zA-Z0-9_\u4e00-\u9fa5]/.test(u)){err.textContent='账号名只能含字母、数字、下划线或中文';return;}
   if(p.length<6){err.textContent='密码至少 6 位';return;}
   if(!r){err.textContent='请填写申请理由';return;}
-  // 查重：已有账号 + 待处理申请
-  const {data:dupAcct}=await sb.from('accounts').select('id').ilike('username',u).maybeSingle();
-  if(dupAcct){err.textContent='该账号名已被使用';return;}
-  const {data:dupReq}=await sb.from('account_requests').select('id').ilike('username',u).maybeSingle();
-  if(dupReq){err.textContent='该账号名已在申请中';return;}
-  const {error}=await sb.from('account_requests').insert({username:u,password:p,reason:r,requested_role:role});
-  if(error){err.textContent='提交失败：'+error.message;return;}
-  $('applyModal').classList.remove('show');
-  toast('申请已提交，请等待管理员审核');
-  alert('申请已提交！\n\n管理员批准后，会在「系统消息」里发布通告。\n届时请用自己的账号名和密码登录。');
+  if(needNet()){err.textContent='网络未连接，请检查后重试（微信内建议右上角···→在浏览器中打开）';return;}
+  try{
+    // 查重：已有账号 + 待处理申请
+    const {data:dupAcct}=await sb.from('accounts').select('id').ilike('username',u).maybeSingle();
+    if(dupAcct){err.textContent='该账号名已被使用';return;}
+    const {data:dupReq}=await sb.from('account_requests').select('id').ilike('username',u).maybeSingle();
+    if(dupReq){err.textContent='该账号名已在申请中';return;}
+    const {error}=await sb.from('account_requests').insert({username:u,password:p,reason:r,requested_role:role});
+    if(error){err.textContent='提交失败：'+error.message;return;}
+    $('applyModal').classList.remove('show');
+    toast('申请已提交，请等待管理员审核');
+    alert('申请已提交！\n\n管理员批准后，会在「系统消息」里发布通告。\n届时请用自己的账号名和密码登录。');
+  }catch(e){console.error('[apply]',e);err.textContent='提交失败：'+(e.message||'网络异常')+'，请重试';}
 };
 $('annPublish').onclick=async()=>{
   const content=$('annContent').value.trim(),mins=Number($('annDuration').value);
@@ -1078,14 +1102,17 @@ async function sendLobby(){
   const input=$('lobbyInput');const content=input.value.trim();
   if(!content)return;
   if(!isLoggedIn&&!guestNick){openLoginModal('guest');return;}
-  input.value='';
-  const {error}=await sb.from('public_messages').insert({
-    sender_name:currentLobbyName(),
-    sender_id:myId,
-    sender_kind:isLoggedIn?(isAdmin?'admin':'account'):'guest',
-    content:content.slice(0,2000)
-  });
-  if(error){console.error('[lobbySend]',error.message);input.value=content;toast('发送失败：'+error.message);}
+  if(needNet())return; // 网络未就绪，保留输入内容
+  try{
+    const {error}=await sb.from('public_messages').insert({
+      sender_name:currentLobbyName(),
+      sender_id:myId,
+      sender_kind:isLoggedIn?(isAdmin?'admin':'account'):'guest',
+      content:content.slice(0,2000)
+    });
+    if(error){console.error('[lobbySend]',error.message);toast('发送失败：'+error.message);} // 失败保留输入内容
+    else input.value=''; // 只有成功后才清空
+  }catch(e){console.error('[lobbySend]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
 }
 $('lobbySendBtn').onclick=sendLobby;
 $('lobbyInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendLobby();}});
@@ -1198,14 +1225,17 @@ $('loginOk').onclick=async()=>{
   }
   const u=$('loginUser').value.trim(),p=$('loginPass').value;
   if(!u||!p){err.textContent='请填写账号和密码';return;}
-  let q=sb.from('accounts').select('id, username, role').eq('username',u).eq('password',p);
-  // 管理员模式必须校验 admin 角色；普通模式允许任意账号（管理员账号已公开）
-  if(loginMode==='admin')q=q.eq('role','admin');
-  const {data,error}=await q.maybeSingle();
-  if(error){err.textContent='查询失败：'+error.message;return;}
-  if(!data){err.textContent=loginMode==='admin'?'账号或密码错误（需管理员账号）':'账号或密码错误';return;}
-  localStorage.setItem(LS_SESSION,JSON.stringify({id:data.id,username:data.username,role:data.role}));
-  location.reload();
+  if(needNet()){err.textContent='网络未连接，请检查后重试（微信内建议右上角···→在浏览器中打开）';return;}
+  try{
+    let q=sb.from('accounts').select('id, username, role').eq('username',u).eq('password',p);
+    // 管理员模式必须校验 admin 角色；普通模式允许任意账号（管理员账号已公开）
+    if(loginMode==='admin')q=q.eq('role','admin');
+    const {data,error}=await q.maybeSingle();
+    if(error){err.textContent='查询失败：'+error.message;return;}
+    if(!data){err.textContent=loginMode==='admin'?'账号或密码错误（需管理员账号）':'账号或密码错误';return;}
+    localStorage.setItem(LS_SESSION,JSON.stringify({id:data.id,username:data.username,role:data.role}));
+    location.reload();
+  }catch(e){console.error('[login]',e);err.textContent='登录失败：'+(e.message||'网络异常')+'，请重试';}
 };
 $('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter'&&loginMode!=='guest')$('loginOk').click();});
 $('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter'&&loginMode==='guest')$('loginOk').click();});
@@ -1340,17 +1370,20 @@ function sysAutoReply(text){
 }
 async function sendSysChat(){
   const input=$('msgInput');const text=input.value.trim();
-  if(!text||!sb||!sysView)return;
+  if(!text||!sysView)return;
+  if(needNet())return;
   input.value='';
-  const {error}=await sb.from('sys_chats').insert({
-    owner_id:myId,owner_name:myNick,role:'user',content:text.slice(0,2000)
-  });
-  if(error){console.error('[sendSysChat]',error.message);input.value=text;toast('发送失败：'+error.message);return;}
-  const {error:e2}=await sb.from('sys_chats').insert({
-    owner_id:myId,owner_name:'系统',role:'system',content:sysAutoReply(text)
-  });
-  if(e2)console.error('[sysAutoReply]',e2.message);
-  loadSysChats();
+  try{
+    const {error}=await sb.from('sys_chats').insert({
+      owner_id:myId,owner_name:myNick,role:'user',content:text.slice(0,2000)
+    });
+    if(error){console.error('[sendSysChat]',error.message);input.value=text;toast('发送失败：'+error.message);return;}
+    const {error:e2}=await sb.from('sys_chats').insert({
+      owner_id:myId,owner_name:'系统',role:'system',content:sysAutoReply(text)
+    });
+    if(e2)console.error('[sysAutoReply]',e2.message);
+    loadSysChats();
+  }catch(e){console.error('[sendSysChat]',e);input.value=text;toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
 }
 async function openSysMessages(){
   currentPeer={id:SYS_ID,name:'系统消息'};sysView=true;
@@ -1551,15 +1584,19 @@ $('peerName').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile(c
 async function sendMessage(){
   if(!canSendPrivate){toast('游客只读，请先登录账号');return;}
   const input=$('msgInput'),content=input.value.trim();
-  if(!content||!sb||!currentPeer)return;
-  input.value='';clearTimeout(typingTimer);
+  if(!content||!currentPeer)return;
+  if(needNet())return;
+  clearTimeout(typingTimer);
   if(roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});
-  const {data,error}=await sb.from('messages').insert({
-    room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
-    receiver_id:currentPeer.id,content:content
-  }).select();
-  if(error){input.value=content;toast('发送失败：'+error.message);return;}
-  (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom();
+  try{
+    const {data,error}=await sb.from('messages').insert({
+      room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
+      receiver_id:currentPeer.id,content:content
+    }).select();
+    if(error){toast('发送失败：'+error.message);return;}
+    input.value=''; // 成功后才清空
+    (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom();
+  }catch(e){console.error('[sendMessage]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
 }
 $('sendBtn').onclick=()=>{if(sysView)sendSysChat();else sendMessage();};
 $('msgInput').addEventListener('input',()=>{if(!sysView)notifyTyping();});
