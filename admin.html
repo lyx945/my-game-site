@@ -54,6 +54,11 @@
   #loginCard { max-width:420px; margin:80px auto; }
   .lock { font-size:34px; margin-bottom:10px; }
   .hint { background:#fff6e6; border:1px solid #ffd591; color:#8a5a00; padding:10px 12px; border-radius:10px; font-size:12px; line-height:1.6; margin-bottom:18px; }
+  .admin-pick { max-height:180px; overflow-y:auto; margin:0 0 4px; }
+  .admin-pick .item { display:flex; align-items:center; gap:9px; padding:9px 10px; border:1px solid var(--line); border-radius:10px; margin-bottom:6px; cursor:pointer; font-size:13px; }
+  .admin-pick .item:hover { border-color:var(--brand-2); background:var(--brand-soft); }
+  .admin-pick .item .avatar { width:27px; height:27px; font-size:11px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:600; }
+  .pick-label { font-size:11px; color:var(--muted); font-weight:600; margin:0 0 7px; }
   .hidden { display:none !important; }
   #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2434; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:80; }
   #toast.show { opacity:1; }
@@ -70,6 +75,8 @@
   <h2>管理员登录</h2>
   <div class="desc">请输入管理员账号与密码。此入口不对外展示。</div>
   <div class="hint">演示级安全：账号密码存于数据库且前端可读取，请勿在此填写真实重要密码。</div>
+  <div class="pick-label">选择已有管理员账号（或直接在下方手动输入）</div>
+  <div class="admin-pick" id="adminPick"><div class="empty">加载中…</div></div>
   <div class="field"><label>账号</label><input id="loginUser" placeholder="管理员账号" autocomplete="off"></div>
   <div class="field"><label>密码</label><input id="loginPass" type="password" placeholder="密码"></div>
   <button class="btn" id="loginBtn" style="width:100%">登录后台</button>
@@ -133,6 +140,27 @@ let admin = null;
 try { admin = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) {}
 
 function toast(m) { const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200); }
+const avatarColors=['#5b5bd6','#e0715a','#2f9e7e','#c9579b','#3d8bd6','#b8862f'];
+function colorOf(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return avatarColors[h%avatarColors.length];}
+
+// 登录页：加载所有管理员账号供点选（用户选择「全部公开」）
+async function loadAdminPick(){
+  const box=$('adminPick');
+  if(!sb){box.innerHTML='<div class="empty">SDK 未加载，可直接手动输入</div>';return;}
+  const {data,error}=await sb.from('accounts').select('id, username').eq('role','admin').order('created_at',{ascending:true});
+  if(error){box.innerHTML='<div class="empty">账号列表加载失败，可直接手动输入</div>';return;}
+  if(!(data||[]).length){box.innerHTML='<div class="empty">暂无管理员账号</div>';return;}
+  box.innerHTML='';
+  (data||[]).forEach(a=>{
+    const it=document.createElement('div');it.className='item';
+    const av=document.createElement('div');av.className='avatar';
+    av.style.background=colorOf(a.id);av.textContent=(a.username||'?').charAt(0).toUpperCase();
+    const nm=document.createElement('div');nm.style.fontWeight='600';nm.textContent=a.username;
+    it.append(av,nm);
+    it.onclick=()=>{$('loginUser').value=a.username;$('loginPass').focus();toast('已选择 '+a.username+'，请输入密码');};
+    box.appendChild(it);
+  });
+}
 function showAdmin() {
   $('loginCard').classList.add('hidden');
   $('adminView').classList.remove('hidden');
@@ -203,6 +231,7 @@ async function loadAccounts() {
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+loadAdminPick();
 if (admin && sb) showAdmin();
 </script>
 </body>
