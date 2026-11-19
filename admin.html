@@ -213,6 +213,8 @@ async function loadRequests(){
       const pw=document.createElement('div');pw.className='req-pass';
       const reqRole=r.requested_role||'user';
       pw.innerHTML='申请时设置的密码：'+esc(r.password)+'　·　申请角色：<b>'+(reqRole==='admin'?'管理员':'普通用户')+'</b>';
+      const ipLine=document.createElement('div');ipLine.className='req-pass';
+      ipLine.innerHTML='申请 IP 地区：<b>'+esc(r.ip_location||'未知地区')+'</b>';
       const actions=document.createElement('div');actions.className='req-actions';
       const roleSel=document.createElement('select');
       roleSel.style.cssText='border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:12px';
@@ -228,7 +230,7 @@ async function loadRequests(){
         processRequest(r,'reject',why);
       };
       actions.append(approve,roleSel,rejectInput,reject);
-      item.append(pw,actions);
+      item.append(pw,ipLine,actions);
     }else if(r.status==='rejected'&&r.reject_reason){
       const rr=document.createElement('div');rr.className='req-reason';
       rr.innerHTML='<b>驳回理由：</b>'+esc(r.reject_reason);
@@ -245,7 +247,8 @@ async function processRequest(req,action,rejectReason,grantRole){
       const {data:dup}=await sb.from('accounts').select('id').eq('username',req.username).maybeSingle();
       if(dup)throw new Error('该账号已存在，无法批准');
       const {error:e1}=await sb.from('accounts').insert({
-        username:req.username,password:req.password,role:(grantRole||req.requested_role||'user'),created_by:admin.username
+        username:req.username,password:req.password,role:(grantRole||req.requested_role||'user'),created_by:admin.username,
+        ip_location:req.ip_location||'未知地区'
       });
       if(e1)throw new Error(e1.message);
       const {error:e2}=await sb.from('account_requests')
