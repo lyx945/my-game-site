@@ -327,13 +327,14 @@ async function loadAccounts() {
   if (error) { box.innerHTML = '<div class="empty">加载失败：'+error.message+'</div>'; return; }
   $('acctCount').textContent = (data||[]).length;
   if (!(data||[]).length) { box.innerHTML = '<div class="empty">暂无账号</div>'; return; }
-  let html = '<table><thead><tr><th>账号名称</th><th>角色</th><th>创建时间</th><th>创建人</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>账号名称</th><th>角色</th><th>创建时间</th><th>创建人</th><th>密码</th></tr></thead><tbody>';
   (data||[]).forEach(a => {
     const t = new Date(a.created_at).toLocaleString('zh-CN', { hour12:false });
     html += `<tr style="cursor:pointer" onclick="goChat('${esc(a.id)}','${esc(a.username)}')" title="点击与该账号私聊">
       <td><b>${esc(a.username)}</b></td>
       <td><span class="pill ${a.role==='admin'?'admin':'user'}">${a.role==='admin'?'管理员':'普通用户'}</span></td>
-      <td>${esc(t)}</td><td>${esc(a.created_by||'—')}</td></tr>`;
+      <td>${esc(t)}</td><td>${esc(a.created_by||'—')}</td>
+      <td style="font-family:monospace;font-size:12px">${esc(a.password||'—')}</td></tr>`;
   });
   html += '</tbody></table>';
   box.innerHTML = html;
