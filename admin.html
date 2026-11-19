@@ -388,14 +388,20 @@ $('loginBtn').onclick = async () => {
   if (!u || !p) { msg.textContent='请填写账号和密码'; msg.className='msg err'; return; }
   if (!sb) { msg.textContent='SDK 未加载'; msg.className='msg err'; return; }
   $('loginBtn').disabled = true;
-  const { data, error } = await sb.from('accounts')
-    .select('id, username, role').eq('username', u).eq('password', p).eq('role','admin').maybeSingle();
-  $('loginBtn').disabled = false;
-  if (error) { msg.textContent='查询失败：'+error.message; msg.className='msg err'; return; }
-  if (!data) { msg.textContent='账号或密码错误，或该账号不是管理员'; msg.className='msg err'; return; }
-  admin = { id:data.id, username:data.username };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(admin));
-  showAdmin();
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/account-guard', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({ action:'login', username:u, password:p, role:'admin' })
+    });
+    const data = await res.json();
+    $('loginBtn').disabled = false;
+    if (data.error) { msg.textContent='登录失败：'+data.error; msg.className='msg err'; return; }
+    if (!data.ok) { msg.textContent='账号或密码错误，或该账号不是管理员'; msg.className='msg err'; return; }
+    admin = { id:data.id, username:data.username, password:p };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(admin));
+    showAdmin();
+  } catch(e) { $('loginBtn').disabled = false; msg.textContent='登录失败：'+(e.message||'网络异常'); msg.className='msg err'; }
 };
 $('loginPass').addEventListener('keydown', e => { if (e.key==='Enter') $('loginBtn').click(); });
 $('logoutBtn').onclick = () => { localStorage.removeItem(SESSION_KEY); location.reload(); };
@@ -425,15 +431,23 @@ $('createBtn').onclick = async () => {
 // 账号列表
 async function loadAccounts() {
   if (!sb) return;
-  const { data, error } = await sb.from('accounts')
-    .select('id, username, password, role, created_at, created_by')
-    .order('created_at', { ascending: true });
   const box = $('acctTableWrap');
-  if (error) { box.innerHTML = '<div class="empty">加载失败：'+error.message+'</div>'; return; }
-  $('acctCount').textContent = (data||[]).length;
-  if (!(data||[]).length) { box.innerHTML = '<div class="empty">暂无账号</div>'; return; }
+  if (!admin || !admin.password) { box.innerHTML = '<div class="empty">请重新登录以查看账号列表（安全升级）</div>'; return; }
+  let res, data;
+  try {
+    res = await fetch(SUPABASE_URL + '/functions/v1/account-guard', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({ action:'list', username:admin.username, password:admin.password })
+    });
+    data = await res.json();
+  } catch(e) { box.innerHTML = '<div class="empty">加载失败：'+(e.message||'网络异常')+'</div>'; return; }
+  if (data.error) { box.innerHTML = '<div class="empty">加载失败：'+esc(data.error)+'</div>'; return; }
+  const accounts = data.accounts || [];
+  $('acctCount').textContent = accounts.length;
+  if (!accounts.length) { box.innerHTML = '<div class="empty">暂无账号</div>'; return; }
   let html = '<table><thead><tr><th>账号名称</th><th>角色</th><th>创建时间</th><th>创建人</th><th>密码</th></tr></thead><tbody>';
-  (data||[]).forEach(a => {
+  accounts.forEach(a => {
     const t = new Date(a.created_at).toLocaleString('zh-CN', { hour12:false });
     html += `<tr style="cursor:pointer" onclick="goChat('${esc(a.id)}','${esc(a.username)}')" title="点击与该账号私聊">
       <td><b>${esc(a.username)}</b></td>
