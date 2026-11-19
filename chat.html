@@ -62,6 +62,30 @@
   .badge.show{display:inline-flex}
   .list-empty{text-align:center;color:var(--muted);padding:30px 12px;line-height:1.8;font-size:12px}
 
+  /* 图片缩略图（微信式） */
+  .img-thumb{display:block;max-width:240px;max-height:200px;border-radius:9px;object-fit:cover;cursor:zoom-in;background:#eef0f5;transition:opacity .2s}
+  .img-thumb:hover{opacity:.88}
+  /* 图片预览弹层 */
+  .img-viewer{position:fixed;inset:0;z-index:150;background:rgba(10,12,20,.93);display:none;flex-direction:column;backdrop-filter:blur(4px)}
+  .img-viewer.show{display:flex}
+  .iv-top{height:56px;flex:0 0 56px;display:flex;align-items:center;gap:8px;padding:0 16px;color:#fff}
+  .iv-top .iv-name{font-weight:600;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .iv-top button{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:600;white-space:nowrap}
+  .iv-top button:hover{background:rgba(255,255,255,.2)}
+  .iv-stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:10px 20px}
+  .iv-stage img{max-width:none;max-height:none;transition:transform .15s;transform-origin:center center;cursor:grab;border-radius:4px}
+  .iv-bottom{flex:0 0 auto;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:14px 16px 22px}
+  .iv-bottom button{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;border-radius:11px;padding:9px 15px;font-size:13px;font-weight:600}
+  .iv-bottom button:hover{background:rgba(255,255,255,.22)}
+  .iv-bottom .danger{border-color:rgba(255,120,120,.5);color:#ffb3b3}
+  .iv-hint{text-align:center;color:rgba(255,255,255,.5);font-size:11px;padding-bottom:10px}
+  /* 转发目标列表 */
+  .forward-list{max-height:260px;overflow-y:auto;margin-top:6px}
+  .forward-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer}
+  .forward-item:hover{border-color:var(--brand-2);background:var(--brand-soft)}
+  .forward-item .avatar{width:28px;height:28px;font-size:11px}
+  .forward-item .nm{font-weight:600;flex:1}
+
   /* 系统消息虚拟联系人 */
   .sys-item{border-bottom:1px solid var(--line)}
   .sys-item .user-item{margin-bottom:0}
@@ -377,6 +401,36 @@
 <div class="emoji-panel" id="emojiPanel"><div class="emoji-grid" id="emojiGrid"></div></div>
 <div class="pdf-loading" id="pdfLoading"><div class="box" id="pdfLoadingText">正在生成 PDF…</div></div>
 
+<!-- 图片预览弹层 -->
+<div class="img-viewer" id="imgViewer">
+  <div class="iv-top">
+    <span class="iv-name" id="ivName">图片</span>
+    <button id="ivZoomOut" title="缩小">➖</button>
+    <button id="ivZoomIn" title="放大">➕</button>
+    <button id="ivRotate" title="旋转">🔄</button>
+    <button id="ivReset" title="还原">1:1</button>
+    <button id="ivClose" title="关闭">✕</button>
+  </div>
+  <div class="iv-stage" id="ivStage"><img id="ivImage" alt="预览"></div>
+  <div class="iv-bottom">
+    <button id="ivForward">🔁 转发</button>
+    <button id="ivCopy">🔗 复制链接</button>
+    <button id="ivDownload">⬇️ 下载</button>
+  </div>
+  <div class="iv-hint">滚轮缩放 · 拖动移动 · Esc 关闭</div>
+</div>
+
+<!-- 转发目标弹窗 -->
+<div class="modal" id="forwardModal">
+  <div class="modal-card">
+    <h2>转发图片</h2>
+    <p>选择发送目标，图片会作为文件消息发送。</p>
+    <div class="forward-list" id="forwardList"></div>
+    <div class="err" id="forwardErr"></div>
+    <div class="modal-actions"><button id="forwardCancel">取消</button></div>
+  </div>
+</div>
+
 <!-- 账号登录 / 游客昵称 / 管理员登录 共用弹窗 -->
 <div class="modal" id="loginModal">
   <div class="modal-card">
@@ -499,6 +553,121 @@ function setAvatar(el,id,name){el.style.background=colorOf(id);el.textContent=(n
 function fmtTime(iso){const d=new Date(iso),n=new Date(),hm=d.toTimeString().slice(0,5);return d.toDateString()===n.toDateString()?hm:(d.getMonth()+1)+'/'+d.getDate()+' '+hm;}
 function fmtSize(n){if(!n&&n!==0)return'';if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(1)+' KB';return (n/1024/1024).toFixed(2)+' MB';}
 function fileIcon(mime,name){const m=mime||'';if(m.startsWith('image/'))return'🖼️';if(m.includes('pdf'))return'📕';if(m.includes('zip')||m.includes('rar')||m.includes('7z'))return'🗜️';if(m.startsWith('video/'))return'🎬';if(m.startsWith('audio/'))return'🎵';if(m.includes('word')||/\.(doc|docx)$/i.test(name||''))return'📘';if(m.includes('sheet')||/\.(xls|xlsx|csv)$/i.test(name||''))return'📗';return'📎';}
+function isImageMsg(m){return m.msg_type==='file'&&m.file_url&&((m.file_mime||'').startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(m.file_name||''));}
+// 共用的文件/图片消息节点：图片显示缩略图（点击预览），其他显示文件卡片
+function buildFileNode(m){
+  if(isImageMsg(m)){
+    const img=document.createElement('img');img.className='img-thumb';img.src=m.file_url;img.alt=m.file_name||'图片';
+    img.loading='lazy';img.onerror=()=>{const s=document.createElement('span');s.textContent='🖼️ '+(m.file_name||'图片');img.replaceWith(s);};
+    img.onclick=()=>openImageViewer(m);
+    return img;
+  }
+  const a=document.createElement('a');a.className='file-card';a.href=m.file_url;a.target='_blank';a.rel='noopener';a.download=m.file_name||'file';
+  const ic=document.createElement('div');ic.className='file-icon';ic.textContent=fileIcon(m.file_mime,m.file_name);
+  const meta=document.createElement('div');meta.className='file-meta';
+  const nm=document.createElement('div');nm.className='file-name';nm.textContent=m.file_name||'文件';
+  const sz=document.createElement('div');sz.className='file-size';sz.textContent=fmtSize(m.file_size);
+  meta.append(nm,sz);const dl=document.createElement('div');dl.className='file-dl';dl.textContent='↧';
+  a.append(ic,meta,dl);return a;
+}
+
+/* ===== 图片预览弹层（原地查看/下载/转发/复制链接/缩放旋转） ===== */
+let ivState={url:'',name:'',msg:null,scale:1,rotate:0,x:0,y:0,drag:null};
+function openImageViewer(m){
+  ivState={url:m.file_url,name:m.file_name||'图片',msg:m,scale:1,rotate:0,x:0,y:0,drag:null};
+  $('ivName').textContent=ivState.name;
+  const img=$('ivImage');img.src=m.file_url;img.alt=ivState.name;
+  applyIvTransform();
+  $('imgViewer').classList.add('show');
+}
+function closeImageViewer(){$('imgViewer').classList.remove('show');$('ivImage').src='';}
+function applyIvTransform(){
+  $('ivImage').style.transform=`translate(${ivState.x}px,${ivState.y}px) rotate(${ivState.rotate}deg) scale(${ivState.scale})`;
+}
+function resetIv(){ivState.scale=1;ivState.rotate=0;ivState.x=0;ivState.y=0;applyIvTransform();}
+$('ivClose').onclick=closeImageViewer;
+$('imgViewer').addEventListener('click',e=>{if(e.target===$('imgViewer')||e.target===$('ivStage'))closeImageViewer();});
+$('ivZoomIn').onclick=()=>{ivState.scale=Math.min(5,ivState.scale+0.25);applyIvTransform();};
+$('ivZoomOut').onclick=()=>{ivState.scale=Math.max(0.25,ivState.scale-0.25);applyIvTransform();};
+$('ivRotate').onclick=()=>{ivState.rotate=(ivState.rotate+90)%360;applyIvTransform();};
+$('ivReset').onclick=resetIv;
+// 滚轮缩放
+$('ivStage').addEventListener('wheel',e=>{
+  e.preventDefault();
+  ivState.scale=Math.max(0.25,Math.min(5,ivState.scale+(e.deltaY<0?0.15:-0.15)));
+  applyIvTransform();
+},{passive:false});
+// 拖动移动
+const ivImg=$('ivImage');
+ivImg.addEventListener('mousedown',e=>{
+  ivState.drag={x:e.clientX-ivState.x,y:e.clientY-ivState.y};ivImg.style.cursor='grabbing';e.preventDefault();
+});
+document.addEventListener('mousemove',e=>{
+  if(!ivState.drag)return;
+  ivState.x=e.clientX-ivState.drag.x;ivState.y=e.clientY-ivState.drag.y;applyIvTransform();
+});
+document.addEventListener('mouseup',()=>{if(ivState.drag){ivState.drag=null;ivImg.style.cursor='grab';}});
+// Esc 关闭
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('imgViewer').classList.contains('show'))closeImageViewer();});
+// 下载原图
+$('ivDownload').onclick=()=>{
+  const a=document.createElement('a');a.href=ivState.url;a.download=ivState.name||'image';a.target='_blank';a.click();
+};
+// 复制链接
+$('ivCopy').onclick=async()=>{
+  try{await navigator.clipboard.writeText(ivState.url);toast('图片链接已复制');}
+  catch(e){
+    const ta=document.createElement('textarea');ta.value=ivState.url;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');toast('图片链接已复制');}catch(_){toast('复制失败，请手动复制链接');}
+    ta.remove();
+  }
+};
+// 转发
+$('ivForward').onclick=()=>{
+  const box=$('forwardList');box.innerHTML='';
+  // 公共大厅选项（登录用户才能转发文件）
+  if(isLoggedIn){
+    const it=document.createElement('div');it.className='forward-item';
+    const av=document.createElement('div');av.className='avatar';av.style.background='linear-gradient(135deg,#30c48d,#2fa8d8)';av.textContent='🌐';
+    const nm=document.createElement('div');nm.className='nm';nm.textContent='公共大厅';
+    it.append(av,nm);it.onclick=()=>forwardImageTo('lobby');box.appendChild(it);
+  }
+  // 所有已注册账号（排除自己）
+  registered.filter(a=>a.id!==myId).forEach(a=>{
+    const it=document.createElement('div');it.className='forward-item';
+    const av=document.createElement('div');av.className='avatar';setAvatarSmart(av,a.id,a.username);
+    const nm=document.createElement('div');nm.className='nm';nm.textContent=a.username+(a.role==='admin'?' 👑':'');
+    it.append(av,nm);it.onclick=()=>forwardImageTo('peer',a);box.appendChild(it);
+  });
+  if(!box.children.length)box.innerHTML='<div class="list-empty">暂无可转发的会话</div>';
+  $('forwardErr').textContent='';
+  $('forwardModal').classList.add('show');
+};
+$('forwardCancel').onclick=()=>$('forwardModal').classList.remove('show');
+async function forwardImageTo(type,peer){
+  if(!sb)return;
+  if(!isLoggedIn){$('forwardErr').textContent='请登录账号后再转发';return;}
+  const m=ivState.msg;
+  const payload={
+    sender_id:myId,sender_nickname:myNick,
+    content:(m.file_name||'图片').slice(0,2000),
+    msg_type:'file',file_name:m.file_name||'图片',file_url:m.file_url,
+    file_size:m.file_size||0,file_mime:m.file_mime||'image/webp',read_at:null
+  };
+  if(type==='lobby'){
+    Object.assign(payload,{sender_name:myNick,sender_kind:isAdmin?'admin':'account'});
+    delete payload.sender_nickname;delete payload.receiver_id;delete payload.read_at;
+    const {error}=await sb.from('public_messages').insert(payload);
+    if(error){$('forwardErr').textContent='转发失败：'+error.message;return;}
+  }else{
+    Object.assign(payload,{room_id:roomIdOf(myId,peer.id),receiver_id:peer.id});
+    const {error}=await sb.from('messages').insert(payload);
+    if(error){$('forwardErr').textContent='转发失败：'+error.message;return;}
+  }
+  $('forwardModal').classList.remove('show');
+  closeImageViewer();
+  toast('图片已转发到'+(type==='lobby'?'公共大厅':(' '+peer.username)));
+}
 
 function renderMe(){
   $('meName').textContent=myNick;
@@ -834,14 +1003,7 @@ function renderLobbyMsg(m){
     s.appendChild(tag);bubble.appendChild(s);
   }
   if(m.msg_type==='file'&&m.file_url){
-    const a=document.createElement('a');a.className='file-card';a.href=m.file_url;a.target='_blank';a.rel='noopener';a.download=m.file_name||'file';
-    const ic=document.createElement('div');ic.className='file-icon';ic.textContent=fileIcon(m.file_mime,m.file_name);
-    const meta=document.createElement('div');meta.className='file-meta';
-    const nm=document.createElement('div');nm.className='file-name';nm.textContent=m.file_name||'文件';
-    const sz=document.createElement('div');sz.className='file-size';sz.textContent=fmtSize(m.file_size);
-    meta.append(nm,sz);
-    const dl=document.createElement('div');dl.className='file-dl';dl.textContent='↧';
-    a.append(ic,meta,dl);bubble.appendChild(a);
+    bubble.appendChild(buildFileNode(m));
   }else{
     const text=document.createElement('div');text.className='msg-text';text.textContent=m.content||'';
     bubble.appendChild(text);
@@ -1334,13 +1496,7 @@ function renderMessage(m){
   const row=document.createElement('div');row.className='msg-row '+(m.sender_id===myId?'mine':'theirs');row.dataset.id=m.id;
   const bubble=document.createElement('div');bubble.className='bubble';
   if(m.msg_type==='file'&&m.file_url){
-    const a=document.createElement('a');a.className='file-card';a.href=m.file_url;a.target='_blank';a.rel='noopener';a.download=m.file_name||'file';
-    const ic=document.createElement('div');ic.className='file-icon';ic.textContent=fileIcon(m.file_mime,m.file_name);
-    const meta=document.createElement('div');meta.className='file-meta';
-    const nm=document.createElement('div');nm.className='file-name';nm.textContent=m.file_name||'文件';
-    const sz=document.createElement('div');sz.className='file-size';sz.textContent=fmtSize(m.file_size);
-    meta.append(nm,sz);const dl=document.createElement('div');dl.className='file-dl';dl.textContent='↧';
-    a.append(ic,meta,dl);bubble.appendChild(a);
+    bubble.appendChild(buildFileNode(m));
   }else{
     const t=document.createElement('div');t.className='msg-text';t.textContent=m.content||'';bubble.appendChild(t);
   }
