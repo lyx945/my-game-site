@@ -1122,8 +1122,17 @@ $('lobbyAttachBtn').onclick=()=>{
   if(!isLoggedIn){toast('游客不能发文件，请登录账号');return;}
   $('lobbyFileInput').click();
 };
-$('lobbyFileInput').addEventListener('change',async e=>{
+// 粘贴文件：大厅输入框（仅登录用户生效）
+$('lobbyInput').addEventListener('paste',e=>{
+  if(!isLoggedIn)return;
+  const files=e.clipboardData&&e.clipboardData.files;
+  if(files&&files.length){e.preventDefault();handleLobbyFile(files[0]);}
+});
+$('lobbyFileInput').addEventListener('change',e=>{
   const file=e.target.files&&e.target.files[0];e.target.value='';
+  if(file)handleLobbyFile(file);
+});
+async function handleLobbyFile(file){
   if(!file||!isLoggedIn)return;
   if(file.size>LIMIT_USER){toast('大厅文件不能超过 5MB');return;}
   const now=new Date();
@@ -1151,7 +1160,7 @@ $('lobbyFileInput').addEventListener('change',async e=>{
   }finally{
     $('lobbyAttachBtn').disabled=!isLoggedIn;$('lobbySendBtn').disabled=false;
   }
-});
+}
 $('guestNickBtn').onclick=()=>openLoginModal('guest');
 $('lobbyBackBtn').onclick=()=>{switchView('private');$('app').classList.remove('chat-open');renderList();};
 
@@ -1493,9 +1502,23 @@ function openSettings(){
 $('settingsEntryBtn').onclick=openSettings;
 $('settingsBackBtn').onclick=()=>{view='private';showOnly('privateView');renderList();};
 $('setAvatarBtn').onclick=()=>{if(!isLoggedIn){toast('请先登录账号');return;}$('setAvatarInput').click();};
-$('setAvatarInput').addEventListener('change',async e=>{
+// 粘贴图片：账号设置页打开时，在页面任意位置粘贴图片即设为头像
+document.addEventListener('paste',e=>{
+  if(!$('settingsView').classList.contains('show')||!isLoggedIn)return;
+  const files=e.clipboardData&&e.clipboardData.files;
+  if(files&&files.length){
+    const f=files[0];
+    if(f.type.startsWith('image/')){e.preventDefault();handleAvatarFile(f);}
+  }
+});
+$('setAvatarInput').addEventListener('change',e=>{
   const file=e.target.files&&e.target.files[0];e.target.value='';
+  if(file)handleAvatarFile(file);
+});
+async function handleAvatarFile(file){
   if(!file)return;
+  if(!isLoggedIn){toast('请先登录账号');return;}
+  if(!file.type.startsWith('image/')){toast('头像请选择图片');return;}
   if(file.size>10*1024*1024){toast('原图不能超过 10MB');return;}
   try{
     // 自动：居中裁剪 1:1 → WebP 压缩到 ≤16KB（用户无需操作）
@@ -1516,7 +1539,7 @@ $('setAvatarInput').addEventListener('change',async e=>{
     renderList();
     toast('头像已更新（WebP · '+(size/1024).toFixed(1)+'KB）');
   }catch(err){console.error('[avatar]',err);toast('头像处理失败：'+err.message);}
-});
+}
 $('setSaveBtn').onclick=async()=>{
   if(!isLoggedIn){toast('请先登录账号');return;}
   const payload={bio:$('setBio').value.trim(),email:$('setEmail').value.trim(),
@@ -1603,8 +1626,17 @@ $('msgInput').addEventListener('input',()=>{if(!sysView)notifyTyping();});
 $('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(sysView)sendSysChat();else sendMessage();}});
 
 $('attachBtn').onclick=()=>{if(canSendPrivate)$('fileInput').click();else toast('游客只读，请先登录账号');};
-$('fileInput').addEventListener('change',async e=>{
+// 粘贴文件：私聊输入框（仅上传按钮可用时生效）
+$('msgInput').addEventListener('paste',e=>{
+  if(!canSendPrivate||sysView)return;
+  const files=e.clipboardData&&e.clipboardData.files;
+  if(files&&files.length){e.preventDefault();handlePrivateFile(files[0]);}
+});
+$('fileInput').addEventListener('change',e=>{
   const file=e.target.files&&e.target.files[0];e.target.value='';
+  if(file)handlePrivateFile(file);
+});
+async function handlePrivateFile(file){
   if(!file||!sb||!currentPeer||!canSendPrivate)return;
   if(file.size>maxFileSize){toast(`文件超过上限 ${fmtSize(maxFileSize)}`);return;}
   const rid=roomIdOf(myId,currentPeer.id);
@@ -1627,7 +1659,7 @@ $('fileInput').addEventListener('change',async e=>{
     scrollBottom();toast('文件已发送');
   }catch(err){console.error('[sendFile]',err);toast('上传失败：'+err.message);}
   finally{$('uploadBar').classList.remove('show');$('attachBtn').disabled=false;$('sendBtn').disabled=canSendPrivate?false:true;}
-});
+}
 
 /* ========== 11b. 导出聊天记录为 PDF（微信气泡排版） ========== */
 $('exportPdfBtn').onclick=async()=>{
