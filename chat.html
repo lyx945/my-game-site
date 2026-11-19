@@ -839,6 +839,12 @@ function buildSysItem(){
 }
 function renderList(){
   const box=$('userList');box.innerHTML='';
+  // 公共大厅视图：不显示任何联系人列表（含系统消息），只有切回私聊 Tab 才显示
+  if(view==='lobby'){
+    $('listTitle').innerHTML='<span>公共大厅</span><span></span>';
+    box.innerHTML='<div class="list-empty">公共大厅 · 全服公开聊天</div>';
+    return;
+  }
   // 三个 Tab 顶部都固定「系统消息」（游客可见）
   box.appendChild(buildSysItem());
   let list,title,showBadge;
@@ -868,7 +874,10 @@ function setTab(t){
 $('tabOnline').onclick=()=>setTab('online');
 $('tabFollowing').onclick=()=>setTab('following');
 $('tabRegistered').onclick=()=>setTab('registered');
-$('tabLobby').onclick=()=>{switchView('lobby');renderList();};
+$('tabLobby').onclick=()=>{
+  searching=false;searchResults=[];$('searchInput').value=''; // 清空搜索，避免大厅残留搜索结果
+  switchView('lobby');renderList();
+};
 
 function switchView(v){
   view=v;
