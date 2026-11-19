@@ -68,6 +68,31 @@
   .sys-avatar{background:linear-gradient(135deg,#f5a623,#f5c542) !important}
   .sys-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
   .sys-badge.hidden{display:none}
+  /* 个人资料全屏视图 */
+  .profile-view{display:none;flex-direction:column;flex:1;min-height:0;background:var(--panel-2)}
+  .profile-view.show{display:flex}
+  .profile-wrap{max-width:520px;width:100%;margin:32px auto;padding:0 20px;overflow-y:auto}
+  .profile-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px;text-align:center;box-shadow:var(--shadow);margin-bottom:14px}
+  .profile-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-size:34px;font-weight:700;margin:0 auto 14px}
+  .profile-name{font-size:19px;font-weight:700;margin-bottom:4px}
+  .profile-role{font-size:11px;color:var(--muted);margin-bottom:20px}
+  .profile-field{text-align:left;margin-top:14px}
+  .profile-field .lbl{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px}
+  .profile-field .val{font-size:13px;line-height:1.6;word-break:break-all}
+  .profile-field .val.empty{color:#c2c7d2}
+  .profile-actions{display:flex;gap:9px;margin-top:18px}
+  .profile-actions button{flex:1;height:40px;border-radius:11px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:13px}
+  .profile-actions .primary{border:0;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand-2))}
+  .settings-wrap{max-width:520px;width:100%;margin:24px auto;padding:0 20px;overflow-y:auto}
+  .avatar-preview{width:72px;height:72px;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-size:26px;font-weight:700;margin:0 auto 12px}
+
+  /* 系统咨询对话 */
+  .sys-chat-title{font-size:11px;font-weight:700;color:var(--muted);margin:16px 0 10px;padding-top:14px;border-top:1px dashed var(--line)}
+  .sys-msg-user{display:flex;justify-content:flex-end;margin-bottom:12px}
+  .sys-msg-sys{display:flex;justify-content:flex-start;margin-bottom:12px}
+  .sys-msg-user .b{background:linear-gradient(135deg,#f5a623,#f5c542);color:#fff;border-radius:14px;border-bottom-right-radius:5px;padding:9px 13px;max-width:76%;white-space:pre-wrap;word-break:break-word;font-size:13px}
+  .sys-msg-sys .b{background:#fff;border:1px solid var(--line);border-radius:14px;border-bottom-left-radius:5px;padding:9px 13px;max-width:76%;white-space:pre-wrap;word-break:break-word;font-size:13px}
+  .sys-msg-sys .b .who{font-size:10px;color:var(--muted);margin-bottom:4px;font-weight:700}
   /* 系统通告气泡 */
   .sys-notice{border-left:3px solid #f5a623;background:#fffaf0 !important;border-color:#ffe0a3 !important}
   .sys-notice.rejected{border-left-color:var(--danger);background:#fff5f5 !important;border-color:#ffd0d0 !important}
@@ -230,6 +255,9 @@
       <div class="me-info"><div class="me-name" id="meName">游客</div><div class="me-hint" id="meHint">点击登录账号</div></div>
       <span class="role-pill guest" id="meRole">游客</span>
     </div>
+    <div id="settingsEntry" style="margin:-4px 12px 9px;text-align:right;display:none">
+      <button class="foot-btn" id="settingsEntryBtn" style="width:auto;padding:5px 10px;font-size:11px">⚙️ 账号设置</button>
+    </div>
     <div class="search-wrap">
       <span class="ico">🔍</span>
       <input id="searchInput" placeholder="搜索已注册账号" autocomplete="off">
@@ -271,6 +299,53 @@
         <input type="file" id="fileInput" hidden>
         <textarea id="msgInput" rows="1" placeholder="登录账号后才能发言" disabled></textarea>
         <button class="send-btn" id="sendBtn" disabled>发送</button>
+      </div>
+    </div>
+
+    <!-- 个人资料视图 -->
+    <div id="profileView" class="profile-view">
+      <div class="chat-head">
+        <button class="back-btn" id="profileBackBtn" aria-label="返回">‹</button>
+        <div class="chat-title">个人资料</div>
+      </div>
+      <div class="profile-wrap">
+        <div class="profile-card">
+          <div class="profile-avatar" id="pfAvatar">?</div>
+          <div class="profile-name" id="pfName">—</div>
+          <div class="profile-role" id="pfRole">—</div>
+          <div class="profile-field"><div class="lbl">个人简介</div><div class="val" id="pfBio">—</div></div>
+          <div class="profile-field"><div class="lbl">邮箱</div><div class="val" id="pfEmail">—</div></div>
+          <div class="profile-field"><div class="lbl">微信</div><div class="val" id="pfWechat">—</div></div>
+          <div class="profile-field"><div class="lbl">QQ</div><div class="val" id="pfQq">—</div></div>
+          <div class="profile-actions" id="pfActions">
+            <button id="pfChatBtn">💬 发消息</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 账号设置视图 -->
+    <div id="settingsView" class="profile-view">
+      <div class="chat-head">
+        <button class="back-btn" id="settingsBackBtn" aria-label="返回">‹</button>
+        <div class="chat-title">账号设置</div>
+      </div>
+      <div class="settings-wrap">
+        <div class="profile-card">
+          <div class="avatar-preview" id="setAvatar">?</div>
+          <div style="margin-bottom:14px"><button class="foot-btn" id="setAvatarBtn" style="width:100%">📷 上传头像</button>
+            <input type="file" id="setAvatarInput" accept="image/*" hidden></div>
+          <div class="field" style="text-align:left;margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">个人简介</label>
+            <textarea id="setBio" rows="3" maxlength="500" placeholder="介绍一下自己" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2);resize:vertical"></textarea></div>
+          <div class="field" style="text-align:left;margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">邮箱</label>
+            <input id="setEmail" maxlength="100" placeholder="your@email.com" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2)"></div>
+          <div class="field" style="text-align:left;margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">微信</label>
+            <input id="setWechat" maxlength="100" placeholder="微信号" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2)"></div>
+          <div class="field" style="text-align:left;margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">QQ</label>
+            <input id="setQq" maxlength="100" placeholder="QQ 号" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2)"></div>
+          <div class="err" id="setErr"></div>
+          <div class="profile-actions"><button class="primary" id="setSaveBtn">保存设置</button></div>
+        </div>
       </div>
     </div>
 
@@ -431,6 +506,7 @@ function renderMe(){
   setAvatar($('meAvatar'),myId,myNick);
   const p=$('meRole'); p.className='role-pill '+myRole;
   p.textContent=myRole==='admin'?'管理员':(myRole==='user'?'已登录':'游客');
+  $('settingsEntry').style.display=isLoggedIn?'block':'none';
 }
 
 /* ========== 3. 状态 ========== */
@@ -441,7 +517,10 @@ let presenceReady=false, presenceCh=null, msgCh=null, roomCh=null, lobbyCh=null;
 let typingTimer=null, searchTimer=null, emojiTarget=null;
 let announcements=[], readCounts=new Map(), annReadCounts=new Map(), allAccounts=[];
 const SYS_ID='__system__';
-let systemNotices=[], sysUnread=0, sysView=false;
+let systemNotices=[], sysUnread=0, sysView=false, sysChats=[];
+const SYS_EMAIL='2442311042@qq.com';
+const SYS_KEYWORDS=['邮箱','站长邮箱','联系','联系方式','QQ','邮件','站长'];
+let profileAccounts=new Map(); // id -> account（含资料字段）
 
 // 按需加载 PDF 生成库（多 CDN 兜底）
 let pdfLibs=null;
@@ -488,9 +567,10 @@ function initPresence(){
 async function loadRegistered(){
   if(!sb)return;
   // 用户选择「全部公开」：已注册列表包含管理员账号
-  const {data,error}=await sb.from('accounts').select('id, username, role, created_at')
+  const {data,error}=await sb.from('accounts').select('id, username, role, created_at, avatar_url, bio, email, wechat, qq')
     .order('created_at',{ascending:true});
   if(error){console.error('[loadRegistered]',error.message);return;}
+  profileAccounts=new Map((data||[]).map(a=>[a.id,a]));
   registered=(data||[]).map(a=>({id:a.id,username:a.username,role:a.role}));
   renderList();
   allAccounts=registered;
@@ -1007,33 +1087,163 @@ function renderSysNotices(){
   const box=$('messages');
   box.innerHTML='';
   $('peerName').textContent='系统消息';
-  $('peerSub').textContent='账号申请结果 · 全员通告';
+  $('peerSub').textContent='全员通告 · 在线咨询（自动回复）';
   setAvatar($('peerAvatar'),SYS_ID,'系统');
-  $('msgInput').disabled=true;$('sendBtn').disabled=true;
-  $('attachBtn').disabled=true;$('emojiBtn').disabled=true;
+  $('msgInput').disabled=false;$('sendBtn').disabled=false;
+  $('msgInput').placeholder='输入咨询内容，Enter 发送…';
+  $('attachBtn').disabled=true;$('emojiBtn').disabled=false;
   $('exportPdfBtn').style.display='none';$('followBtn').style.display='none';
-  if(!systemNotices.length){
-    box.innerHTML='<div class="empty-chat"><div class="big">📢</div><div>暂无系统通告</div></div>';
-    return;
+
+  if(systemNotices.length){
+    systemNotices.forEach(n=>{
+      const row=document.createElement('div');row.className='msg-row theirs';
+      const bubble=document.createElement('div');bubble.className='bubble sys-notice'+(n.kind==='rejected'?' rejected':'');
+      const t=document.createElement('div');t.className='sn-title';t.textContent=n.title;
+      const b=document.createElement('div');b.className='sn-body';b.textContent=n.content;
+      const tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(n.created_at);
+      bubble.append(t,b,tm);row.appendChild(bubble);box.appendChild(row);
+    });
+  }else{
+    const e=document.createElement('div');e.className='empty-chat';
+    e.innerHTML='<div class="big">📢</div><div>暂无系统通告</div>';box.appendChild(e);
   }
-  systemNotices.forEach(n=>{
-    const row=document.createElement('div');row.className='msg-row theirs';
-    const bubble=document.createElement('div');bubble.className='bubble sys-notice'+(n.kind==='rejected'?' rejected':'');
-    const t=document.createElement('div');t.className='sn-title';t.textContent=n.title;
-    const b=document.createElement('div');b.className='sn-body';b.textContent=n.content;
-    const tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(n.created_at);
-    bubble.append(t,b,tm);row.appendChild(bubble);box.appendChild(row);
-  });
+
+  // 个人咨询对话（仅自己可见）
+  const title=document.createElement('div');title.className='sys-chat-title';
+  title.textContent='💬 我的在线咨询（仅自己可见）';box.appendChild(title);
+  if(!sysChats.length){
+    const e=document.createElement('div');e.className='list-empty';
+    e.textContent='还没有咨询记录。问「站长邮箱」可自动获取联系方式。';box.appendChild(e);
+  }else{
+    sysChats.forEach(c=>{
+      const row=document.createElement('div');row.className=c.role==='user'?'sys-msg-user':'sys-msg-sys';
+      const b=document.createElement('div');b.className='b';
+      if(c.role==='system'){
+        const who=document.createElement('div');who.className='who';who.textContent='系统助手';b.appendChild(who);
+      }
+      const t=document.createElement('div');t.textContent=c.content;b.appendChild(t);
+      row.appendChild(b);box.appendChild(row);
+    });
+  }
   scrollBottom();
 }
-function openSysMessages(){
+async function loadSysChats(){
+  if(!sb)return;
+  const {data,error}=await sb.from('sys_chats').select('*')
+    .eq('owner_id',myId).order('created_at',{ascending:true}).limit(200);
+  if(error){console.error('[loadSysChats]',error.message);return;}
+  sysChats=data||[];
+  if(sysView)renderSysNotices();
+}
+function sysAutoReply(text){
+  const hit=SYS_KEYWORDS.some(k=>text.toLowerCase().includes(k.toLowerCase()));
+  if(hit){
+    return '您好，感谢咨询！站长的联系邮箱是：'+SYS_EMAIL+'。您可以通过该邮箱联系站长，我们会尽快回复您。';
+  }
+  return '您好，我是系统助手。您可以咨询站长联系方式（例如输入「站长邮箱」），我会自动为您解答。其他问题请留言，站长看到后会通过您留下的方式联系您。';
+}
+async function sendSysChat(){
+  const input=$('msgInput');const text=input.value.trim();
+  if(!text||!sb||!sysView)return;
+  input.value='';
+  const {error}=await sb.from('sys_chats').insert({
+    owner_id:myId,owner_name:myNick,role:'user',content:text.slice(0,2000)
+  });
+  if(error){console.error('[sendSysChat]',error.message);input.value=text;toast('发送失败：'+error.message);return;}
+  const {error:e2}=await sb.from('sys_chats').insert({
+    owner_id:myId,owner_name:'系统',role:'system',content:sysAutoReply(text)
+  });
+  if(e2)console.error('[sysAutoReply]',e2.message);
+  loadSysChats();
+}
+async function openSysMessages(){
   currentPeer={id:SYS_ID,name:'系统消息'};sysView=true;
   unread.set(SYS_ID,0);sysUnread=0;
   localStorage.setItem('qiaohua_sys_seen',String(systemNotices.length));
   renderList();
   $('app').classList.add('chat-open');
   renderSysNotices();
+  loadSysChats();
 }
+/* ===== 个人资料全屏视图 ===== */
+function showOnly(view){
+  ['privateView','lobbyView','profileView','settingsView'].forEach(v=>{
+    const el=$(v);
+    if(v==='privateView'||v==='lobbyView')el.classList.toggle('hidden',v!==view);
+    else el.classList.toggle('show',v===view);
+  });
+  $('app').classList.add('chat-open');
+}
+function setProfileAvatar(el,acct,name){
+  if(acct&&acct.avatar_url){el.innerHTML='';const img=document.createElement('img');img.src=acct.avatar_url;img.style.cssText='width:100%;height:100%;border-radius:50%;object-fit:cover';el.appendChild(img);}
+  else{el.style.background=colorOf(acct?acct.id:(name||'?'));el.textContent=(name||'?').charAt(0).toUpperCase();}
+}
+async function openProfile(peerId){
+  if(!peerId)return;
+  let acct=profileAccounts.get(peerId);
+  if(!acct&&sb){
+    const {data}=await sb.from('accounts').select('*').eq('id',peerId).maybeSingle();
+    if(data){acct=data;profileAccounts.set(peerId,data);}
+  }
+  const name=acct?acct.username:'用户';
+  showOnly('profileView');
+  setProfileAvatar($('pfAvatar'),acct,name);
+  $('pfName').textContent=name;
+  $('pfRole').textContent=acct?(acct.role==='admin'?'管理员 👑':'普通用户'):'';
+  const setVal=(id,v)=>{const el=$(id);el.textContent=v||'未填写';el.classList.toggle('empty',!v);};
+  setVal('pfBio',acct&&acct.bio);setVal('pfEmail',acct&&acct.email);
+  setVal('pfWechat',acct&&acct.wechat);setVal('pfQq',acct&&acct.qq);
+  // 自己看自己显示「编辑资料」，别人显示「发消息」
+  const acts=$('pfActions');acts.innerHTML='';
+  if(acct&&acct.id===myId){
+    const b=document.createElement('button');b.className='primary';b.textContent='✏️ 编辑资料';
+    b.onclick=openSettings;acts.appendChild(b);
+  }else{
+    const b=document.createElement('button');b.className='primary';b.textContent='💬 发消息';
+    b.onclick=()=>openChat({id:peerId,name:name});acts.appendChild(b);
+  }
+}
+$('profileBackBtn').onclick=()=>{view='private';showOnly('privateView');renderList();};
+$('pfChatBtn').style.display='none'; // 统一用 pfActions 动态按钮
+
+/* ===== 账号设置 ===== */
+function openSettings(){
+  showOnly('settingsView');
+  const acct=profileAccounts.get(myId)||{};
+  setProfileAvatar($('setAvatar'),acct,myNick);
+  $('setBio').value=acct.bio||'';$('setEmail').value=acct.email||'';
+  $('setWechat').value=acct.wechat||'';$('setQq').value=acct.qq||'';
+  $('setErr').textContent='';
+  if(!isLoggedIn){$('setErr').textContent='请先登录账号';}
+}
+$('settingsEntryBtn').onclick=openSettings;
+$('settingsBackBtn').onclick=()=>{view='private';showOnly('privateView');renderList();};
+$('setAvatarBtn').onclick=()=>{if(!isLoggedIn){toast('请先登录账号');return;}$('setAvatarInput').click();};
+$('setAvatarInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];e.target.value='';
+  if(!file)return;
+  if(!file.type.startsWith('image/')){toast('请选择图片文件');return;}
+  if(file.size>2*1024*1024){toast('头像不能超过 2MB');return;}
+  const path=`avatar/${myId}/${crypto.randomUUID?crypto.randomUUID():Date.now()}${file.name.includes('.')?'.'+file.name.split('.').pop():''}`;
+  const {error}=await sb.storage.from(BUCKET).upload(path,file,{cacheControl:'3600',upsert:true,contentType:file.type});
+  if(error){toast('上传失败：'+error.message);return;}
+  const {data:urlData}=sb.storage.from(BUCKET).getPublicUrl(path);
+  const {error:e2}=await sb.from('accounts').update({avatar_url:urlData.publicUrl}).eq('id',myId);
+  if(e2){toast('保存失败：'+e2.message);return;}
+  profileAccounts.set(myId,{...(profileAccounts.get(myId)||{}),avatar_url:urlData.publicUrl});
+  setProfileAvatar($('setAvatar'),profileAccounts.get(myId),myNick);
+  toast('头像已更新');
+});
+$('setSaveBtn').onclick=async()=>{
+  if(!isLoggedIn){toast('请先登录账号');return;}
+  const payload={bio:$('setBio').value.trim(),email:$('setEmail').value.trim(),
+    wechat:$('setWechat').value.trim(),qq:$('setQq').value.trim()};
+  const {error}=await sb.from('accounts').update(payload).eq('id',myId);
+  if(error){$('setErr').textContent='保存失败：'+error.message;return;}
+  profileAccounts.set(myId,{...(profileAccounts.get(myId)||{}),...payload});
+  toast('资料已保存');view='private';showOnly('privateView');renderList();
+};
+
 async function openChat(peer){
   sysView=false;
   currentPeer=peer;unread.set(peer.id,0);
@@ -1088,6 +1298,11 @@ function renderMessage(m){
 function scrollBottom(){const el=$('messages');el.scrollTop=el.scrollHeight;}
 function setReadById(id){const el=document.querySelector(`.msg-row[data-id="${id}"] [data-role="read"]`);if(el){el.textContent='已读';el.className='read-status read';}}
 
+// 点击私聊对象的头像/昵称 → 个人资料
+$('peerAvatar').style.cursor='pointer';$('peerName').style.cursor='pointer';
+$('peerAvatar').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile(currentPeer.id);};
+$('peerName').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile(currentPeer.id);};
+
 /* ========== 11. 发送（私聊） ========== */
 async function sendMessage(){
   if(!canSendPrivate){toast('游客只读，请先登录账号');return;}
@@ -1102,9 +1317,9 @@ async function sendMessage(){
   if(error){input.value=content;toast('发送失败：'+error.message);return;}
   (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom();
 }
-$('sendBtn').onclick=sendMessage;
-$('msgInput').addEventListener('input',notifyTyping);
-$('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+$('sendBtn').onclick=()=>{if(sysView)sendSysChat();else sendMessage();};
+$('msgInput').addEventListener('input',()=>{if(!sysView)notifyTyping();});
+$('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(sysView)sendSysChat();else sendMessage();}});
 
 $('attachBtn').onclick=()=>{if(canSendPrivate)$('fileInput').click();else toast('游客只读，请先登录账号');};
 $('fileInput').addEventListener('change',async e=>{
@@ -1258,6 +1473,9 @@ function initMessageChanges(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'system_notices'},()=>{
       loadSystemNotices();toast('收到一条系统消息，请在「系统消息」查看');
     })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sys_chats'},()=>{
+      if(sysView)loadSysChats();
+    })
     .subscribe();
 }
 
@@ -1312,7 +1530,26 @@ if(sb){
   loadRegistered();loadFollowing();
   loadLobbyHistory();
   loadSystemNotices();
+  loadSysChats();
   renderList();
+  // 后台跳转：?peer=xxx&name=yyy → 确保管理员登录后自动打开私聊
+  const params=new URLSearchParams(location.search);
+  const peerParam=params.get('peer'),nameParam=params.get('name');
+  if(peerParam&&nameParam){
+    if(isAdmin){
+      openChat({id:peerParam,name:nameParam});
+      history.replaceState(null,'',location.pathname);
+  }else{
+    toast('请先用管理员账号登录，以打开该会话');
+    openLoginModal('admin');
+    sessionStorage.setItem('qiaohua_pending_peer',JSON.stringify({id:peerParam,name:nameParam}));
+  }
+}else if(isAdmin){
+  const pending=sessionStorage.getItem('qiaohua_pending_peer');
+  if(pending){
+    try{const p=JSON.parse(pending);sessionStorage.removeItem('qiaohua_pending_peer');openChat(p);}catch(e){}
+  }
+}
   if(isLoggedIn)$('guestNickBtn').classList.add('hidden'); // 已登录用户用账号名，无需改昵称
 }else{
   $('userList').innerHTML='<div class="list-empty">请先配置 Supabase</div>';
