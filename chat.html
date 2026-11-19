@@ -86,6 +86,22 @@
   .forward-item .avatar{width:28px;height:28px;font-size:11px}
   .forward-item .nm{font-weight:600;flex:1}
 
+  /* 群聊 */
+  .group-badge{font-size:10px;color:var(--muted);margin-top:2px}
+  .grp-panel{display:none;flex-direction:column;gap:9px;padding:14px;border-top:1px solid var(--line);background:var(--panel-2)}
+  .grp-panel.show{display:flex}
+  .grp-panel h4{margin:0;font-size:12px;color:var(--muted)}
+  .grp-member{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:12px}
+  .grp-member .avatar{width:26px;height:26px;font-size:10px}
+  .grp-member .nm{flex:1;font-weight:600}
+  .grp-member .role{font-size:10px;color:var(--muted)}
+  .grp-member button{border:0;background:var(--danger);color:#fff;border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer}
+  .grp-member button.ghost{background:var(--brand-2)}
+  .grp-actions{display:flex;gap:7px;flex-wrap:wrap}
+  .grp-actions button{flex:1;min-width:80px;border:1px solid var(--line);border-radius:8px;padding:7px;background:#fff;font-size:11px;cursor:pointer}
+  .grp-actions button.danger{color:var(--danger);border-color:#ffd0d0}
+  .group-no{font-family:monospace;letter-spacing:1px;color:var(--brand-2);font-weight:700}
+
   /* 系统消息虚拟联系人 */
   .sys-item{border-bottom:1px solid var(--line)}
   .sys-item .user-item{margin-bottom:0}
@@ -288,6 +304,7 @@
     </div>
     <div class="tabs">
       <button class="tab active" id="tabLobby">公共房间</button>
+      <button class="tab" id="tabGroups">我的群</button>
       <button class="tab" id="tabRegistered">已注册用户</button>
     </div>
     <div class="list-title" id="listTitle"><span>在线的人</span><span><i class="dot-online"></i><span id="listCount">0</span></span></div>
@@ -310,6 +327,15 @@
           <button class="pdf-btn" id="exportPdfBtn" style="display:none">📄 导出PDF</button>
           <button class="follow-btn" id="followBtn" style="display:none">☆ 关注</button>
         </div>
+      </div>
+      <div class="grp-panel" id="grpPanel">
+        <div style="display:flex;align-items:center;gap:9px">
+          <h4 style="flex:1">👥 群成员 <span id="grpMemberCount"></span></h4>
+          <button class="foot-btn" id="grpInviteBtn" style="font-size:11px;padding:4px 9px">➕ 邀请</button>
+          <button class="foot-btn" id="grpShareBtn" style="font-size:11px;padding:4px 9px">🔗 分享</button>
+        </div>
+        <div id="grpMemberList"></div>
+        <div class="grp-actions" id="grpOwnerActions"></div>
       </div>
       <div class="messages" id="messages">
         <div class="empty-chat"><div class="big">💬</div><div>点击左侧用户开始私聊<br>或进入公共大厅自由发言</div></div>
@@ -447,6 +473,44 @@
     </div>
   </div>
 </div>
+
+<!-- 申请建群弹窗 -->
+<div class="modal" id="createGroupModal">
+  <div class="modal-card">
+    <h2>申请建群</h2>
+    <p>提交后由管理员审批，通过后你将成为群主。群号会自动生成。</p>
+    <div class="field" style="margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">群名称</label>
+      <input id="cgName" maxlength="50" placeholder="给群起个名字"></div>
+    <div class="field" style="margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">建群理由</label>
+      <textarea id="cgReason" rows="3" maxlength="500" placeholder="简单说明建群用途" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2);resize:vertical"></textarea></div>
+    <div class="err" id="cgErr"></div>
+    <div class="modal-actions"><button id="cgCancel">取消</button><button class="primary" id="cgSubmit">提交申请</button></div>
+  </div>
+</div>
+
+<!-- 入群申请审批弹窗 -->
+<div class="modal" id="joinReqModal">
+  <div class="modal-card">
+    <h2>入群申请</h2>
+    <div id="joinReqList"></div>
+    <div class="modal-actions"><button id="jreqCancel">关闭</button></div>
+  </div>
+</div>
+
+<!-- 加入群弹窗 -->
+<div class="modal" id="joinGroupModal">
+  <div class="modal-card">
+    <h2>加入群聊</h2>
+    <p>输入群号搜索，或粘贴群分享链接。</p>
+    <div class="field" style="margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">群号 / 分享链接</label>
+      <input id="jgInput" maxlength="200" placeholder="例如 123456 或粘贴链接"></div>
+    <div class="err" id="jgErr"></div>
+    <div id="jgResult"></div>
+    <div class="modal-actions"><button id="jgCancel">关闭</button><button class="primary" id="jgSearch">搜索</button></div>
+  </div>
+</div>
+
+<!-- 群管理面板（放在私聊视图头部下方） -->
 
 <!-- 申请账号弹窗 -->
 <div class="modal" id="applyModal">
@@ -597,6 +661,231 @@ function buildFileNode(m){
   a.append(ic,meta,dl);return a;
 }
 
+/* ===== 群聊：打开群、消息、管理 ===== */
+async function openGroup(g){
+  currentGroup=g;groupView=true;sysView=false;currentPeer=null;
+  $('app').classList.add('chat-open');
+  $('peerName').textContent='👥 '+g.name;
+  $('peerSub').textContent='群号 '+g.group_no+' · '+myGroups.find(x=>x.id===g.id)?.myRole;
+  setAvatar($('peerAvatar'),g.id,g.name);
+  $('exportPdfBtn').style.display='none';$('followBtn').style.display='none';
+  $('msgInput').disabled=false;$('sendBtn').disabled=false;$('attachBtn').disabled=false;$('emojiBtn').disabled=false;
+  $('msgInput').placeholder='发消息到群…';
+  $('grpPanel').classList.add('show');
+  await loadGroupMembers(g.id);
+  renderGroupPanel();
+  await loadGroupHistory(g.id);
+  subscribeGroup(g.id);
+  renderList();
+}
+async function loadGroupMembers(gid){
+  const {data,error}=await sb.from('group_members').select('user_id, role, muted_until, joined_at').eq('group_id',gid);
+  if(error){console.error('[loadGroupMembers]',error.message);return;}
+  groupMembers=data||[];
+}
+function renderGroupPanel(){
+  const listBox=$('grpMemberList');listBox.innerHTML='';
+  const roleOf=(uid)=>groupMembers.find(m=>m.user_id===uid)?.role||'member';
+  const myRole=roleOf(myId);
+  groupMembers.forEach(m=>{
+    const acct=profileAccounts.get(m.user_id);
+    const row=document.createElement('div');row.className='grp-member';
+    const av=document.createElement('div');av.className='avatar';setAvatarSmart(av,m.user_id,acct?.username||m.user_id.slice(0,6));
+    const nm=document.createElement('div');nm.className='nm';nm.textContent=acct?.username||m.user_id.slice(0,8);
+    const role=document.createElement('div');role.className='role';
+    role.textContent=m.role==='owner'?'群主':(m.role==='admin'?'管理员':(m.muted_until&&new Date(m.muted_until)>new Date()?'🔇已禁言':'成员'));
+    row.append(av,nm,role);
+    // 操作按钮：群主可踢人/设管理员/转让；管理员只能禁言
+    const isSelf=m.user_id===myId;
+    if(!isSelf){
+      if(myRole==='owner'){
+        const kick=document.createElement('button');kick.textContent='踢出';kick.onclick=()=>groupKick(m.user_id);row.appendChild(kick);
+        const adm=document.createElement('button');adm.className='ghost';adm.textContent=m.role==='admin'?'降职':'设管理';
+        adm.onclick=()=>groupSetAdmin(m.user_id,m.role==='admin'?'member':'admin');row.appendChild(adm);
+        const own=document.createElement('button');own.className='ghost';own.textContent='转让';own.onclick=()=>groupTransfer(m.user_id);row.appendChild(own);
+      }else if(myRole==='admin'&&m.role==='member'){
+        const mute=document.createElement('button');mute.className='ghost';mute.textContent='禁言1天';mute.onclick=()=>groupMute(m.user_id,1);row.appendChild(mute);
+      }
+    }
+    listBox.appendChild(row);
+  });
+  $('grpMemberCount').textContent='('+groupMembers.length+')';
+  // 群主操作
+  const acts=$('grpOwnerActions');acts.innerHTML='';
+  if(myRole==='owner'){
+    const reqBtn=document.createElement('button');reqBtn.textContent='📥 入群申请';reqBtn.onclick=openJoinRequests;acts.appendChild(reqBtn);
+    const dissolve=document.createElement('button');dissolve.className='danger';dissolve.textContent='💥 解散群';
+    dissolve.onclick=groupDissolve;acts.appendChild(dissolve);
+  }
+}
+async function loadGroupHistory(gid){
+  const {data,error}=await sb.from('group_messages').select('*').eq('group_id',gid).order('created_at',{ascending:true}).limit(300);
+  if(error){console.error('[loadGroupHistory]',error.message);return;}
+  const box=$('messages');box.innerHTML='';
+  if(!(data||[]).length){box.innerHTML='<div class="empty-chat"><div class="big">👥</div><div>群里还没有消息，说点什么吧</div></div>';return;}
+  (data||[]).forEach(m=>renderGroupMessage(m));
+  scrollBottom();
+}
+function renderGroupMessage(m){
+  const box=$('messages');const ph=box.querySelector('.empty-chat');if(ph)ph.remove();
+  const mine=m.sender_id===myId;
+  const row=document.createElement('div');row.className='msg-row '+(mine?'mine':'theirs');
+  const bubble=document.createElement('div');bubble.className='bubble';
+  if(!mine){
+    const s=document.createElement('div');s.className='msg-sender';
+    const n=document.createElement('span');n.textContent=m.sender_nickname||'成员';s.appendChild(n);bubble.appendChild(s);
+  }
+  if(m.msg_type==='file'&&m.file_url){bubble.appendChild(buildFileNode(m));}
+  else{const t=document.createElement('div');t.className='msg-text';t.textContent=m.content||'';bubble.appendChild(t);}
+  const time=document.createElement('div');time.className='msg-time';time.textContent=fmtTime(m.created_at);
+  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);
+}
+function subscribeGroup(gid){
+  if(groupMsgCh)sb.removeChannel(groupMsgCh);
+  if(groupMemberCh)sb.removeChannel(groupMemberCh);
+  groupMsgCh=sb.channel('group-msg-'+gid)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages',filter:'group_id=eq.'+gid},({new:m})=>{
+      renderGroupMessage(m);scrollBottom();
+    }).subscribe();
+  groupMemberCh=sb.channel('group-mem-'+gid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'group_members',filter:'group_id=eq.'+gid},()=>{
+      loadGroupMembers(gid).then(renderGroupPanel);
+    }).subscribe();
+}
+let groupMemberCh=null;
+
+/* ===== 群聊：建群申请 / 入群 / 管理操作 ===== */
+function openCreateGroupModal(){
+  if(!isLoggedIn){toast('请先登录账号');return;}
+  $('cgName').value='';$('cgReason').value='';$('cgErr').textContent='';
+  $('createGroupModal').classList.add('show');
+}
+$('cgCancel').onclick=()=>$('createGroupModal').classList.remove('show');
+$('cgSubmit').onclick=async()=>{
+  const name=$('cgName').value.trim(),reason=$('cgReason').value.trim(),err=$('cgErr');err.textContent='';
+  if(!name){err.textContent='请填写群名称';return;}
+  if(!reason){err.textContent='请填写建群理由';return;}
+  if(needNet()){err.textContent='网络未连接';return;}
+  try{
+    const {error}=await sb.from('group_requests').insert({
+      applicant_id:myId,applicant_name:myNick,group_name:name,reason:reason
+    });
+    if(error){err.textContent='提交失败：'+error.message;return;}
+    $('createGroupModal').classList.remove('show');
+    toast('建群申请已提交，等待管理员审批');
+  }catch(e){err.textContent='提交失败：'+(e.message||'网络异常');}
+};
+function openJoinGroupModal(){
+  if(!isLoggedIn){toast('请先登录账号');return;}
+  $('jgInput').value='';$('jgErr').textContent='';$('jgResult').innerHTML='';
+  $('joinGroupModal').classList.add('show');
+}
+$('jgCancel').onclick=()=>$('joinGroupModal').classList.remove('show');
+$('jgSearch').onclick=async()=>{
+  const raw=$('jgInput').value.trim(),err=$('jgErr'),res=$('jgResult');err.textContent='';res.innerHTML='';
+  // 支持粘贴链接：提取群号
+  let no=raw;
+  const m=raw.match(/[?&]group=([a-z0-9]+)/i)||raw.match(/群号[:：]?\s*(\d+)/);
+  if(m)no=m[1];
+  if(!no){err.textContent='请输入群号';return;}
+  const {data:g}=await sb.from('groups').select('*').eq('group_no',no).maybeSingle();
+  if(!g){err.textContent='未找到该群号的群';return;}
+  const isMember=groupMembers.some(x=>x.user_id===myId)&&currentGroup?.id===g.id;
+  const card=document.createElement('div');card.className='grp-member';card.style.marginTop='10px';
+  card.innerHTML='<div style="flex:1"><b>👥 '+esc(g.name)+'</b><div class="group-no">群号 '+esc(g.group_no)+'</div></div>';
+  const btn=document.createElement('button');btn.className='ghost';btn.textContent='申请加入';
+  btn.onclick=async()=>{
+    const {error}=await sb.from('group_join_requests').insert({group_id:g.id,user_id:myId,user_name:myNick});
+    if(error){toast('申请失败：'+error.message);return;}
+    btn.textContent='已申请';btn.disabled=true;toast('已申请加入，等待群主批准');
+  };
+  card.appendChild(btn);res.appendChild(card);
+};
+// 群管理操作
+async function groupKick(uid){
+  if(!confirm('确认将该成员踢出群？'))return;
+  const {error}=await sb.from('group_members').delete().eq('group_id',currentGroup.id).eq('user_id',uid);
+  if(error){toast('踢出失败：'+error.message);return;}
+  toast('已踢出');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+}
+async function groupSetAdmin(uid,role){
+  const {error}=await sb.from('group_members').update({role}).eq('group_id',currentGroup.id).eq('user_id',uid);
+  if(error){toast('操作失败：'+error.message);return;}
+  toast(role==='admin'?'已设为管理员':'已降为成员');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+}
+async function groupTransfer(uid){
+  if(!confirm('确认转让群主？转让后你将失去群主权限。'))return;
+  const acct=profileAccounts.get(uid);
+  const {error}=await sb.from('groups').update({owner_id:uid}).eq('id',currentGroup.id);
+  if(error){toast('转让失败：'+error.message);return;}
+  await sb.from('group_members').update({role:'owner'}).eq('group_id',currentGroup.id).eq('user_id',uid);
+  await sb.from('group_members').update({role:'member'}).eq('group_id',currentGroup.id).eq('user_id',myId);
+  toast('已转让群主给 '+(acct?.username||uid.slice(0,8)));
+  loadGroupMembers(currentGroup.id).then(renderGroupPanel);loadMyGroups();
+}
+async function groupMute(uid,days){
+  const until=new Date(Date.now()+days*86400000).toISOString();
+  const {error}=await sb.from('group_members').update({muted_until:until}).eq('group_id',currentGroup.id).eq('user_id',uid);
+  if(error){toast('禁言失败：'+error.message);return;}
+  toast('已禁言 '+days+' 天');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+}
+async function groupDissolve(){
+  if(!confirm('⚠️ 确认解散群？群内所有消息和文件记录将被删除，不可恢复！'))return;
+  const {error}=await sb.from('groups').delete().eq('id',currentGroup.id);
+  if(error){toast('解散失败：'+error.message);return;}
+  toast('群已解散');
+  $('grpPanel').classList.remove('show');
+  currentGroup=null;groupView=false;
+  setTab('groups');
+}
+$('grpInviteBtn').onclick=async()=>{
+  if(!currentGroup)return;
+  const myRole=groupMembers.find(m=>m.user_id===myId)?.role;
+  if(myRole!=='owner'){toast('仅群主可邀请成员');return;}
+  // 列出未入群的已注册用户
+  const candidates=registered.filter(a=>!groupMembers.some(m=>m.user_id===a.id));
+  if(!candidates.length){toast('没有可邀请的用户');return;}
+  const names=candidates.map(a=>a.username).join('、');
+  const pick=prompt('输入要邀请的用户名（多个用逗号分隔）：\n\n可选：'+names);
+  if(!pick)return;
+  const wanted=pick.split(/[,，]/).map(s=>s.trim());
+  const targets=candidates.filter(a=>wanted.includes(a.username));
+  if(!targets.length){toast('未匹配到用户');return;}
+  const rows=targets.map(a=>({group_id:currentGroup.id,user_id:a.id,role:'member'}));
+  const {error}=await sb.from('group_members').insert(rows);
+  if(error){toast('邀请失败：'+error.message);return;}
+  toast('已邀请 '+targets.length+' 人');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+};
+async function openJoinRequests(){
+  if(!currentGroup)return;
+  const box=$('joinReqList');box.innerHTML='<div class="list-empty">加载中…</div>';
+  $('joinReqModal').classList.add('show');
+  const {data,error}=await sb.from('group_join_requests').select('*').eq('group_id',currentGroup.id).eq('status','pending');
+  if(error){box.innerHTML='<div class="list-empty">加载失败</div>';return;}
+  if(!(data||[]).length){box.innerHTML='<div class="list-empty">暂无待审批申请</div>';return;}
+  box.innerHTML='';
+  data.forEach(r=>{
+    const row=document.createElement('div');row.className='grp-member';row.style.marginBottom='7px';
+    row.innerHTML='<div style="flex:1"><b>'+esc(r.user_name)+'</b><div class="req-time">'+fmtTime(r.created_at)+'</div></div>';
+    const ok=document.createElement('button');ok.className='ghost';ok.textContent='同意';
+    ok.onclick=async()=>{
+      const {error:e1}=await sb.from('group_members').insert({group_id:r.group_id,user_id:r.user_id,role:'member'});
+      if(e1&&!e1.message.includes('duplicate')){toast('加入失败：'+e1.message);return;}
+      await sb.from('group_join_requests').update({status:'approved'}).eq('id',r.id);
+      row.remove();toast('已同意');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+    };
+    const no=document.createElement('button');no.textContent='拒绝';
+    no.onclick=async()=>{await sb.from('group_join_requests').update({status:'rejected'}).eq('id',r.id);row.remove();toast('已拒绝');};
+    row.append(ok,no);box.appendChild(row);
+  });
+}
+$('jreqCancel').onclick=()=>$('joinReqModal').classList.remove('show');
+$('grpShareBtn').onclick=()=>{
+  if(!currentGroup)return;
+  const link=location.origin+location.pathname+'?group='+currentGroup.group_no;
+  navigator.clipboard?.writeText(link).then(()=>toast('群邀请链接已复制')).catch(()=>prompt('复制群邀请链接：',link));
+};
+
 /* ===== 图片预览弹层（原地查看/下载/转发/复制链接/缩放旋转） ===== */
 let ivState={url:'',name:'',msg:null,scale:1,rotate:0,x:0,y:0,drag:null};
 function openImageViewer(m){
@@ -714,6 +1003,10 @@ let typingTimer=null, searchTimer=null, emojiTarget=null;
 let announcements=[], readCounts=new Map(), annReadCounts=new Map(), allAccounts=[];
 const SYS_ID='__system__';
 let systemNotices=[], sysUnread=0, sysView=false, sysChats=[];
+// 群聊
+let myGroups=[], currentGroup=null, groupView=false, groupMembers=[], groupMsgCh=null;
+const GROUP_PREFIX='group:';
+function isGroupPeer(peer){return peer&&typeof peer.id==='string'&&peer.id.startsWith(GROUP_PREFIX);}
 const SYS_EMAIL='2442311042@qq.com';
 const SYS_KEYWORDS=['邮箱','站长邮箱','联系','联系方式','QQ','邮件','站长'];
 let profileAccounts=new Map(); // id -> account（含资料字段）
@@ -859,35 +1152,80 @@ function buildSysItem(){
 }
 function renderList(){
   const box=$('userList');box.innerHTML='';
-  // 公共大厅视图：不显示任何联系人列表（含系统消息），只有切回私聊 Tab 才显示
+  // Tab 高亮
+  $('tabLobby').classList.toggle('active',view==='lobby');
+  $('tabGroups').classList.toggle('active',view==='groups');
+  $('tabRegistered').classList.toggle('active',view==='private');
+
+  // 公共房间视图：不显示联系人列表
   if(view==='lobby'){
-    $('listTitle').innerHTML='<span>公共大厅</span><span></span>';
-    box.innerHTML='<div class="list-empty">公共大厅 · 全服公开聊天</div>';
+    $('listTitle').innerHTML='<span>公共房间</span><span></span>';
+    box.innerHTML='<div class="list-empty">公共房间 · 全服公开聊天</div>';
     return;
   }
-  // 三个 Tab 顶部都固定「系统消息」（游客可见）
+  // 我的群视图
+  if(view==='groups'){
+    $('listTitle').innerHTML=`<span>我的群</span><span>${myGroups.length}</span>`;
+    // 顶部操作：建群申请 + 加入群
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line)';
+    const b1=document.createElement('button');b1.className='foot-btn';b1.style.cssText='flex:1;font-size:11px';b1.textContent='➕ 申请建群';b1.onclick=openCreateGroupModal;
+    const b2=document.createElement('button');b2.className='foot-btn';b2.style.cssText='flex:1;font-size:11px';b2.textContent='🔎 加入群';b2.onclick=openJoinGroupModal;
+    bar.append(b1,b2);box.appendChild(bar);
+    box.appendChild(buildSysItem());
+    if(!isLoggedIn){box.innerHTML+='<div class="list-empty">登录后可加入群聊</div>';return;}
+    if(!myGroups.length){box.innerHTML+='<div class="list-empty">还没有加入群，点上方申请建群或加入群</div>';return;}
+    myGroups.forEach(g=>box.appendChild(buildGroupItem(g)));
+    return;
+  }
+  // 已注册用户视图
   box.appendChild(buildSysItem());
   let list,title,showBadge;
   if(searching){list=searchResults;title='搜索结果';showBadge=false;}
-  else if(activeTab==='registered'){list=registered;title='全服已注册用户';showBadge=true;}
-  else{list=[];title='公共房间';showBadge=false;}
-  $('listTitle').innerHTML=`<span>${title}</span><span>${searching?'':('<span>'+list.length+'</span>')}</span>`;
-  $('tabRegistered').classList.toggle('active',!searching&&view==='private'&&activeTab==='registered');
-  $('tabLobby').classList.toggle('active',view==='lobby');
+  else{list=registered;title='全服已注册用户';showBadge=true;}
+  $('listTitle').innerHTML=`<span>${title}</span><span>${list.length}</span>`;
   if(!list.length){
-    const msg=searching?'没有找到匹配的账号':
-      activeTab==='registered'?'管理员还没下发账号':'';
+    const msg=searching?'没有找到匹配的账号':'管理员还没下发账号';
     const empty=document.createElement('div');empty.className='list-empty';empty.innerHTML=msg;
     box.appendChild(empty);return;
   }
   list.forEach(p=>box.appendChild(buildUserItem(p,{showBadge})));
 }
+/* ===== 群聊模块 ===== */
+async function loadMyGroups(){
+  if(!sb||!isLoggedIn){myGroups=[];renderList();return;}
+  const {data,error}=await sb.from('group_members').select('group_id, role').eq('user_id',myId);
+  if(error){console.error('[loadMyGroups]',error.message);return;}
+  if(!(data||[]).length){myGroups=[];renderList();return;}
+  const ids=data.map(m=>m.group_id);
+  const {data:groups}=await sb.from('groups').select('*').in('id',ids);
+  const roleMap=new Map(data.map(m=>[m.group_id,m.role]));
+  myGroups=(groups||[]).map(g=>({...g,myRole:roleMap.get(g.id)}));
+  renderList();
+}
+function buildGroupItem(g){
+  const wrap=document.createElement('div');
+  const item=document.createElement('div');
+  item.className='user-item'+(currentGroup&&currentGroup.id===g.id?' active':'');
+  const av=document.createElement('div');av.className='avatar';
+  if(g.avatar_url){setProfileAvatar(av,{id:g.id,avatar_url:g.avatar_url},g.name);}
+  else{av.style.background=colorOf(g.id);av.textContent=g.name.charAt(0);}
+  const meta=document.createElement('div');meta.className='user-meta';
+  const nm=document.createElement('div');nm.className='user-name';nm.textContent='👥 '+g.name;
+  const sub=document.createElement('div');sub.className='group-badge';
+  sub.innerHTML='群号 <span class="group-no">'+esc(g.group_no)+'</span> · '+(g.myRole==='owner'?'群主':(g.myRole==='admin'?'管理员':'成员'));
+  meta.append(nm,sub);item.append(av,meta);
+  item.onclick=()=>openGroup(g);
+  wrap.appendChild(item);return wrap;
+}
 function setTab(t){
   activeTab=t;searching=false;searchResults=[];$('searchInput').value='';
-  if(t!=='lobby')switchView('private');
+  if(t==='lobby'){view='lobby';switchView('lobby');}
+  else if(t==='groups'){view='groups';switchView('private');loadMyGroups();}
+  else{view='private';switchView('private');}
   renderList();
 }
 $('tabRegistered').onclick=()=>setTab('registered');
+$('tabGroups').onclick=()=>setTab('groups');
 $('tabLobby').onclick=()=>{
   searching=false;searchResults=[];$('searchInput').value=''; // 清空搜索，避免大厅残留搜索结果
   switchView('lobby');renderList();
@@ -1396,6 +1734,7 @@ async function sendSysChat(){
   }catch(e){console.error('[sendSysChat]',e);input.value=text;toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
 }
 async function openSysMessages(){
+  groupView=false;currentGroup=null;$('grpPanel').classList.remove('show');
   currentPeer={id:SYS_ID,name:'系统消息'};sysView=true;
   unread.set(SYS_ID,0);sysUnread=0;
   localStorage.setItem('qiaohua_sys_seen',String(systemNotices.length));
@@ -1553,7 +1892,10 @@ $('setSaveBtn').onclick=async()=>{
 };
 
 async function openChat(peer){
-  sysView=false;
+  sysView=false;groupView=false;currentGroup=null;
+  $('grpPanel').classList.remove('show');
+  if(groupMsgCh){sb.removeChannel(groupMsgCh);groupMsgCh=null;}
+  if(groupMemberCh){sb.removeChannel(groupMemberCh);groupMemberCh=null;}
   currentPeer=peer;unread.set(peer.id,0);
   $('app').classList.add('chat-open');
   $('peerName').textContent=peer.name;setTyping(false);
@@ -1567,7 +1909,11 @@ async function openChat(peer){
 }
 $('backBtn').onclick=()=>{
   if(typingTimer){clearTimeout(typingTimer);if(roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});}
-  currentPeer=null;sysView=false;$('app').classList.remove('chat-open');
+  currentPeer=null;sysView=false;groupView=false;currentGroup=null;
+  $('grpPanel').classList.remove('show');
+  if(groupMsgCh){sb.removeChannel(groupMsgCh);groupMsgCh=null;}
+  if(groupMemberCh){sb.removeChannel(groupMemberCh);groupMemberCh=null;}
+  $('app').classList.remove('chat-open');
   $('msgInput').disabled=true;$('sendBtn').disabled=true;$('attachBtn').disabled=true;$('emojiBtn').disabled=true;
   updateFollowBtn();updateExportBtn();renderList();
 };
@@ -1607,20 +1953,33 @@ $('peerName').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile(c
 
 /* ========== 11. 发送（私聊） ========== */
 async function sendMessage(){
-  if(!canSendPrivate){toast('游客只读，请先登录账号');return;}
+  if(!groupView&&!canSendPrivate){toast('游客只读，请先登录账号');return;}
   const input=$('msgInput'),content=input.value.trim();
-  if(!content||!currentPeer)return;
+  if(!content)return;
   if(needNet())return;
+  // 群聊：检查禁言
+  if(groupView&&currentGroup){
+    const me=groupMembers.find(m=>m.user_id===myId);
+    if(me&&me.muted_until&&new Date(me.muted_until)>new Date()){toast('你已被禁言，暂时无法发言');return;}
+  }
   clearTimeout(typingTimer);
-  if(roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});
+  if(!groupView&&roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});
   try{
-    const {data,error}=await sb.from('messages').insert({
-      room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
-      receiver_id:currentPeer.id,content:content
-    }).select();
-    if(error){toast('发送失败：'+error.message);return;}
-    input.value=''; // 成功后才清空
-    (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom();
+    if(groupView&&currentGroup){
+      const {error}=await sb.from('group_messages').insert({
+        group_id:currentGroup.id,sender_id:myId,sender_nickname:myNick,content:content
+      });
+      if(error){toast('发送失败：'+error.message);return;}
+      input.value='';
+    }else{
+      const {data,error}=await sb.from('messages').insert({
+        room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
+        receiver_id:currentPeer.id,content:content
+      }).select();
+      if(error){toast('发送失败：'+error.message);return;}
+      (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom();
+      input.value='';
+    }
   }catch(e){console.error('[sendMessage]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
 }
 $('sendBtn').onclick=()=>{if(sysView)sendSysChat();else sendMessage();};
@@ -1639,9 +1998,11 @@ $('fileInput').addEventListener('change',e=>{
   if(file)handlePrivateFile(file);
 });
 async function handlePrivateFile(file){
-  if(!file||!sb||!currentPeer||!canSendPrivate)return;
+  if(!file||!sb)return;
+  if(!groupView&&(!currentPeer||!canSendPrivate))return;
+  if(groupView&&!currentGroup)return;
   if(file.size>maxFileSize){toast(`文件超过上限 ${fmtSize(maxFileSize)}`);return;}
-  const rid=roomIdOf(myId,currentPeer.id);
+  const rid=groupView?currentGroup.id:roomIdOf(myId,currentPeer.id);
   const ext=file.name.includes('.')?'.'+file.name.split('.').pop():'';
   const path=`${rid}/${myId}/${crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)}${ext}`;
   $('uploadBar').classList.add('show');$('uploadText').textContent='正在上传 '+file.name+' …';
@@ -1650,17 +2011,27 @@ async function handlePrivateFile(file){
     const {error:upErr}=await sb.storage.from(BUCKET).upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type||'application/octet-stream'});
     if(upErr)throw new Error(upErr.message);
     const {data:urlData}=sb.storage.from(BUCKET).getPublicUrl(path);
-    const {data,error}=await sb.from('messages').insert({
-      room_id:rid,sender_id:myId,sender_nickname:myNick,receiver_id:currentPeer.id,
-      content:(file.name||'文件').slice(0,2000),
-      msg_type:'file',file_name:file.name,file_url:urlData.publicUrl,
-      file_size:file.size,file_mime:file.type||'application/octet-stream',read_at:null
-    }).select();
-    if(error)throw new Error(error.message);
-    (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});
+    if(groupView){
+      const {error}=await sb.from('group_messages').insert({
+        group_id:currentGroup.id,sender_id:myId,sender_nickname:myNick,
+        content:(file.name||'文件').slice(0,2000),
+        msg_type:'file',file_name:file.name,file_url:urlData.publicUrl,
+        file_size:file.size,file_mime:file.type||'application/octet-stream'
+      });
+      if(error)throw new Error(error.message);
+    }else{
+      const {data,error}=await sb.from('messages').insert({
+        room_id:rid,sender_id:myId,sender_nickname:myNick,receiver_id:currentPeer.id,
+        content:(file.name||'文件').slice(0,2000),
+        msg_type:'file',file_name:file.name,file_url:urlData.publicUrl,
+        file_size:file.size,file_mime:file.type||'application/octet-stream',read_at:null
+      }).select();
+      if(error)throw new Error(error.message);
+      (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});
+    }
     scrollBottom();toast('文件已发送');
   }catch(err){console.error('[sendFile]',err);toast('上传失败：'+err.message);}
-  finally{$('uploadBar').classList.remove('show');$('attachBtn').disabled=false;$('sendBtn').disabled=canSendPrivate?false:true;}
+  finally{$('uploadBar').classList.remove('show');$('attachBtn').disabled=false;$('sendBtn').disabled=groupView?false:(canSendPrivate?false:true);}
 }
 
 /* ========== 11b. 导出聊天记录为 PDF（微信气泡排版） ========== */
@@ -1799,14 +2170,16 @@ $('spaceBtn').onclick=()=>{$('spaceModal').classList.add('show');loadSpace();};
 $('spaceClose').onclick=()=>$('spaceModal').classList.remove('show');
 async function loadSpace(){
   $('spaceTotal').textContent='加载中…';$('spaceRank').innerHTML='<div class="list-empty">加载中…</div>';
-  const [privRes,lobbyRes]=await Promise.all([
+  const [privRes,lobbyRes,groupRes,groupsRes]=await Promise.all([
     sb.from('messages').select('room_id, file_size').eq('msg_type','file'),
-    sb.from('public_messages').select('file_size').eq('msg_type','file')
+    sb.from('public_messages').select('file_size').eq('msg_type','file'),
+    sb.from('group_messages').select('group_id, file_size').eq('msg_type','file'),
+    sb.from('groups').select('id, name')
   ]);
-  if(privRes.error||lobbyRes.error){
-    $('spaceTotal').textContent='统计失败：'+((privRes.error||lobbyRes.error).message);$('spaceRank').innerHTML='';return;
+  if(privRes.error||lobbyRes.error||groupRes.error){
+    $('spaceTotal').textContent='统计失败：'+((privRes.error||lobbyRes.error||groupRes.error).message);$('spaceRank').innerHTML='';return;
   }
-  const used=[...(privRes.data||[]),...(lobbyRes.data||[])].reduce((s,r)=>s+(r.file_size||0),0);
+  const used=[...(privRes.data||[]),...(lobbyRes.data||[]),...(groupRes.data||[])].reduce((s,r)=>s+(r.file_size||0),0);
   const pct=Math.min(100,used/TOTAL_SPACE*100);
   $('spaceTotal').textContent=`已用 ${fmtSize(used)} / 1 GB`;
   $('spaceFill').style.width=pct.toFixed(2)+'%';
@@ -1819,6 +2192,12 @@ async function loadSpace(){
   // 公共大厅文件合并为单独一项
   const lobbySize=(lobbyRes.data||[]).reduce((s,r)=>s+(r.file_size||0),0);
   if(lobbySize>0)byRoom.set('__lobby__',lobbySize);
+  // 群文件按群名归类
+  const groupNameMap=new Map((groupsRes.data||[]).map(g=>[g.id,g.name]));
+  (groupRes.data||[]).forEach(r=>{
+    const k='__group__'+(r.group_id||'unknown');
+    byRoom.set(k,(byRoom.get(k)||0)+(r.file_size||0));
+  });
   const ranked=[...byRoom.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
   const totalFile=used||1;
   // 取所有账号名做映射
@@ -1830,6 +2209,7 @@ async function loadSpace(){
   ranked.forEach(([rid,size])=>{
     let label;
     if(rid==='__lobby__')label='📢 公共大厅';
+    else if(rid.startsWith('__group__'))label='👥 '+(groupNameMap.get(rid.slice(9))||'已解散的群');
     else{
       const parts=String(rid).split('__');
       const a=nameMap.get(parts[0])||parts[0]?.slice(0,8)||'未知';
@@ -1858,8 +2238,16 @@ if(sb){
   loadLobbyHistory();
   loadSystemNotices();
   loadSysChats();
+  loadMyGroups();
   switchView('lobby'); // 默认进入公共房间，同步 DOM 与视图状态
   renderList();
+  // 群分享链接：?group=群号 → 切到我的群并搜索
+  const groupParam=new URLSearchParams(location.search).get('group');
+  if(groupParam){
+    setTab('groups');
+    setTimeout(()=>{openJoinGroupModal();$('jgInput').value=groupParam;$('jgSearch').click();},300);
+    history.replaceState(null,'',location.pathname);
+  }
   // 后台跳转：?peer=xxx&name=yyy → 确保管理员登录后自动打开私聊
   const params=new URLSearchParams(location.search);
   const peerParam=params.get('peer'),nameParam=params.get('name');
