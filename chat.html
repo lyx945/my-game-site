@@ -337,6 +337,7 @@
           <div class="profile-avatar" id="pfAvatar">?</div>
           <div class="profile-name" id="pfName">—</div>
           <div class="profile-role" id="pfRole">—</div>
+          <div class="profile-field"><div class="lbl">注册地区</div><div class="val" id="pfIp">—</div></div>
           <div class="profile-field"><div class="lbl">个人简介</div><div class="val" id="pfBio">—</div></div>
           <div class="profile-field"><div class="lbl">邮箱</div><div class="val" id="pfEmail">—</div></div>
           <div class="profile-field"><div class="lbl">微信</div><div class="val" id="pfWechat">—</div></div>
@@ -764,7 +765,7 @@ function initPresence(){
 async function loadRegistered(){
   if(!sb)return;
   // 用户选择「全部公开」：已注册列表包含管理员账号
-  const {data,error}=await sb.from('accounts').select('id, username, role, created_at, avatar_url, bio, email, wechat, qq')
+  const {data,error}=await sb.from('accounts').select('id, username, role, created_at, avatar_url, bio, email, wechat, qq, ip_location')
     .order('created_at',{ascending:true});
   if(error){console.error('[loadRegistered]',error.message);return;}
   profileAccounts=new Map((data||[]).map(a=>[a.id,a]));
@@ -1007,7 +1008,15 @@ $('applySubmit').onclick=async()=>{
     if(dupAcct){err.textContent='该账号名已被使用';return;}
     const {data:dupReq}=await sb.from('account_requests').select('id').ilike('username',u).maybeSingle();
     if(dupReq){err.textContent='该账号名已在申请中';return;}
-    const {error}=await sb.from('account_requests').insert({username:u,password:p,reason:r,requested_role:role});
+    // 静默获取申请者 IP 省市（失败不影响申请，降级为未知）
+    let ipLocation='未知地区';
+    try{
+      const res=await fetch(SUPABASE_URL+'/functions/v1/get-ip',{
+        headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+      });
+      if(res.ok){const d=await res.json();ipLocation=d.ip_location||'未知地区';}
+    }catch(e){console.warn('[get-ip]',e);}
+    const {error}=await sb.from('account_requests').insert({username:u,password:p,reason:r,requested_role:role,ip_location:ipLocation});
     if(error){err.textContent='提交失败：'+error.message;return;}
     $('applyModal').classList.remove('show');
     toast('申请已提交，请等待管理员审核');
@@ -1474,6 +1483,7 @@ async function openProfile(peerId){
   $('pfName').textContent=name;
   $('pfRole').textContent=acct?(acct.role==='admin'?'管理员 👑':'普通用户'):'';
   const setVal=(id,v)=>{const el=$(id);el.textContent=v||'未填写';el.classList.toggle('empty',!v);};
+  setVal('pfIp',acct&&acct.ip_location);
   setVal('pfBio',acct&&acct.bio);setVal('pfEmail',acct&&acct.email);
   setVal('pfWechat',acct&&acct.wechat);setVal('pfQq',acct&&acct.qq);
   // 自己看自己显示「编辑资料」，别人显示「发消息」
