@@ -1219,9 +1219,13 @@ function buildGroupItem(g){
 }
 function setTab(t){
   activeTab=t;searching=false;searchResults=[];$('searchInput').value='';
-  if(t==='lobby'){view='lobby';switchView('lobby');}
-  else if(t==='groups'){view='groups';switchView('private');loadMyGroups();}
-  else{view='private';switchView('private');}
+  if(t==='lobby'){switchView('lobby');}
+  else if(t==='groups'){
+    switchView('private');  // 群聊复用私聊视图容器，只切 DOM
+    view='groups';          // switchView 会把 view 设成 private，这里覆盖回 groups
+    loadMyGroups();
+  }
+  else{switchView('private');}
   renderList();
 }
 $('tabRegistered').onclick=()=>setTab('registered');
