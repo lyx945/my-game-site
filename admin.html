@@ -116,6 +116,12 @@
     <div id="requestList"></div>
   </div>
 
+  <div class="card" id="groupReqCard">
+    <h2>建群申请 <span id="greqCount" style="color:var(--star)"></span></h2>
+    <div class="desc">用户申请建群。批准会自动创建群（生成群号），申请人成为群主。</div>
+    <div id="groupReqList"></div>
+  </div>
+
   <div class="card">
     <h2>注册新账号</h2>
     <div class="desc">为他人下发账号。对方在聊天页点击「已注册」列表中的账号、输入密码即可登录。<br>管理员角色同样拥有「发文件 50MB」特权并可进入本后台。</div>
@@ -188,9 +194,81 @@ function showAdmin() {
   $('whoami').textContent = '当前登录：' + admin.username + '（管理员）';
   loadAccounts();
   loadRequests();
+  loadGroupRequests();
 }
 
 // 账号申请审批
+function genGroupNo(){return String(Math.floor(100000+Math.random()*900000));}
+async function loadGroupRequests(){
+  const box=$('groupReqList');
+  const {data,error}=await sb.from('group_requests').select('*').order('created_at',{ascending:false}).limit(50);
+  if(error){box.innerHTML='<div class="empty">加载失败：'+error.message+'</div>';return;}
+  const pending=(data||[]).filter(r=>r.status==='pending');
+  $('greqCount').textContent=pending.length?('· '+pending.length+' 待处理'):'';
+  if(!(data||[]).length){box.innerHTML='<div class="empty">暂无建群申请</div>';return;}
+  box.innerHTML='';
+  (data||[]).forEach(r=>{
+    const item=document.createElement('div');item.className='req-item';
+    const head=document.createElement('div');head.className='req-head';
+    const nm=document.createElement('div');nm.className='req-name';nm.textContent='👥 '+r.group_name;
+    const st=document.createElement('div');st.className='req-status '+r.status;
+    st.textContent=r.status==='pending'?'待处理':(r.status==='approved'?'已批准':'已驳回');
+    const tm=document.createElement('div');tm.className='req-time';
+    tm.textContent=new Date(r.created_at).toLocaleString('zh-CN',{hour12:false});
+    head.append(nm,st,tm);
+    const info=document.createElement('div');info.className='req-reason';
+    info.innerHTML='<b>申请人：</b>'+esc(r.applicant_name)+'　<b>理由：</b>'+esc(r.reason);
+    item.append(head,info);
+    if(r.status==='pending'){
+      const acts=document.createElement('div');acts.className='req-actions';
+      const ok=document.createElement('button');ok.className='btn btn-sm btn-ok';ok.textContent='✓ 批准建群';
+      ok.onclick=()=>approveGroupRequest(r);
+      const no=document.createElement('button');no.className='btn btn-sm btn-no';no.textContent='✗ 驳回';
+      no.onclick=()=>{
+        const why=prompt('驳回理由：');if(!why)return;
+        processGroupReject(r,why);
+      };
+      acts.append(ok,no);item.appendChild(acts);
+    }
+    box.appendChild(item);
+  });
+  applyFold(box,'.req-item',3,'条申请');
+}
+async function approveGroupRequest(r){
+  if(!confirm('确认批准建群「'+r.group_name+'」？申请人 '+r.applicant_name+' 将成为群主。'))return;
+  try{
+    let no=genGroupNo();
+    // 确保群号唯一
+    for(let i=0;i<10;i++){
+      const {data:dup}=await sb.from('groups').select('id').eq('group_no',no).maybeSingle();
+      if(!dup)break;no=genGroupNo();
+    }
+    const {data:g,error:e1}=await sb.from('groups').insert({group_no:no,name:r.group_name,owner_id:r.applicant_id}).select().maybeSingle();
+    if(e1)throw new Error(e1.message);
+    const {error:e2}=await sb.from('group_members').insert({group_id:g.id,user_id:r.applicant_id,role:'owner'});
+    if(e2)throw new Error(e2.message);
+    const {error:e3}=await sb.from('group_requests').update({status:'approved',processed_at:new Date().toISOString(),processed_by:admin.username}).eq('id',r.id);
+    if(e3)throw new Error(e3.message);
+    const {error:e4}=await sb.from('system_notices').insert({
+      kind:'approved',title:'✅ 建群申请通过',
+      content:'「'+r.group_name+'」的建群申请已通过！群号：'+no+'。群主 '+r.applicant_name+' 可在「我的群」中管理，其他成员可用群号搜索加入。',
+      target_user:r.applicant_name
+    });
+    if(e4)throw new Error(e4.message);
+    toast('已批准建群，群号 '+no);loadGroupRequests();
+  }catch(e){toast('批准失败：'+e.message);}
+}
+async function processGroupReject(r,why){
+  const {error:e1}=await sb.from('group_requests').update({status:'rejected',reject_reason:why,processed_at:new Date().toISOString(),processed_by:admin.username}).eq('id',r.id);
+  if(e1){toast('操作失败：'+e1.message);return;}
+  await sb.from('system_notices').insert({
+    kind:'rejected',title:'❌ 建群申请未通过',
+    content:'「'+r.group_name+'」的建群申请未通过。理由：'+why+'。请修改后重新申请。',
+    target_user:r.applicant_name
+  });
+  toast('已驳回');loadGroupRequests();
+}
+
 async function loadRequests(){
   const box=$('requestList');
   const {data,error}=await sb.from('account_requests').select('*').order('created_at',{ascending:false}).limit(50);
