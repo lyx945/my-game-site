@@ -72,6 +72,8 @@
   .req-actions input { flex:1; min-width:160px; border:1px solid var(--line); border-radius:9px; padding:9px 11px; outline:none; background:#fff; font-size:12px; }
   .btn-ok { background:#2f9e7e; }
   .btn-no { background:var(--danger); }
+  .fold-more{display:block;width:100%;margin:8px 0 0;padding:9px;border:1px dashed var(--line);border-radius:9px;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
+  .fold-more:hover{border-color:var(--brand-2);color:var(--brand-2)}
   .hidden { display:none !important; }
   #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2434; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:80; }
   #toast.show { opacity:1; }
@@ -238,6 +240,28 @@ async function loadRequests(){
     }
     box.appendChild(item);
   });
+  applyFold(box,'.req-item',3,'条申请');
+}
+
+// 通用折叠：只显示前 N 项，点击按钮每次再显示 N 项
+function applyFold(box,itemSelector,N,unitLabel){
+  const items=[...box.querySelectorAll(itemSelector)];
+  if(items.length<=N)return;
+  let shown=N;
+  items.forEach((el,i)=>{el.style.display=i<N?'':'none';});
+  const btn=document.createElement('button');btn.className='fold-more';
+  const update=()=>{
+    const left=items.length-shown;
+    if(left<=0){btn.remove();return;}
+    btn.textContent=`展开更多（还有 ${left} ${unitLabel}）`;
+  };
+  update();
+  btn.onclick=()=>{
+    const next=shown+N;
+    items.forEach((el,i)=>{if(i>=shown&&i<next)el.style.display='';});
+    shown=next;update();
+  };
+  box.appendChild(btn);
 }
 
 async function processRequest(req,action,rejectReason,grantRole){
@@ -324,7 +348,7 @@ $('createBtn').onclick = async () => {
 async function loadAccounts() {
   if (!sb) return;
   const { data, error } = await sb.from('accounts')
-    .select('id, username, role, created_at, created_by')
+    .select('id, username, password, role, created_at, created_by')
     .order('created_at', { ascending: true });
   const box = $('acctTableWrap');
   if (error) { box.innerHTML = '<div class="empty">加载失败：'+error.message+'</div>'; return; }
@@ -341,6 +365,7 @@ async function loadAccounts() {
   });
   html += '</tbody></table>';
   box.innerHTML = html;
+  applyFold(box,'tbody tr',3,'个账号');
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // 点击已注册账号 → 带 peer 参数跳聊天页（chat.html 会处理自动登录）
