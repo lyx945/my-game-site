@@ -988,29 +988,46 @@ $('ivForward').onclick=()=>{
   $('forwardModal').classList.add('show');
 };
 $('forwardCancel').onclick=()=>$('forwardModal').classList.remove('show');
+let forwardBusy=false;
 async function forwardImageTo(type,peer){
-  if(!sb)return;
+  if(!sb||forwardBusy)return;
   if(!isLoggedIn){$('forwardErr').textContent='请登录账号后再转发';return;}
-  const m=ivState.msg;
-  const payload={
-    sender_id:myId,sender_nickname:myNick,
-    content:(m.file_name||'图片').slice(0,2000),
-    msg_type:'file',file_name:m.file_name||'图片',file_url:m.file_url,
-    file_size:m.file_size||0,file_mime:m.file_mime||'image/webp',read_at:null
-  };
-  if(type==='lobby'){
-    Object.assign(payload,{sender_name:myNick,sender_kind:isAdmin?'admin':'account'});
-    delete payload.sender_nickname;delete payload.receiver_id;delete payload.read_at;
-    const {error}=await sb.from('public_messages').insert(payload);
-    if(error){$('forwardErr').textContent='转发失败：'+error.message;return;}
-  }else{
-    Object.assign(payload,{room_id:roomIdOf(myId,peer.id),receiver_id:peer.id});
-    const {error}=await sb.from('messages').insert(payload);
-    if(error){$('forwardErr').textContent='转发失败：'+error.message;return;}
-  }
-  $('forwardModal').classList.remove('show');
-  closeImageViewer();
-  toast('图片已转发到'+(type==='lobby'?'公共大厅':(' '+peer.username)));
+  forwardBusy=true;
+  try{
+    const m=ivState.msg;
+    const payload={
+      sender_id:myId,sender_nickname:myNick,
+      content:(m.file_name||'图片').slice(0,2000),
+      msg_type:'file',file_name:m.file_name||'图片',file_url:m.file_url,
+      file_size:m.file_size||0,file_mime:m.file_mime||'image/webp',read_at:null
+    };
+    if(type==='lobby'){
+      Object.assign(payload,{sender_name:myNick,sender_kind:isAdmin?'admin':'account'});
+      delete payload.sender_nickname;delete payload.receiver_id;delete payload.read_at;
+      // B18: .select() 本地渲染 + lobbySeen 去重
+      const {data,error}=await sb.from('public_messages').insert(payload).select();
+      if(error){$('forwardErr').textContent='转发失败：'+error.message;return;}
+      (data||[]).forEach(msg=>{
+        if(lobbySeen.has(msg.id))return;
+        lobbySeen.add(msg.id);
+        if(view==='lobby'){renderLobbyMsg(msg);scrollLobby();}
+      });
+    }else{
+      Object.assign(payload,{room_id:roomIdOf(myId,peer.id),receiver_id:peer.id});
+      // B18: .select() 本地渲染 + seenIds 去重
+      const {data,error}=await sb.from('messages').insert(payload).select();
+      if(error){$('forwardErr').textContent='转发失败：'+error.message;return;}
+      (data||[]).forEach(msg=>{
+        if(seenIds.has(msg.id))return;
+        seenIds.add(msg.id);
+        if(currentPeer&&currentPeer.id===peer.id&&!groupView&&!sysView){renderMessage(msg);scrollBottom();}
+      });
+    }
+    $('forwardModal').classList.remove('show');
+    closeImageViewer();
+    toast('图片已转发到'+(type==='lobby'?'公共大厅':(' '+peer.username)));
+  }catch(e){$('forwardErr').textContent='转发失败：'+(e.message||'网络异常');}
+  finally{forwardBusy=false;}
 }
 
 function renderMe(){
