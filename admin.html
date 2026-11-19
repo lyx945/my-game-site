@@ -211,18 +211,23 @@ async function loadRequests(){
     item.append(head,reason);
     if(r.status==='pending'){
       const pw=document.createElement('div');pw.className='req-pass';
-      pw.textContent='申请时设置的密码：'+esc(r.password);
+      const reqRole=r.requested_role||'user';
+      pw.innerHTML='申请时设置的密码：'+esc(r.password)+'　·　申请角色：<b>'+(reqRole==='admin'?'管理员':'普通用户')+'</b>';
       const actions=document.createElement('div');actions.className='req-actions';
+      const roleSel=document.createElement('select');
+      roleSel.style.cssText='border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:12px';
+      roleSel.innerHTML='<option value="user">批准为普通用户</option><option value="admin">批准为管理员</option>';
+      roleSel.value=reqRole; // 默认顺着申请，管理员可改
       const rejectInput=document.createElement('input');rejectInput.placeholder='驳回理由（驳回时填写）';rejectInput.maxLength=1000;
       const approve=document.createElement('button');approve.className='btn btn-sm btn-ok';approve.textContent='✓ 批准';
-      approve.onclick=()=>processRequest(r,'approve','');
+      approve.onclick=()=>processRequest(r,'approve','',roleSel.value);
       const reject=document.createElement('button');reject.className='btn btn-sm btn-no';reject.textContent='✗ 驳回';
       reject.onclick=()=>{
         const why=rejectInput.value.trim();
         if(!why){toast('请填写驳回理由');return;}
         processRequest(r,'reject',why);
       };
-      actions.append(approve,rejectInput,reject);
+      actions.append(approve,roleSel,rejectInput,reject);
       item.append(pw,actions);
     }else if(r.status==='rejected'&&r.reject_reason){
       const rr=document.createElement('div');rr.className='req-reason';
@@ -233,14 +238,14 @@ async function loadRequests(){
   });
 }
 
-async function processRequest(req,action,rejectReason){
+async function processRequest(req,action,rejectReason,grantRole){
   if(!confirm((action==='approve'?'确认批准':'确认驳回')+'账号「'+req.username+'」的申请？'))return;
   try{
     if(action==='approve'){
       const {data:dup}=await sb.from('accounts').select('id').eq('username',req.username).maybeSingle();
       if(dup)throw new Error('该账号已存在，无法批准');
       const {error:e1}=await sb.from('accounts').insert({
-        username:req.username,password:req.password,role:'user',created_by:admin.username
+        username:req.username,password:req.password,role:(grantRole||req.requested_role||'user'),created_by:admin.username
       });
       if(e1)throw new Error(e1.message);
       const {error:e2}=await sb.from('account_requests')
@@ -249,7 +254,7 @@ async function processRequest(req,action,rejectReason){
       if(e2)throw new Error(e2.message);
       const {error:e3}=await sb.from('system_notices').insert({
         kind:'approved',title:'✅ 账号申请通过',
-        content:'「'+req.username+'」的账号申请已通过管理员审核，账号已创建。请申请者使用申请时填写的账号名与密码登录。',
+        content:'「'+req.username+'」的账号申请已通过管理员审核，已开通'+(grantRole==='admin'?'管理员':'普通用户')+'账号。请申请者使用申请时填写的账号名与密码登录。',
         target_user:req.username
       });
       if(e3)throw new Error(e3.message);
