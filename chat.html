@@ -29,6 +29,12 @@
     padding: 12px 16px; border-radius: 12px; box-shadow: var(--shadow); line-height: 1.6;
   }
   #configWarning code { background: #ffedcc; padding: 1px 5px; border-radius: 4px; }
+  #toast {
+    position: fixed; z-index: 80; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1f2434; color: #fff; padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; box-shadow: var(--shadow);
+  }
+  #toast.show { opacity: 1; }
 
   .app { display: flex; height: 100%; max-width: 1100px; margin: 0 auto; background: var(--panel); box-shadow: var(--shadow); }
   .sidebar { width: 320px; flex: 0 0 320px; border-right: 1px solid var(--line); display: flex; flex-direction: column; background: var(--panel-2); }
@@ -88,16 +94,40 @@
   .msg-row { display: flex; margin-bottom: 16px; }
   .msg-row.mine { justify-content: flex-end; }
   .msg-row.theirs { justify-content: flex-start; }
-  .bubble { max-width: min(76%,520px); padding: 10px 14px 7px; border-radius: 16px; box-shadow: 0 2px 8px rgba(31,36,52,.05); }
+  .bubble { max-width: min(78%,540px); padding: 10px 14px 7px; border-radius: 16px; box-shadow: 0 2px 8px rgba(31,36,52,.05); }
   .msg-row.mine .bubble { background: var(--bubble-mine); color: #fff; border-bottom-right-radius: 5px; }
   .msg-row.theirs .bubble { background: #fff; border: 1px solid var(--line); border-bottom-left-radius: 5px; }
   .msg-text { white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
-  .msg-time { font-size: 10px; margin-top: 5px; opacity: .65; text-align: right; }
-  .composer { flex: 0 0 auto; padding: 12px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: flex-end; background: #fff; }
+  .msg-time { font-size: 10px; margin-top: 5px; opacity: .72; text-align: right; display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
+  .read-status { font-weight: 600; }
+  .read-status.unread { color: #ffe08a; }
+  .msg-row.theirs .read-status.unread { color: var(--muted); }
+  .file-card {
+    display: flex; align-items: center; gap: 10px; min-width: 190px; max-width: 300px;
+    padding: 9px 11px; border-radius: 11px; text-decoration: none; color: inherit;
+    border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12);
+  }
+  .msg-row.theirs .file-card { background: var(--panel-2); border-color: var(--line); }
+  .file-icon { font-size: 24px; line-height: 1; flex: 0 0 auto; }
+  .file-meta { min-width: 0; flex: 1; }
+  .file-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-size { font-size: 11px; opacity: .75; margin-top: 2px; }
+  .file-dl { font-size: 16px; opacity: .8; flex: 0 0 auto; }
+  .composer { flex: 0 0 auto; padding: 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end; background: #fff; }
+  .icon-btn {
+    width: 42px; height: 42px; flex: 0 0 auto; border: 1px solid var(--line); background: var(--panel-2);
+    border-radius: 12px; font-size: 19px; display: grid; place-items: center;
+  }
+  .icon-btn:hover { border-color: var(--brand-2); }
+  .icon-btn:disabled { opacity: .45; cursor: not-allowed; }
   .composer textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; max-height: 120px; min-height: 42px; outline: none; background: var(--panel-2); }
   .composer textarea:focus { border-color: var(--brand-2); background: #fff; }
   .send-btn { border: 0; border-radius: 12px; padding: 0 18px; height: 42px; color: #fff; font-weight: 600; background: linear-gradient(135deg,var(--brand),var(--brand-2)); }
   .send-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .upload-bar { display: none; align-items: center; gap: 8px; padding: 8px 14px; background: var(--brand-soft); color: var(--brand); font-size: 12px; border-top: 1px solid #dcd9ff; }
+  .upload-bar.show { display: flex; }
+  .upload-bar .spin { width: 13px; height: 13px; border: 2px solid #dcd9ff; border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .modal { position: fixed; inset: 0; background: rgba(24,28,45,.42); z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(3px); }
   .modal.show { display: flex; }
@@ -124,6 +154,7 @@
 <body>
 
 <div id="configWarning" hidden></div>
+<div id="toast"></div>
 
 <div class="app" id="app">
   <aside class="sidebar">
@@ -157,7 +188,10 @@
     <div class="messages" id="messages">
       <div class="empty-chat"><div class="big">💬</div><div>点击左侧用户开始私聊<br>或搜索昵称找到朋友</div></div>
     </div>
+    <div class="upload-bar" id="uploadBar"><span class="spin"></span><span id="uploadText">正在上传文件…</span></div>
     <div class="composer">
+      <button class="icon-btn" id="attachBtn" title="发送文件（最大 5MB）" disabled>📎</button>
+      <input type="file" id="fileInput" hidden>
       <textarea id="msgInput" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行" disabled></textarea>
       <button class="send-btn" id="sendBtn" disabled>发送</button>
     </div>
@@ -181,6 +215,8 @@
 /* ========== 1. Supabase 配置 ========== */
 const SUPABASE_URL = 'https://znqiksqldqthcnlbrwzi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
+const BUCKET = 'chat-files';
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 /* ===================================== */
 
 const $ = (id) => document.getElementById(id);
@@ -204,6 +240,11 @@ if (!createClient && CONFIGURED) {
 }
 const sb = CONFIGURED && createClient ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
 /* ========== 2. 本地身份 ========== */
 const LS_ID = 'qiaohua_client_id', LS_NICK = 'qiaohua_nickname';
 let myId = localStorage.getItem(LS_ID);
@@ -219,6 +260,23 @@ function setAvatar(el, id, name) { el.style.background=colorOf(id); el.textConte
 function fmtTime(iso) {
   const d = new Date(iso), now = new Date(), hm = d.toTimeString().slice(0,5);
   return d.toDateString()===now.toDateString() ? hm : (d.getMonth()+1)+'/'+d.getDate()+' '+hm;
+}
+function fmtSize(n) {
+  if (!n && n !== 0) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/1024/1024).toFixed(2) + ' MB';
+}
+function fileIcon(mime, name) {
+  const m = mime || '';
+  if (m.startsWith('image/')) return '🖼️';
+  if (m.includes('pdf')) return '📕';
+  if (m.includes('zip') || m.includes('rar') || m.includes('7z')) return '🗜️';
+  if (m.startsWith('video/')) return '🎬';
+  if (m.startsWith('audio/')) return '🎵';
+  if (m.includes('word') || /\.(doc|docx)$/i.test(name||'')) return '📘';
+  if (m.includes('sheet') || /\.(xls|xlsx|csv)$/i.test(name||'')) return '📗';
+  return '📎';
 }
 
 /* ========== 3. 昵称（写入 profiles 供搜索） ========== */
@@ -252,11 +310,8 @@ nickInput.addEventListener('keydown', e => { if (e.key==='Enter') $('nickOk').cl
 $('meCard').onclick = () => openNickModal(true);
 
 /* ========== 4. 状态 ========== */
-let peers = [];           // presence 在线
-let following = [];       // 关注列表 [{client_id, nickname}]
-let searchResults = [];   // 搜索结果
-let activeTab = 'online'; // online | following
-let searching = false;
+let peers = [], following = [], searchResults = [];
+let activeTab = 'online', searching = false;
 let currentPeer = null;
 let unread = new Map();
 let seenIds = new Set();
@@ -264,7 +319,7 @@ let presenceReady = false;
 let presenceCh = null, msgCh = null, roomCh = null;
 let typingTimer = null, searchTimer = null;
 
-/* ========== 5. Presence：在线名单 ========== */
+/* ========== 5. Presence ========== */
 function initPresence() {
   presenceCh = sb.channel('lobby', { config: { presence: { key: myId } } });
   presenceCh
@@ -285,16 +340,14 @@ function initPresence() {
     });
 }
 
-/* ========== 6. 关注：加载 / 切换 ========== */
+/* ========== 6. 关注 ========== */
 async function loadFollowing() {
   if (!sb) return;
-  const { data, error } = await sb.from('follows')
-    .select('following_id').eq('follower_id', myId);
+  const { data, error } = await sb.from('follows').select('following_id').eq('follower_id', myId);
   if (error) { console.error('[loadFollowing]', error.message); return; }
   const ids = (data || []).map(r => r.following_id);
   if (!ids.length) { following = []; renderList(); return; }
-  const { data: users } = await sb.from('profiles')
-    .select('client_id, nickname, last_seen').in('client_id', ids);
+  const { data: users } = await sb.from('profiles').select('client_id, nickname, last_seen').in('client_id', ids);
   following = (users || []).map(u => ({ client_id: u.client_id, nickname: u.nickname, last_seen: u.last_seen }));
   renderList();
 }
@@ -302,29 +355,20 @@ async function loadFollowing() {
 async function toggleFollow(peerId, nickname) {
   if (!sb || !peerId) return;
   const isFollowing = following.some(f => f.client_id === peerId);
-  const btn = $('followBtn');
-  btn.disabled = true;
+  const btn = $('followBtn'); btn.disabled = true;
   if (isFollowing) {
-    const { error } = await sb.from('follows').delete()
-      .eq('follower_id', myId).eq('following_id', peerId);
+    const { error } = await sb.from('follows').delete().eq('follower_id', myId).eq('following_id', peerId);
     if (error) console.error('[unfollow]', error.message);
     else following = following.filter(f => f.client_id !== peerId);
   } else {
-    const { error } = await sb.from('follows').insert({
-      follower_id: myId, following_id: peerId
-    });
+    const { error } = await sb.from('follows').insert({ follower_id: myId, following_id: peerId });
     if (error) console.error('[follow]', error.message);
-    else if (!following.some(f => f.client_id === peerId)) {
-      following.push({ client_id: peerId, nickname: nickname || '用户' });
-    }
+    else if (!following.some(f => f.client_id === peerId)) following.push({ client_id: peerId, nickname: nickname || '用户' });
   }
   btn.disabled = false;
-  updateFollowBtn();
-  renderList();
+  updateFollowBtn(); renderList();
 }
-
 function isFollowing(peerId) { return following.some(f => f.client_id === peerId); }
-
 function updateFollowBtn() {
   const btn = $('followBtn');
   if (!currentPeer) { btn.style.display = 'none'; return; }
@@ -333,27 +377,19 @@ function updateFollowBtn() {
   btn.className = 'follow-btn' + (on ? ' on' : '');
   btn.innerHTML = on ? '<span class="st">★</span> 已关注' : '☆ 关注';
 }
-$('followBtn').onclick = () => {
-  if (currentPeer) toggleFollow(currentPeer.client_id, currentPeer.nickname);
-};
+$('followBtn').onclick = () => { if (currentPeer) toggleFollow(currentPeer.client_id, currentPeer.nickname); };
 
-/* ========== 7. 搜索（profiles 按昵称） ========== */
+/* ========== 7. 搜索 ========== */
 $('searchInput').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
   const kw = e.target.value.trim();
-  if (!kw) {
-    searching = false; searchResults = [];
-    renderList();
-    return;
-  }
+  if (!kw) { searching = false; searchResults = []; renderList(); return; }
   searchTimer = setTimeout(async () => {
     searching = true;
     const { data, error } = await sb.from('profiles')
       .select('client_id, nickname, last_seen')
-      .ilike('nickname', `%${kw}%`)
-      .neq('client_id', myId)
-      .order('last_seen', { ascending: false })
-      .limit(20);
+      .ilike('nickname', `%${kw}%`).neq('client_id', myId)
+      .order('last_seen', { ascending: false }).limit(20);
     if (error) { console.error('[search]', error.message); searchResults = []; }
     else searchResults = data || [];
     renderList();
@@ -369,8 +405,7 @@ function buildUserItem(p, { online, showBadge }) {
   const name = document.createElement('div'); name.className='user-name'; name.textContent=p.nickname;
   const tm = document.createElement('div'); tm.className='user-time';
   tm.innerHTML = online ? '<i class="dot-online"></i>在线' : '离线 · 消息仍会送达';
-  meta.append(name, tm);
-  item.append(av, meta);
+  meta.append(name, tm); item.append(av, meta);
   if (showBadge) {
     const badge = document.createElement('span');
     badge.className='badge' + (unread.get(p.client_id)?' show':'');
@@ -380,46 +415,31 @@ function buildUserItem(p, { online, showBadge }) {
   item.onclick = () => openChat({ client_id: p.client_id, nickname: p.nickname });
   return item;
 }
-
 function renderList() {
-  const box = $('userList');
-  box.innerHTML = '';
+  const box = $('userList'); box.innerHTML = '';
   let list, title, count, onlineFlag, badgeFlag;
-
-  if (searching) {
-    list = searchResults; title = '搜索结果'; count = list.length;
-    onlineFlag = false; badgeFlag = false;
-  } else if (activeTab === 'following') {
-    list = following; title = '我的关注'; count = list.length;
-    onlineFlag = false; badgeFlag = true;
-  } else {
-    list = peers; title = '在线的人'; count = list.length;
-    onlineFlag = true; badgeFlag = true;
-  }
-
+  if (searching) { list = searchResults; title = '搜索结果'; count = list.length; onlineFlag=false; badgeFlag=false; }
+  else if (activeTab === 'following') { list = following; title = '我的关注'; count = list.length; onlineFlag=false; badgeFlag=true; }
+  else { list = peers; title = '在线的人'; count = list.length; onlineFlag=true; badgeFlag=true; }
   $('listTitle').innerHTML = `<span>${title}</span><span>${(activeTab==='online' && !searching) ? '<i class="dot-online"></i>' : ''}<span>${count}</span></span>`;
   $('tabOnline').classList.toggle('active', activeTab==='online' && !searching);
   $('tabFollowing').classList.toggle('active', activeTab==='following' && !searching);
-
   if (!list.length) {
     const msg = searching ? '没有找到匹配的用户' :
       (activeTab==='following' ? '还没有关注的人<br>点击聊天窗口右上角的「关注」添加' :
         '暂时没有其他人在线<br>搜索昵称或把页面发给朋友');
-    box.innerHTML = `<div class="list-empty">${msg}</div>`;
-    return;
+    box.innerHTML = `<div class="list-empty">${msg}</div>`; return;
   }
   list.forEach(p => {
     const online = peers.some(x => x.client_id === p.client_id);
     box.appendChild(buildUserItem(p, { online: online && onlineFlag, showBadge: badgeFlag }));
   });
 }
-
 $('tabOnline').onclick = () => { $('searchInput').value=''; searching=false; searchResults=[]; activeTab='online'; renderList(); };
 $('tabFollowing').onclick = () => { $('searchInput').value=''; searching=false; searchResults=[]; activeTab='following'; renderList(); };
 
-/* ========== 9. 会话 & Broadcast 输入状态 ========== */
+/* ========== 9. 会话 & Broadcast ========== */
 const roomIdOf = (a,b) => [a,b].sort().join('__');
-
 async function joinRoom(peerId) {
   if (roomCh) { await sb.removeChannel(roomCh); roomCh = null; }
   const rid = roomIdOf(myId, peerId);
@@ -429,13 +449,11 @@ async function joinRoom(peerId) {
   });
   await new Promise(resolve => roomCh.subscribe(resolve));
 }
-
 function setTyping(on) {
   const sub = $('peerSub');
   sub.textContent = on ? '对方正在输入…' : '一对一私聊';
   sub.classList.toggle('typing', on);
 }
-
 function notifyTyping() {
   if (!roomCh || !currentPeer) return;
   roomCh.send({ type:'broadcast', event:'typing', payload:{ from: myId, typing: true } });
@@ -445,7 +463,19 @@ function notifyTyping() {
   }, 1500);
 }
 
-/* ========== 10. 打开会话 / 历史消息 ========== */
+/* ========== 10. 已读：批量标记某会话中发给我的消息 ========== */
+async function markAsRead(peerId) {
+  if (!sb || !peerId) return;
+  const rid = roomIdOf(myId, peerId);
+  const { error } = await sb.from('messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('room_id', rid)
+    .eq('receiver_id', myId)
+    .is('read_at', null);
+  if (error) console.error('[markAsRead]', error.message);
+}
+
+/* ========== 11. 打开会话 / 历史 ========== */
 async function openChat(peer) {
   currentPeer = peer;
   unread.set(peer.client_id, 0);
@@ -453,33 +483,29 @@ async function openChat(peer) {
   $('peerName').textContent = peer.nickname;
   setTyping(false);
   setAvatar($('peerAvatar'), peer.client_id, peer.nickname);
-  $('msgInput').disabled = false; $('sendBtn').disabled = false;
-  updateFollowBtn();
-  renderList();
+  $('msgInput').disabled = false; $('sendBtn').disabled = false; $('attachBtn').disabled = false;
+  updateFollowBtn(); renderList();
   await joinRoom(peer.client_id);
   await loadHistory();
+  markAsRead(peer.client_id); // 打开即标记已读
   $('msgInput').focus();
   scrollBottom();
 }
-
 $('backBtn').onclick = () => {
   if (typingTimer) { clearTimeout(typingTimer); if (roomCh) roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}}); }
   currentPeer = null;
   $('app').classList.remove('chat-open');
-  $('msgInput').disabled = true; $('sendBtn').disabled = true;
-  updateFollowBtn();
-  renderList();
+  $('msgInput').disabled = true; $('sendBtn').disabled = true; $('attachBtn').disabled = true;
+  updateFollowBtn(); renderList();
 };
 
-// 历史消息：按 room_id 从数据库查询，聊天记录一直保留
 async function loadHistory() {
   if (!sb || !currentPeer) return;
   const rid = roomIdOf(myId, currentPeer.client_id);
+  // 用 * 兼容 v3 SQL 未执行时新字段尚不存在的场景（优雅降级）
   const { data, error } = await sb.from('messages')
-    .select('id, sender_id, sender_nickname, receiver_id, content, created_at')
-    .eq('room_id', rid)
-    .order('created_at', { ascending: true })
-    .limit(300);
+    .select('*')
+    .eq('room_id', rid).order('created_at', { ascending: true }).limit(300);
   if (error) { console.error('[loadHistory]', error.message); return; }
   const box = $('messages'); box.innerHTML = '';
   (data || []).forEach(m => { seenIds.add(m.id); renderMessage(m); });
@@ -495,14 +521,45 @@ function renderMessage(m) {
   const ph = box.querySelector('.empty-chat'); if (ph) ph.remove();
   const row = document.createElement('div');
   row.className = 'msg-row ' + (m.sender_id===myId ? 'mine' : 'theirs');
+  row.dataset.id = m.id;
   const bubble = document.createElement('div'); bubble.className='bubble';
-  const text = document.createElement('div'); text.className='msg-text'; text.textContent = m.content; // 防 XSS
-  const time = document.createElement('div'); time.className='msg-time'; time.textContent = fmtTime(m.created_at);
-  bubble.append(text, time); row.appendChild(bubble); box.appendChild(row);
+
+  if (m.msg_type === 'file' && m.file_url) {
+    const a = document.createElement('a');
+    a.className='file-card'; a.href = m.file_url; a.target='_blank'; a.rel='noopener';
+    a.download = m.file_name || 'file';
+    const ic = document.createElement('div'); ic.className='file-icon'; ic.textContent = fileIcon(m.file_mime, m.file_name);
+    const meta = document.createElement('div'); meta.className='file-meta';
+    const nm = document.createElement('div'); nm.className='file-name'; nm.textContent = m.file_name || '文件';
+    const sz = document.createElement('div'); sz.className='file-size'; sz.textContent = fmtSize(m.file_size);
+    meta.append(nm, sz);
+    const dl = document.createElement('div'); dl.className='file-dl'; dl.textContent='↧';
+    a.append(ic, meta, dl); bubble.appendChild(a);
+  } else {
+    const text = document.createElement('div'); text.className='msg-text'; text.textContent = m.content || ''; // 防 XSS
+    bubble.appendChild(text);
+  }
+
+  const time = document.createElement('div'); time.className='msg-time';
+  const ts = document.createElement('span'); ts.textContent = fmtTime(m.created_at);
+  time.appendChild(ts);
+  // 已读状态只在"我发出的消息"且 v3 SQL 已执行（read_at 字段存在）时显示
+  if (m.sender_id === myId && 'read_at' in m) {
+    const st = document.createElement('span');
+    st.className = 'read-status ' + (m.read_at ? 'read' : 'unread');
+    st.dataset.role = 'read';
+    st.textContent = m.read_at ? '已读' : '未读';
+    time.appendChild(st);
+  }
+  bubble.appendChild(time); row.appendChild(bubble); box.appendChild(row);
 }
 function scrollBottom() { const el=$('messages'); el.scrollTop=el.scrollHeight; }
+function setReadById(id) {
+  const row = document.querySelector(`.msg-row[data-id="${id}"] [data-role="read"]`);
+  if (row) { row.textContent='已读'; row.className='read-status read'; }
+}
 
-/* ========== 11. 发送消息（BUG 修复点） ========== */
+/* ========== 12. 发送文本消息 ========== */
 async function sendMessage() {
   const input = $('msgInput');
   const content = input.value.trim();
@@ -510,51 +567,86 @@ async function sendMessage() {
   input.value = '';
   if (typingTimer) clearTimeout(typingTimer);
   if (roomCh) roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});
-
-  // insert 后 .select() 拿回执，立即在本地渲染自己的气泡
   const { data, error } = await sb.from('messages').insert({
     room_id: roomIdOf(myId, currentPeer.client_id),
-    sender_id: myId,
-    sender_nickname: myNick,
-    receiver_id: currentPeer.client_id,
-    content
+    sender_id: myId, sender_nickname: myNick,
+    receiver_id: currentPeer.client_id, content
+    // msg_type 默认 text、read_at 默认 null（由 v3 SQL 的默认值提供，SQL 未跑时省略以兼容）
   }).select();
-
-  if (error) {
-    console.error('[sendMessage]', error.message);
-    input.value = content;
-    alert('发送失败：' + error.message);
-    return;
-  }
-  (data || []).forEach(m => {
-    if (!seenIds.has(m.id)) { seenIds.add(m.id); renderMessage(m); }
-  });
+  if (error) { console.error('[sendMessage]', error.message); input.value = content; alert('发送失败：' + error.message); return; }
+  (data || []).forEach(m => { if (!seenIds.has(m.id)) { seenIds.add(m.id); renderMessage(m); } });
   scrollBottom();
 }
 $('sendBtn').onclick = sendMessage;
 $('msgInput').addEventListener('input', notifyTyping);
 $('msgInput').addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 
-/* ========== 12. Postgres Changes：实时收消息（BUG 修复点） ========== */
+/* ========== 13. 发送文件（≤5MB） ========== */
+$('attachBtn').onclick = () => $('fileInput').click();
+$('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file || !sb || !currentPeer) return;
+  if (file.size > MAX_FILE_SIZE) { toast('文件超过 5MB，无法发送'); return; }
+  const rid = roomIdOf(myId, currentPeer.client_id);
+  // 存储路径用随机 UUID，避免文件名特殊字符；原始文件名存在消息元数据里
+  const ext = (file.name.includes('.') ? '.' + file.name.split('.').pop() : '');
+  const path = `${rid}/${myId}/${(crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random().toString(36).slice(2))}${ext}`;
+
+  $('uploadBar').classList.add('show');
+  $('uploadText').textContent = '正在上传 ' + file.name + ' …';
+  $('attachBtn').disabled = true; $('sendBtn').disabled = true;
+
+  try {
+    const { error: upErr } = await sb.storage.from(BUCKET).upload(path, file, {
+      cacheControl: '3600', upsert: false, contentType: file.type || 'application/octet-stream'
+    });
+    if (upErr) throw new Error(upErr.message);
+    const { data: urlData } = sb.storage.from(BUCKET).getPublicUrl(path);
+    const { data, error } = await sb.from('messages').insert({
+      room_id: rid, sender_id: myId, sender_nickname: myNick,
+      receiver_id: currentPeer.client_id, content: '',
+      msg_type: 'file', file_name: file.name, file_url: urlData.publicUrl,
+      file_size: file.size, file_mime: file.type || 'application/octet-stream', read_at: null
+    }).select();
+    if (error) throw new Error(error.message);
+    (data || []).forEach(m => { if (!seenIds.has(m.id)) { seenIds.add(m.id); renderMessage(m); } });
+    scrollBottom();
+    toast('文件已发送');
+  } catch (err) {
+    console.error('[sendFile]', err);
+    toast('上传失败：' + err.message);
+  } finally {
+    $('uploadBar').classList.remove('show');
+    $('attachBtn').disabled = false; $('sendBtn').disabled = false;
+  }
+});
+
+/* ========== 14. Postgres Changes：新消息 + 已读更新 ========== */
 function initMessageChanges() {
   msgCh = sb.channel('messages-stream')
+    // 新消息
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, ({ new: m }) => {
-      if (seenIds.has(m.id)) return;      // 自己发的已渲染，去重
+      if (seenIds.has(m.id)) return;
       seenIds.add(m.id);
-      const inCurrentChat = currentPeer && (
-        m.sender_id === currentPeer.client_id || m.receiver_id === currentPeer.client_id
-      );
+      const inCurrentChat = currentPeer && (m.sender_id === currentPeer.client_id || m.receiver_id === currentPeer.client_id);
       if (inCurrentChat) {
-        renderMessage(m); scrollBottom();
+        renderMessage(m);
+        if (m.receiver_id === myId) markAsRead(m.sender_id); // 看着聊天时收到 → 立即标已读
+        scrollBottom();
       } else if (m.receiver_id === myId) {
         unread.set(m.sender_id, (unread.get(m.sender_id)||0)+1);
         renderList();
       }
     })
+    // 已读状态更新
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'messages' }, ({ new: m }) => {
+      if (m.sender_id === myId && m.read_at) setReadById(m.id);
+    })
     .subscribe();
 }
 
-/* ========== 13. 启动 ========== */
+/* ========== 15. 启动 ========== */
 if (myNick) { $('meName').textContent=myNick; setAvatar($('meAvatar'), myId, myNick); }
 if (sb) {
   initPresence();
