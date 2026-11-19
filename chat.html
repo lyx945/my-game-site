@@ -62,6 +62,20 @@
   .badge.show{display:inline-flex}
   .list-empty{text-align:center;color:var(--muted);padding:30px 12px;line-height:1.8;font-size:12px}
 
+  /* 系统消息虚拟联系人 */
+  .sys-item{border-bottom:1px solid var(--line)}
+  .sys-item .user-item{margin-bottom:0}
+  .sys-avatar{background:linear-gradient(135deg,#f5a623,#f5c542) !important}
+  .sys-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+  .sys-badge.hidden{display:none}
+  /* 系统通告气泡 */
+  .sys-notice{border-left:3px solid #f5a623;background:#fffaf0 !important;border-color:#ffe0a3 !important}
+  .sys-notice.rejected{border-left-color:var(--danger);background:#fff5f5 !important;border-color:#ffd0d0 !important}
+  .sys-notice .sn-title{font-weight:700;font-size:12px;margin-bottom:5px;color:var(--admin)}
+  .sys-notice.rejected .sn-title{color:var(--danger)}
+  .sys-notice .sn-body{font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  /* 申请账号按钮 */
+  .apply-btn{color:#b26a00}
   .side-foot{border-top:1px solid var(--line);padding:9px 12px;display:flex;gap:7px;background:#fff}
   .foot-btn{flex:1;border:1px solid var(--line);background:var(--panel-2);border-radius:9px;padding:8px 6px;font-size:11px;font-weight:600;color:var(--muted)}
   .foot-btn:hover{border-color:var(--brand-2);color:var(--brand)}
@@ -93,6 +107,7 @@
   .msg-sender{font-size:10px;font-weight:700;opacity:.8;margin-bottom:4px;display:flex;align-items:center;gap:6px}
   .kind-tag{font-size:9px;font-weight:600;padding:1px 6px;border-radius:10px;background:rgba(0,0,0,.08)}
   .kind-tag.admin{background:var(--admin-bg);color:var(--admin)}
+  .kind-tag.account{background:#eaf2ff;color:#3c6bb0}
   .msg-text{white-space:pre-wrap;word-break:break-word;line-height:1.55}
   .msg-time{font-size:10px;margin-top:5px;opacity:.72;text-align:right;display:flex;justify-content:flex-end;gap:6px;align-items:center}
   .read-status{font-weight:600}
@@ -228,6 +243,7 @@
     <div class="list-title" id="listTitle"><span>在线的人</span><span><i class="dot-online"></i><span id="listCount">0</span></span></div>
     <div class="user-list" id="userList"></div>
     <div class="side-foot">
+      <button class="foot-btn apply-btn" id="applyBtn">📝 申请账号</button>
       <button class="foot-btn" id="spaceBtn">📊 剩余空间</button>
       <button class="foot-btn admin-link" id="adminBtn">🔐 管理员模式</button>
     </div>
@@ -274,6 +290,8 @@
       <div class="messages" id="lobbyMessages"></div>
       <div class="composer">
         <button class="icon-btn" id="lobbyEmojiBtn" title="表情">😊</button>
+        <button class="icon-btn" id="lobbyAttachBtn" title="发送文件（最大 5MB，仅登录用户）" disabled>📎</button>
+        <input type="file" id="lobbyFileInput" hidden>
         <textarea id="lobbyInput" rows="1" placeholder="说点什么…（Enter 发送）"></textarea>
         <button class="send-btn" id="lobbySendBtn">发送</button>
       </div>
@@ -298,6 +316,25 @@
     <div class="modal-actions">
       <button id="loginCancel">取消</button>
       <button class="primary" id="loginOk">登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 申请账号弹窗 -->
+<div class="modal" id="applyModal">
+  <div class="modal-card">
+    <h2>申请账号</h2>
+    <p>填写后提交给管理员审核。批准后请用自己的账号密码登录；被驳回时会收到理由。</p>
+    <div class="field" style="margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">账号名称</label>
+      <input id="applyUser" maxlength="30" placeholder="例如：xiaoming" autocomplete="off"></div>
+    <div class="field" style="margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">密码（至少 6 位）</label>
+      <input id="applyPass" type="password" maxlength="60" placeholder="设置登录密码" autocomplete="off"></div>
+    <div class="field" style="margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">申请理由</label>
+      <textarea id="applyReason" rows="3" maxlength="1000" placeholder="简单说明你为什么想用这个网站" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2);resize:vertical"></textarea></div>
+    <div class="err" id="applyErr"></div>
+    <div class="modal-actions">
+      <button id="applyCancel">取消</button>
+      <button class="primary" id="applySubmit">提交申请</button>
     </div>
   </div>
 </div>
@@ -403,6 +440,8 @@ let currentPeer=null, unread=new Map(), seenIds=new Set(), lobbySeen=new Set();
 let presenceReady=false, presenceCh=null, msgCh=null, roomCh=null, lobbyCh=null;
 let typingTimer=null, searchTimer=null, emojiTarget=null;
 let announcements=[], readCounts=new Map(), annReadCounts=new Map(), allAccounts=[];
+const SYS_ID='__system__';
+let systemNotices=[], sysUnread=0, sysView=false;
 
 // 按需加载 PDF 生成库（多 CDN 兜底）
 let pdfLibs=null;
@@ -523,8 +562,26 @@ function buildUserItem(p,{showBadge}){
   item.onclick=()=>openChat({id:p.id,name:p.username||p.name});
   return item;
 }
+function buildSysItem(){
+  const wrap=document.createElement('div');wrap.className='sys-item';
+  const item=document.createElement('div');
+  item.className='user-item'+(currentPeer&&currentPeer.id===SYS_ID?' active':'');
+  const av=document.createElement('div');av.className='avatar sys-avatar';av.textContent='📢';
+  const meta=document.createElement('div');meta.className='user-meta';
+  const name=document.createElement('div');name.className='user-name';name.textContent='系统消息';
+  const tm=document.createElement('div');tm.className='user-time';tm.textContent='账号申请结果通知';
+  meta.append(name,tm);item.append(av,meta);
+  const badge=document.createElement('span');
+  badge.className='sys-badge'+(sysUnread>0?'':' hidden');
+  badge.textContent=sysUnread>0?String(sysUnread):'';
+  item.appendChild(badge);
+  item.onclick=()=>openSysMessages();
+  wrap.appendChild(item);return wrap;
+}
 function renderList(){
   const box=$('userList');box.innerHTML='';
+  // 三个 Tab 顶部都固定「系统消息」（游客可见）
+  box.appendChild(buildSysItem());
   let list,title,showBadge;
   if(searching){list=searchResults;title='搜索结果';showBadge=false;}
   else if(activeTab==='following'){list=following;title='我的关注';showBadge=true;}
@@ -539,7 +596,8 @@ function renderList(){
     const msg=searching?'没有找到匹配的账号':
       activeTab==='following'?(isLoggedIn?'还没有关注的人':'登录后可查看关注列表'):
       activeTab==='registered'?'管理员还没下发账号':'暂时没有其他人在线';
-    box.innerHTML=`<div class="list-empty">${msg}</div>`;return;
+    const empty=document.createElement('div');empty.className='list-empty';empty.innerHTML=msg;
+    box.appendChild(empty);return;
   }
   list.forEach(p=>box.appendChild(buildUserItem(p,{showBadge})));
 }
@@ -639,6 +697,31 @@ $('announceBtn').onclick=()=>{
   $('announceModal').classList.add('show');
 };
 $('annCancel').onclick=()=>$('announceModal').classList.remove('show');
+
+/* ===== 申请账号 ===== */
+$('applyBtn').onclick=()=>{
+  $('applyUser').value='';$('applyPass').value='';$('applyReason').value='';$('applyErr').textContent='';
+  $('applyModal').classList.add('show');$('applyUser').focus();
+};
+$('applyCancel').onclick=()=>$('applyModal').classList.remove('show');
+$('applySubmit').onclick=async()=>{
+  const u=$('applyUser').value.trim(),p=$('applyPass').value,r=$('applyReason').value.trim();
+  const err=$('applyErr');err.textContent='';
+  if(!u){err.textContent='请填写账号名称';return;}
+  if(/[^a-zA-Z0-9_\u4e00-\u9fa5]/.test(u)){err.textContent='账号名只能含字母、数字、下划线或中文';return;}
+  if(p.length<6){err.textContent='密码至少 6 位';return;}
+  if(!r){err.textContent='请填写申请理由';return;}
+  // 查重：已有账号 + 待处理申请
+  const {data:dupAcct}=await sb.from('accounts').select('id').ilike('username',u).maybeSingle();
+  if(dupAcct){err.textContent='该账号名已被使用';return;}
+  const {data:dupReq}=await sb.from('account_requests').select('id').ilike('username',u).maybeSingle();
+  if(dupReq){err.textContent='该账号名已在申请中';return;}
+  const {error}=await sb.from('account_requests').insert({username:u,password:p,reason:r});
+  if(error){err.textContent='提交失败：'+error.message;return;}
+  $('applyModal').classList.remove('show');
+  toast('申请已提交，请等待管理员审核');
+  alert('申请已提交！\n\n管理员批准后，会在「系统消息」里发布通告。\n届时请用自己的账号名和密码登录。');
+};
 $('annPublish').onclick=async()=>{
   const content=$('annContent').value.trim(),mins=Number($('annDuration').value);
   const err=$('annErr');err.textContent='';
@@ -662,18 +745,31 @@ function renderLobbyMsg(m){
     const s=document.createElement('div');s.className='msg-sender';
     const n=document.createElement('span');n.textContent=m.sender_name||'游客';
     s.appendChild(n);
-    const tag=document.createElement('span');tag.className='kind-tag'+(m.sender_kind==='admin'?' admin':'');
-    tag.textContent=m.sender_kind==='admin'?'管理员':(m.sender_kind==='account'?'账号':'游客');
+    const tag=document.createElement('span');
+    tag.className='kind-tag'+(m.sender_kind==='admin'?' admin':(m.sender_kind==='account'?' account':''));
+    tag.textContent=m.sender_kind==='admin'?'管理员':(m.sender_kind==='account'?'普通用户':'游客');
     s.appendChild(tag);bubble.appendChild(s);
   }
-  const text=document.createElement('div');text.className='msg-text';text.textContent=m.content||'';
+  if(m.msg_type==='file'&&m.file_url){
+    const a=document.createElement('a');a.className='file-card';a.href=m.file_url;a.target='_blank';a.rel='noopener';a.download=m.file_name||'file';
+    const ic=document.createElement('div');ic.className='file-icon';ic.textContent=fileIcon(m.file_mime,m.file_name);
+    const meta=document.createElement('div');meta.className='file-meta';
+    const nm=document.createElement('div');nm.className='file-name';nm.textContent=m.file_name||'文件';
+    const sz=document.createElement('div');sz.className='file-size';sz.textContent=fmtSize(m.file_size);
+    meta.append(nm,sz);
+    const dl=document.createElement('div');dl.className='file-dl';dl.textContent='↧';
+    a.append(ic,meta,dl);bubble.appendChild(a);
+  }else{
+    const text=document.createElement('div');text.className='msg-text';text.textContent=m.content||'';
+    bubble.appendChild(text);
+  }
   const time=document.createElement('div');time.className='msg-time';
   const ts=document.createElement('span');ts.textContent=fmtTime(m.created_at);time.appendChild(ts);
   const rd=document.createElement('span');rd.className='readers';
   rd.dataset.role='readers';rd.dataset.id=m.id;
   rd.textContent=(readCounts.get(m.id)||0)+' 人已读';
   time.appendChild(rd);
-  bubble.append(text,time);row.appendChild(bubble);box.appendChild(row);
+  bubble.appendChild(time);row.appendChild(bubble);box.appendChild(row);
 }
 function scrollLobby(){const el=$('lobbyMessages');el.scrollTop=el.scrollHeight;}
 
@@ -732,6 +828,42 @@ async function sendLobby(){
 }
 $('lobbySendBtn').onclick=sendLobby;
 $('lobbyInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendLobby();}});
+
+// 大厅文件上传：仅已登录账号（普通/管理员），游客禁用；上限 5MB
+$('lobbyAttachBtn').onclick=()=>{
+  if(!isLoggedIn){toast('游客不能发文件，请登录账号');return;}
+  $('lobbyFileInput').click();
+};
+$('lobbyFileInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];e.target.value='';
+  if(!file||!isLoggedIn)return;
+  if(file.size>LIMIT_USER){toast('大厅文件不能超过 5MB');return;}
+  const now=new Date();
+  const ext=file.name.includes('.')?'.'+file.name.split('.').pop():'';
+  const path=`lobby/${myId}/${crypto.randomUUID?crypto.randomUUID():now.getTime()+'-'+Math.random().toString(36).slice(2)}${ext}`;
+  $('lobbyAttachBtn').disabled=true;$('lobbySendBtn').disabled=true;
+  toast('正在上传 '+file.name+' …');
+  try{
+    const {error:upErr}=await sb.storage.from(BUCKET).upload(path,file,{
+      cacheControl:'3600',upsert:false,contentType:file.type||'application/octet-stream'
+    });
+    if(upErr)throw new Error(upErr.message);
+    const {data:urlData}=sb.storage.from(BUCKET).getPublicUrl(path);
+    const {error}=await sb.from('public_messages').insert({
+      sender_name:currentLobbyName(),sender_id:myId,
+      sender_kind:isAdmin?'admin':'account',
+      content:(file.name||'文件').slice(0,2000),  // content 有非空+长度约束，用文件名占位
+      msg_type:'file',file_name:file.name,file_url:urlData.publicUrl,
+      file_size:file.size,file_mime:file.type||'application/octet-stream'
+    });
+    if(error)throw new Error(error.message);
+    toast('文件已发送到公共大厅');
+  }catch(err){
+    console.error('[lobbyFile]',err);toast('上传失败：'+err.message);
+  }finally{
+    $('lobbyAttachBtn').disabled=!isLoggedIn;$('lobbySendBtn').disabled=false;
+  }
+});
 $('guestNickBtn').onclick=()=>openLoginModal('guest');
 $('lobbyBackBtn').onclick=()=>{switchView('private');$('app').classList.remove('chat-open');renderList();};
 
@@ -859,7 +991,51 @@ async function markAsRead(peerId){
   if(error)console.error('[markAsRead]',error.message);
 }
 
+/* ===== 系统消息：全局通告（游客可见） ===== */
+async function loadSystemNotices(){
+  if(!sb)return;
+  const {data,error}=await sb.from('system_notices').select('*').order('created_at',{ascending:false}).limit(100);
+  if(error){console.error('[loadSystemNotices]',error.message);return;}
+  systemNotices=data||[];
+  // 简易未读：以本机记录的已读数为基准
+  const seen=Number(localStorage.getItem('qiaohua_sys_seen')||0);
+  sysUnread=Math.max(0,systemNotices.length-seen);
+  renderList();
+  if(sysView)renderSysNotices();
+}
+function renderSysNotices(){
+  const box=$('messages');
+  box.innerHTML='';
+  $('peerName').textContent='系统消息';
+  $('peerSub').textContent='账号申请结果 · 全员通告';
+  setAvatar($('peerAvatar'),SYS_ID,'系统');
+  $('msgInput').disabled=true;$('sendBtn').disabled=true;
+  $('attachBtn').disabled=true;$('emojiBtn').disabled=true;
+  $('exportPdfBtn').style.display='none';$('followBtn').style.display='none';
+  if(!systemNotices.length){
+    box.innerHTML='<div class="empty-chat"><div class="big">📢</div><div>暂无系统通告</div></div>';
+    return;
+  }
+  systemNotices.forEach(n=>{
+    const row=document.createElement('div');row.className='msg-row theirs';
+    const bubble=document.createElement('div');bubble.className='bubble sys-notice'+(n.kind==='rejected'?' rejected':'');
+    const t=document.createElement('div');t.className='sn-title';t.textContent=n.title;
+    const b=document.createElement('div');b.className='sn-body';b.textContent=n.content;
+    const tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(n.created_at);
+    bubble.append(t,b,tm);row.appendChild(bubble);box.appendChild(row);
+  });
+  scrollBottom();
+}
+function openSysMessages(){
+  currentPeer={id:SYS_ID,name:'系统消息'};sysView=true;
+  unread.set(SYS_ID,0);sysUnread=0;
+  localStorage.setItem('qiaohua_sys_seen',String(systemNotices.length));
+  renderList();
+  $('app').classList.add('chat-open');
+  renderSysNotices();
+}
 async function openChat(peer){
+  sysView=false;
   currentPeer=peer;unread.set(peer.id,0);
   $('app').classList.add('chat-open');
   $('peerName').textContent=peer.name;setTyping(false);
@@ -873,7 +1049,7 @@ async function openChat(peer){
 }
 $('backBtn').onclick=()=>{
   if(typingTimer){clearTimeout(typingTimer);if(roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});}
-  currentPeer=null;$('app').classList.remove('chat-open');
+  currentPeer=null;sysView=false;$('app').classList.remove('chat-open');
   $('msgInput').disabled=true;$('sendBtn').disabled=true;$('attachBtn').disabled=true;$('emojiBtn').disabled=true;
   updateFollowBtn();updateExportBtn();renderList();
 };
@@ -1078,6 +1254,11 @@ function initMessageChanges(){
       if(view==='lobby')loadAnnouncements();
     })
     .subscribe();
+  sb.channel('system-notices-stream')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'system_notices'},()=>{
+      loadSystemNotices();toast('收到一条系统消息，请在「系统消息」查看');
+    })
+    .subscribe();
 }
 
 /* ========== 13. 空间统计 ========== */
@@ -1125,10 +1306,12 @@ async function loadSpace(){
 /* ========== 14. 启动 ========== */
 renderMe();
 if(isAdmin)$('announceBtn').style.display='inline-block';
+$('lobbyAttachBtn').disabled=!isLoggedIn; // 游客禁用大厅文件上传
 if(sb){
   initPresence();initMessageChanges();
   loadRegistered();loadFollowing();
   loadLobbyHistory();
+  loadSystemNotices();
   renderList();
   if(isLoggedIn)$('guestNickBtn').classList.add('hidden'); // 已登录用户用账号名，无需改昵称
 }else{
