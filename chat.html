@@ -193,7 +193,8 @@
   .msg-row.mine{justify-content:flex-end}
   .msg-row.theirs{justify-content:flex-start}
   .lobby-msg-row{align-items:flex-start;gap:9px}
-  .lobby-msg-row.mine{flex-direction:row-reverse}
+  /* row-reverse 反转主轴：justify-content 需用 flex-start 才等于视觉靠右（与微信一致） */
+  .lobby-msg-row.mine{flex-direction:row-reverse;justify-content:flex-start}
   .msg-avatar{width:32px;height:32px;flex:0 0 32px;cursor:pointer;border-radius:50%;margin-top:2px}
   .msg-avatar:hover{box-shadow:0 0 0 2px var(--brand-2)}
   .bubble{max-width:min(78%,540px);padding:9px 13px 6px;border-radius:15px;box-shadow:0 2px 8px rgba(31,36,52,.05)}
