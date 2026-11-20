@@ -74,6 +74,12 @@
   .btn-no { background:var(--danger); }
   .fold-more{display:block;width:100%;margin:8px 0 0;padding:9px;border:1px dashed var(--line);border-radius:9px;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
   .fold-more:hover{border-color:var(--brand-2);color:var(--brand-2)}
+  .grp-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--panel-2)}
+  .grp-card .gc-name{font-weight:700;font-size:14px;margin-bottom:6px}
+  .grp-card .gc-no{font-family:monospace;color:var(--brand-2);font-weight:700;letter-spacing:1px}
+  .grp-card .gc-meta{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.7}
+  .grp-card .gc-owner{color:var(--brand);font-weight:600;cursor:pointer;text-decoration:underline}
+  .grp-card .gc-owner:hover{color:var(--brand-2)}
   .hidden { display:none !important; }
   #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2434; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:80; }
   #toast.show { opacity:1; }
@@ -143,6 +149,12 @@
     <div id="acctTableWrap"></div>
   </div>
 
+  <div class="card" id="allGroupsCard">
+    <h2>全服群聊 <span id="grpTotalCount" style="color:var(--star)"></span></h2>
+    <div class="desc">全服已成立的群。点击群主可跳转到其个人资料页；管理员不参与群聊，无法进群。</div>
+    <div id="allGroupsList"></div>
+  </div>
+
   <div class="card">
     <h2>后续功能</h2>
     <div class="desc">预留：封禁账号、重置密码、删除账号、消息审计、空间配额调整等。需要时告诉我。</div>
@@ -195,9 +207,41 @@ function showAdmin() {
   loadAccounts();
   loadRequests();
   loadGroupRequests();
+  loadAllGroups();
 }
 
 // 账号申请审批
+async function loadAllGroups(){
+  const box=$('allGroupsList');
+  const {data:groups,error}=await sb.from('groups').select('id, group_no, name, owner_id, created_at').order('created_at',{ascending:false});
+  if(error){box.innerHTML='<div class="empty">加载失败：'+esc(error.message)+'</div>';return;}
+  $('grpTotalCount').textContent='· 共 '+(groups||[]).length+' 个群';
+  if(!(groups||[]).length){box.innerHTML='<div class="empty">还没有成立任何群</div>';return;}
+  // 批量取群主名 + 成员数
+  const ownerIds=[...new Set(groups.map(g=>g.owner_id))];
+  const {data:ownerAccts}=await sb.from('accounts').select('id, username').in('id',ownerIds);
+  const ownerMap=new Map((ownerAccts||[]).map(a=>[a.id,a.username]));
+  const counts=new Map();
+  await Promise.all(groups.map(async g=>{
+    const {data}=await sb.from('group_members').select('id').eq('group_id',g.id);
+    counts.set(g.id,(data||[]).length);
+  }));
+  box.innerHTML='';
+  groups.forEach(g=>{
+    const card=document.createElement('div');card.className='grp-card';
+    const nm=document.createElement('div');nm.className='gc-name';nm.textContent='👥 '+esc(g.name);
+    const no=document.createElement('div');no.className='gc-no';no.textContent='群号 '+esc(g.group_no);
+    const meta=document.createElement('div');meta.className='gc-meta';
+    const ownerName=ownerMap.get(g.owner_id)||g.owner_id?.slice(0,8)||'未知';
+    meta.innerHTML='群主：<span class="gc-owner" data-id="'+esc(g.owner_id)+'">'+esc(ownerName)+'</span>　·　成员 '+(counts.get(g.id)||0)+' 人　·　成立于 '+esc(new Date(g.created_at).toLocaleString('zh-CN',{hour12:false}));
+    meta.querySelector('.gc-owner').onclick=()=>{
+      location.href='chat.html?profile='+encodeURIComponent(g.owner_id);
+    };
+    card.append(nm,no,meta);box.appendChild(card);
+  });
+  applyFold(box,'.grp-card',3,'个群');
+}
+
 function genGroupNo(){return String(Math.floor(100000+Math.random()*900000));}
 async function loadGroupRequests(){
   const box=$('groupReqList');
