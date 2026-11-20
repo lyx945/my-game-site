@@ -192,6 +192,10 @@
   .msg-row{display:flex;margin-bottom:14px}
   .msg-row.mine{justify-content:flex-end}
   .msg-row.theirs{justify-content:flex-start}
+  .lobby-msg-row{align-items:flex-start;gap:9px}
+  .lobby-msg-row.mine{flex-direction:row-reverse}
+  .msg-avatar{width:32px;height:32px;flex:0 0 32px;cursor:pointer;border-radius:50%;margin-top:2px}
+  .msg-avatar:hover{box-shadow:0 0 0 2px var(--brand-2)}
   .bubble{max-width:min(78%,540px);padding:9px 13px 6px;border-radius:15px;box-shadow:0 2px 8px rgba(31,36,52,.05)}
   .msg-row.mine .bubble{background:var(--bubble-mine);color:#fff;border-bottom-right-radius:5px}
   .msg-row.theirs .bubble{background:#fff;border:1px solid var(--line);border-bottom-left-radius:5px}
@@ -1577,17 +1581,25 @@ $('annPublish').onclick=async()=>{
 function renderLobbyMsg(m){
   const box=$('lobbyMessages');const ph=box.querySelector('.empty-chat');if(ph)ph.remove();
   const mine=m.sender_id&&m.sender_id===myId;
-  const row=document.createElement('div');row.className='msg-row '+(mine?'mine':'theirs');
+  const row=document.createElement('div');row.className='msg-row lobby-msg-row '+(mine?'mine':'theirs');
+  // 头像：气泡前显示，点击跳发件人个人资料页
+  const av=document.createElement('div');av.className='avatar msg-avatar';
+  setAvatarSmart(av,m.sender_id,m.sender_name||'游客');
+  av.title='查看 '+(m.sender_name||'游客')+' 的资料';
+  av.onclick=()=>{
+    if(!m.sender_id){toast('该消息没有关联用户');return;}
+    openProfile(m.sender_id); // 游客也跳转，个人页会显示未注册；管理员自动带管理功能
+  };
+  row.appendChild(av);
   const bubble=document.createElement('div');bubble.className='bubble';
-  if(!mine){
-    const s=document.createElement('div');s.className='msg-sender';
-    const n=document.createElement('span');n.textContent=m.sender_name||'游客';
-    s.appendChild(n);
-    const tag=document.createElement('span');
-    tag.className='kind-tag'+(m.sender_kind==='admin'?' admin':(m.sender_kind==='account'?' account':''));
-    tag.textContent=m.sender_kind==='admin'?'管理员':(m.sender_kind==='account'?'普通用户':'游客');
-    s.appendChild(tag);bubble.appendChild(s);
-  }
+  // 昵称：所有人（含自己）都显示
+  const s=document.createElement('div');s.className='msg-sender';
+  const n=document.createElement('span');n.textContent=m.sender_name||'游客';
+  s.appendChild(n);
+  const tag=document.createElement('span');
+  tag.className='kind-tag'+(m.sender_kind==='admin'?' admin':(m.sender_kind==='account'?' account':''));
+  tag.textContent=m.sender_kind==='admin'?'管理员':(m.sender_kind==='account'?'普通用户':'游客');
+  s.appendChild(tag);bubble.appendChild(s);
   if(m.msg_type==='file'&&m.file_url){
     bubble.appendChild(buildFileNode(m));
   }else{
