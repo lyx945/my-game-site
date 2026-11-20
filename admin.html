@@ -444,11 +444,13 @@ $('loginBtn').onclick = async () => {
     if (!data.ok) { msg.textContent='账号或密码错误，或该账号不是管理员'; msg.className='msg err'; return; }
     admin = { id:data.id, username:data.username, password:p };
     localStorage.setItem(SESSION_KEY, JSON.stringify(admin));
+    // 同步聊天页会话：后台跳个人主页时，聊天页需识别为管理员以显示管理操作
+    localStorage.setItem('qiaohua_session', JSON.stringify({id:data.id,username:data.username,role:'admin'}));
     showAdmin();
   } catch(e) { $('loginBtn').disabled = false; msg.textContent='登录失败：'+(e.message||'网络异常'); msg.className='msg err'; }
 };
 $('loginPass').addEventListener('keydown', e => { if (e.key==='Enter') $('loginBtn').click(); });
-$('logoutBtn').onclick = () => { localStorage.removeItem(SESSION_KEY); location.reload(); };
+$('logoutBtn').onclick = () => { localStorage.removeItem(SESSION_KEY); localStorage.removeItem('qiaohua_session'); location.reload(); };
 
 // 注册账号
 $('createBtn').onclick = async () => {
@@ -493,7 +495,7 @@ async function loadAccounts() {
   let html = '<table><thead><tr><th>账号名称</th><th>角色</th><th>创建时间</th><th>创建人</th><th>密码</th></tr></thead><tbody>';
   accounts.forEach(a => {
     const t = new Date(a.created_at).toLocaleString('zh-CN', { hour12:false });
-    html += `<tr style="cursor:pointer" onclick="goChat('${esc(a.id)}','${esc(a.username)}')" title="点击与该账号私聊">
+    html += `<tr style="cursor:pointer" onclick="goProfile('${esc(a.id)}')" title="点击查看该账号个人主页">
       <td><b>${esc(a.username)}</b></td>
       <td><span class="pill ${a.role==='admin'?'admin':'user'}">${a.role==='admin'?'管理员':'普通用户'}</span></td>
       <td>${esc(t)}</td><td>${esc(a.created_by||'—')}</td>
@@ -504,9 +506,9 @@ async function loadAccounts() {
   applyFold(box,'tbody tr',3,'个账号');
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-// 点击已注册账号 → 带 peer 参数跳聊天页（chat.html 会处理自动登录）
-window.goChat=function(id,name){
-  location.href='chat.html?peer='+encodeURIComponent(id)+'&name='+encodeURIComponent(name);
+// 点击已注册账号 → 跳聊天页的个人资料页
+window.goProfile=function(id){
+  location.href='chat.html?profile='+encodeURIComponent(id);
 };
 
 loadAdminPick();
