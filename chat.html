@@ -101,6 +101,20 @@
   .grp-actions button{flex:1;min-width:80px;border:1px solid var(--line);border-radius:8px;padding:7px;background:#fff;font-size:11px;cursor:pointer}
   .grp-actions button.danger{color:var(--danger);border-color:#ffd0d0}
   .group-no{font-family:monospace;letter-spacing:1px;color:var(--brand-2);font-weight:700}
+  .invite-pick{max-height:300px;overflow-y:auto;margin-bottom:6px}
+  .invite-pick .item{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer}
+  .invite-pick .item:hover{border-color:var(--brand-2);background:var(--brand-soft)}
+  .invite-pick .item.checked{border-color:var(--brand);background:var(--brand-soft)}
+  .invite-pick .item .avatar{width:27px;height:27px;font-size:11px}
+  .invite-pick .item .nm{flex:1;font-weight:600}
+  .invite-pick .item .ck{width:17px;height:17px;accent-color:var(--brand)}
+  .invite-card{border:1px solid var(--brand-2);border-radius:12px;background:var(--brand-soft);padding:11px 13px;min-width:200px;max-width:280px}
+  .invite-card .ic-title{font-weight:700;font-size:13px;margin-bottom:5px}
+  .invite-card .ic-group{font-size:12px;margin-bottom:4px}
+  .invite-card .ic-no{font-family:monospace;letter-spacing:1px;color:var(--brand-2);font-weight:700}
+  .invite-card .ic-btn{margin-top:9px;border:0;border-radius:9px;background:var(--brand);color:#fff;font-size:12px;font-weight:600;padding:7px 13px;cursor:pointer;width:100%}
+  .invite-card .ic-btn:disabled{opacity:.6;cursor:default}
+  .invite-card .ic-hint{font-size:11px;color:var(--muted);margin-top:6px;text-align:center}
 
   /* 系统消息虚拟联系人 */
   .sys-item{border-bottom:1px solid var(--line)}
@@ -489,6 +503,17 @@
   </div>
 </div>
 
+<!-- 邀请成员弹窗（多选） -->
+<div class="modal" id="inviteModal">
+  <div class="modal-card" style="width:min(460px,100%)">
+    <h2>邀请成员入群</h2>
+    <p>勾选要邀请的已注册用户，可多选。对方会在与你的私聊中收到邀请卡片，点击即可入群。</p>
+    <div class="invite-pick" id="invitePick"></div>
+    <div class="err" id="inviteErr"></div>
+    <div class="modal-actions"><button id="inviteCancel">取消</button><button class="primary" id="inviteSend">发送邀请</button></div>
+  </div>
+</div>
+
 <!-- 入群申请审批弹窗 -->
 <div class="modal" id="joinReqModal">
   <div class="modal-card">
@@ -866,23 +891,47 @@ async function groupDissolve(){
   currentGroup=null;groupView=false;
   setTab('groups');
 }
-$('grpInviteBtn').onclick=async()=>{
+$('grpInviteBtn').onclick=()=>{
   if(!currentGroup)return;
   const myRole=groupMembers.find(m=>m.user_id===myId)?.role;
   if(myRole!=='owner'){toast('仅群主可邀请成员');return;}
-  // 列出未入群的已注册用户
-  const candidates=registered.filter(a=>!groupMembers.some(m=>m.user_id===a.id));
-  if(!candidates.length){toast('没有可邀请的用户');return;}
-  const names=candidates.map(a=>a.username).join('、');
-  const pick=prompt('输入要邀请的用户名（多个用逗号分隔）：\n\n可选：'+names);
-  if(!pick)return;
-  const wanted=pick.split(/[,，]/).map(s=>s.trim());
-  const targets=candidates.filter(a=>wanted.includes(a.username));
-  if(!targets.length){toast('未匹配到用户');return;}
-  const rows=targets.map(a=>({group_id:currentGroup.id,user_id:a.id,role:'member'}));
-  const {error}=await sb.from('group_members').insert(rows);
-  if(error){toast('邀请失败：'+error.message);return;}
-  toast('已邀请 '+targets.length+' 人');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+  const box=$('invitePick');box.innerHTML='';$('inviteErr').textContent='';
+  // 列出未入群的已注册用户（排除自己）
+  const candidates=registered.filter(a=>a.id!==myId&&!groupMembers.some(m=>m.user_id===a.id));
+  if(!candidates.length){box.innerHTML='<div class="list-empty">没有可邀请的用户（都在群里了）</div>';$('inviteModal').classList.add('show');return;}
+  candidates.forEach(a=>{
+    const it=document.createElement('div');it.className='item';
+    const av=document.createElement('div');av.className='avatar';setAvatarSmart(av,a.id,a.username);
+    const nm=document.createElement('div');nm.className='nm';nm.textContent=a.username+(a.role==='admin'?' 👑':'');
+    const cb=document.createElement('input');cb.type='checkbox';cb.className='ck';cb.dataset.uid=a.id;cb.dataset.name=a.username;
+    cb.onchange=()=>it.classList.toggle('checked',cb.checked);
+    it.append(av,nm,cb);
+    it.onclick=(e)=>{if(e.target!==cb){cb.checked=!cb.checked;it.classList.toggle('checked',cb.checked);}};
+    box.appendChild(it);
+  });
+  $('inviteModal').classList.add('show');
+};
+$('inviteCancel').onclick=()=>$('inviteModal').classList.remove('show');
+let inviteBusy=false;
+$('inviteSend').onclick=async()=>{
+  if(inviteBusy)return;
+  if(!currentGroup)return;
+  const picked=[...$('invitePick').querySelectorAll('input.ck:checked')].map(cb=>({id:cb.dataset.uid,name:cb.dataset.name}));
+  if(!picked.length){$('inviteErr').textContent='请至少选择一位用户';return;}
+  inviteBusy=true;
+  try{
+    // 以私聊消息形式发邀请卡片给每位被邀请者
+    const rows=picked.map(p=>({
+      room_id:roomIdOf(myId,p.id),sender_id:myId,sender_nickname:myNick,receiver_id:p.id,
+      content:'邀请你加入群「'+currentGroup.name+'」（群号 '+currentGroup.group_no+'）',
+      msg_type:'group_invite',invite_group_id:currentGroup.id,invite_status:'pending'
+    }));
+    const {error}=await sb.from('messages').insert(rows);
+    if(error){$('inviteErr').textContent='发送失败：'+error.message;return;}
+    $('inviteModal').classList.remove('show');
+    toast('已向 '+picked.length+' 人发送群邀请');
+  }catch(e){$('inviteErr').textContent='发送失败：'+(e.message||'网络异常');}
+  finally{inviteBusy=false;}
 };
 async function openJoinRequests(){
   if(!currentGroup)return;
@@ -1052,6 +1101,12 @@ let systemNotices=[], sysUnread=0, sysView=false, sysChats=[];
 let myGroups=[], currentGroup=null, groupView=false, groupMembers=[], groupMsgCh=null;
 const groupSeenIds=new Set(); // B3/B14: 群消息去重 + 裁剪
 let profileOrigin={view:'private',currentPeer:null,currentGroup:null,groupView:false}; // B4: 个人页返回来源
+let groupInfoCache=new Map(); // 群邀请卡片用：groupId -> {name,group_no,owner_id}
+async function loadAllGroupsInfo(){
+  if(!sb)return;
+  const {data}=await sb.from('groups').select('id, name, group_no, owner_id');
+  groupInfoCache=new Map((data||[]).map(g=>[g.id,g]));
+}
 const GROUP_PREFIX='group:';
 function isGroupPeer(peer){return peer&&typeof peer.id==='string'&&peer.id.startsWith(GROUP_PREFIX);}
 const SYS_EMAIL='2442311042@qq.com';
@@ -2039,11 +2094,47 @@ async function loadHistory(){
   (data||[]).forEach(m=>{seenIds.add(m.id);renderMessage(m);});
   if(!(data||[]).length){const e=document.createElement('div');e.className='empty-chat';e.innerHTML='<div class="big">👋</div><div>打个招呼开始聊天吧</div>';box.appendChild(e);}
 }
+function buildInviteCard(m){
+  const card=document.createElement('div');card.className='invite-card';
+  const g=groupInfoCache.get(m.invite_group_id);
+  const gname=g?g.name:'某个群';const gno=g?g.group_no:'——';
+  const title=document.createElement('div');title.className='ic-title';title.textContent='👥 群聊邀请';
+  const grp=document.createElement('div');grp.className='ic-group';grp.textContent='群名：'+gname;
+  const no=document.createElement('div');no.className='ic-no';no.textContent='群号 '+gno;
+  card.append(title,grp,no);
+  const mine=m.sender_id===myId;
+  const accepted=m.invite_status==='accepted';
+  if(mine){
+    const hint=document.createElement('div');hint.className='ic-hint';hint.textContent=accepted?'对方已加入':'已发送邀请，等待对方加入';
+    card.appendChild(hint);
+  }else if(accepted){
+    const hint=document.createElement('div');hint.className='ic-hint';hint.textContent='✅ 已加入该群';
+    card.appendChild(hint);
+  }else{
+    const btn=document.createElement('button');btn.className='ic-btn';btn.textContent='加入该群';
+    btn.onclick=async()=>{
+      if(!g){toast('群信息加载中，请稍后再试');return;}
+      btn.disabled=true;btn.textContent='加入中…';
+      try{
+        const {error:insErr}=await sb.from('group_members').insert({group_id:g.id,user_id:myId,role:'member'});
+        if(insErr&&!/duplicate|unique/i.test(insErr.message||''))throw new Error(insErr.message);
+        await sb.from('messages').update({invite_status:'accepted'}).eq('id',m.id);
+        m.invite_status='accepted';
+        btn.textContent='✅ 已加入';toast('已加入群「'+gname+'」');
+        loadMyGroups();
+      }catch(e){btn.disabled=false;btn.textContent='加入该群';toast('加入失败：'+e.message);}
+    };
+    card.appendChild(btn);
+  }
+  return card;
+}
 function renderMessage(m){
   const box=$('messages');const ph=box.querySelector('.empty-chat');if(ph)ph.remove();
   const row=document.createElement('div');row.className='msg-row '+(m.sender_id===myId?'mine':'theirs');row.dataset.id=m.id;
   const bubble=document.createElement('div');bubble.className='bubble';
-  if(m.msg_type==='file'&&m.file_url){
+  if(m.msg_type==='group_invite'){
+    bubble.appendChild(buildInviteCard(m));
+  }else if(m.msg_type==='file'&&m.file_url){
     bubble.appendChild(buildFileNode(m));
   }else{
     const t=document.createElement('div');t.className='msg-text';t.textContent=m.content||'';bubble.appendChild(t);
@@ -2289,6 +2380,15 @@ function initMessageChanges(){
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},({new:m})=>{
       if(m.sender_id===myId&&m.read_at)setReadById(m.id);
+      // 群邀请被接受：更新卡片状态（邀请者一侧）
+      if(m.msg_type==='group_invite'&&m.invite_status==='accepted'){
+        const card=document.querySelector('.msg-row[data-id="'+m.id+'"] .invite-card');
+        if(card){
+          const btn=card.querySelector('.ic-btn');
+          if(btn){btn.disabled=true;btn.textContent='✅ 已加入';}
+          else{let h=card.querySelector('.ic-hint');if(!h){h=document.createElement('div');h.className='ic-hint';card.appendChild(h);}h.textContent='✅ 对方已加入';}
+        }
+      }
     })
     .subscribe();
   lobbyCh=sb.channel('lobby-stream')
@@ -2393,8 +2493,12 @@ if(sb){
   loadSystemNotices();
   loadSysChats();
   loadMyGroups();
+  loadAllGroupsInfo(); // 群邀请卡片用
   switchView('lobby'); // 默认进入公共房间，同步 DOM 与视图状态
   renderList();
+  // 管理员后台跳转：?profile=群主id → 直接打开该账号的个人资料页
+  const profileParam=new URLSearchParams(location.search).get('profile');
+  if(profileParam){openProfile(profileParam);history.replaceState(null,'',location.pathname);}
   // 群分享链接：?group=群号 → 切到我的群并搜索
   const groupParam=new URLSearchParams(location.search).get('group');
   if(groupParam){
