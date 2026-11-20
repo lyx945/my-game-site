@@ -1219,8 +1219,13 @@ function renderList(){
     const b2=document.createElement('button');b2.className='foot-btn';b2.style.cssText='flex:1;font-size:11px';b2.textContent='🔎 加入群';b2.onclick=openJoinGroupModal;
     bar.append(b1,b2);box.appendChild(bar);
     box.appendChild(buildSysItem());
-    if(!isLoggedIn){box.innerHTML+='<div class="list-empty">登录后可加入群聊</div>';return;}
-    if(!myGroups.length){box.innerHTML+='<div class="list-empty">还没有加入群，点上方申请建群或加入群</div>';return;}
+    // 修复：用 appendChild 而非 innerHTML+=，否则会重建 DOM 抹掉上方按钮的 onclick
+    if(!isLoggedIn){
+      const e=document.createElement('div');e.className='list-empty';e.textContent='登录后可加入群聊';box.appendChild(e);return;
+    }
+    if(!myGroups.length){
+      const e=document.createElement('div');e.className='list-empty';e.textContent='还没有加入群，点上方申请建群或加入群';box.appendChild(e);return;
+    }
     myGroups.forEach(g=>box.appendChild(buildGroupItem(g)));
     return;
   }
