@@ -329,17 +329,14 @@
       <div class="me-info"><div class="me-name" id="meName">游客</div><div class="me-hint" id="meHint">点击登录账号</div></div>
       <span class="role-pill guest" id="meRole">游客</span>
     </div>
-    <div id="settingsEntry" style="margin:-4px 12px 9px;text-align:right;display:none">
-      <button class="foot-btn" id="settingsEntryBtn" style="width:auto;padding:5px 10px;font-size:11px">⚙️ 账号设置</button>
-    </div>
-    <div class="search-wrap">
-      <span class="ico">🔍</span>
-      <input id="searchInput" placeholder="搜索已注册账号" autocomplete="off">
-    </div>
     <div class="tabs">
       <button class="tab active" id="tabLobby">公共房间</button>
       <button class="tab" id="tabGroups">我的群</button>
       <button class="tab" id="tabRegistered">已注册用户</button>
+    </div>
+    <div class="search-wrap hidden" id="searchWrap">
+      <span class="ico">🔍</span>
+      <input id="searchInput" placeholder="搜索已注册账号" autocomplete="off">
     </div>
     <div class="list-title" id="listTitle"><span>公共房间</span><span></span></div>
     <div class="user-list" id="userList"></div>
@@ -1227,7 +1224,6 @@ function renderMe(){
   setAvatar($('meAvatar'),myId,myNick);
   const p=$('meRole'); p.className='role-pill '+myRole;
   p.textContent=myRole==='admin'?'管理员':(myRole==='user'?'已登录':'游客');
-  $('settingsEntry').style.display=isLoggedIn?'block':'none';
 }
 
 /* ========== 3. 状态 ========== */
@@ -1400,6 +1396,8 @@ function renderList(){
   $('tabLobby').classList.toggle('active',view==='lobby');
   $('tabGroups').classList.toggle('active',view==='groups');
   $('tabRegistered').classList.toggle('active',view==='private');
+  // 搜索框仅在「已注册用户」Tab 下显示
+  $('searchWrap').classList.toggle('hidden',view!=='private');
 
   // 公共房间视图：不显示联系人列表
   if(view==='lobby'){
@@ -1829,7 +1827,8 @@ function openLoginModal(mode){
 }
 $('meCard').onclick=()=>{
   if(isLoggedIn){
-    if(confirm('退出当前账号「'+myNick+'」？')){localStorage.removeItem(LS_SESSION);location.reload();}
+    profileOrigin={view,currentPeer,currentGroup,groupView}; // 记录来源供返回
+    openProfile(myId); // 弹出个人资料页，内含切换/退出/账号设置
   }else openLoginModal('user');
 };
 $('adminBtn').onclick=()=>{
@@ -2128,11 +2127,17 @@ async function openProfile(peerId){
   setVal('pfIp',acct&&acct.ip_location);
   setVal('pfBio',acct&&acct.bio);setVal('pfEmail',acct&&acct.email);
   setVal('pfWechat',acct&&acct.wechat);setVal('pfQq',acct&&acct.qq);
-  // 自己看自己显示「编辑资料」，别人显示「发消息」
+  // 自己看自己：切换账号 / 退出登录 / 账号设置；别人：发消息（管理员另有管理操作）
   const acts=$('pfActions');acts.innerHTML='';
   if(acct&&acct.id===myId){
-    const b=document.createElement('button');b.className='primary';b.textContent='✏️ 编辑资料';
-    b.onclick=openSettings;acts.appendChild(b);
+    const sw=document.createElement('button');sw.textContent='🔄 切换账号';
+    sw.onclick=()=>openLoginModal('user');acts.appendChild(sw);
+    const lo=document.createElement('button');lo.textContent='🚪 退出登录';
+    lo.onclick=()=>{
+      if(confirm('退出当前账号「'+myNick+'」？')){localStorage.removeItem(LS_SESSION);location.reload();}
+    };acts.appendChild(lo);
+    const set=document.createElement('button');set.className='primary';set.textContent='⚙️ 账号设置';
+    set.onclick=openSettings;acts.appendChild(set);
   }else{
     const b=document.createElement('button');b.className='primary';b.textContent='💬 发消息';
     b.onclick=()=>openChat({id:peerId,name:name});acts.appendChild(b);
@@ -2202,7 +2207,6 @@ function openSettings(){
   $('setErr').textContent='';
   if(!isLoggedIn){$('setErr').textContent='请先登录账号';}
 }
-$('settingsEntryBtn').onclick=()=>{profileOrigin={view,currentPeer,currentGroup,groupView};openSettings();};
 $('settingsBackBtn').onclick=restoreFromProfile;
 $('setAvatarBtn').onclick=()=>{if(!isLoggedIn){toast('请先登录账号');return;}$('setAvatarInput').click();};
 // 粘贴图片：账号设置页打开时，在页面任意位置粘贴图片即设为头像
