@@ -221,6 +221,10 @@
   .icon-btn:disabled{opacity:.4;cursor:not-allowed}
   .composer textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:11px;padding:10px 12px;max-height:120px;min-height:40px;outline:none;background:var(--panel-2)}
   .composer textarea:focus{border-color:var(--brand-2);background:#fff}
+  .composer textarea.muted{background:#eef0f5;color:#a8adba;cursor:not-allowed;border-color:#e2e5ec}
+  .mute-countdown{display:none;align-items:center;gap:6px;padding:7px 12px;background:#fff5f5;border-top:1px solid #ffd0d0;color:var(--danger);font-size:12px}
+  .mute-countdown.show{display:flex}
+  .mute-countdown .time{font-weight:700;font-variant-numeric:tabular-nums}
   .send-btn{border:0;border-radius:11px;padding:0 17px;height:40px;color:#fff;font-weight:600;background:linear-gradient(135deg,var(--brand),var(--brand-2))}
   .send-btn:disabled{opacity:.45;cursor:not-allowed}
   .upload-bar{display:none;align-items:center;gap:8px;padding:8px 14px;background:var(--brand-soft);color:var(--brand);font-size:12px;border-top:1px solid #dcd9ff}
@@ -371,6 +375,7 @@
         <div class="empty-chat"><div class="big">💬</div><div>点击左侧用户开始私聊<br>或进入公共大厅自由发言</div></div>
       </div>
       <div class="upload-bar" id="uploadBar"><span class="spin"></span><span id="uploadText">正在上传文件…</span></div>
+      <div class="mute-countdown" id="muteCountdown">🔇 禁言解封倒计时 <span class="time" id="muteTime">--:--</span></div>
       <div class="composer">
         <button class="icon-btn" id="emojiBtn" title="表情" disabled>😊</button>
         <button class="icon-btn" id="attachBtn" title="发送文件" disabled>📎</button>
@@ -714,7 +719,44 @@ function buildFileNode(m){
 }
 
 /* ===== 群聊：打开群、消息、管理 ===== */
+let muteTimer=null;
+// 被禁言者：输入框灰色禁用 + 解封倒计时
+function applyMuteState(){
+  const input=$('msgInput'),bar=$('muteCountdown'),timeEl=$('muteTime');
+  if(muteTimer){clearInterval(muteTimer);muteTimer=null;}
+  const me=currentGroup?groupMembers.find(m=>m.user_id===myId):null;
+  const until=me&&me.muted_until?new Date(me.muted_until).getTime():0;
+  if(until>Date.now()&&groupView){
+    input.classList.add('muted');input.disabled=true;
+    $('sendBtn').disabled=true;$('attachBtn').disabled=true;$('emojiBtn').disabled=true;
+    bar.classList.add('show');
+    const tick=()=>{
+      const left=until-Date.now();
+      if(left<=0){
+        clearInterval(muteTimer);muteTimer=null;
+        input.classList.remove('muted');input.disabled=false;
+        $('sendBtn').disabled=false;$('attachBtn').disabled=false;$('emojiBtn').disabled=canSendPrivate;
+        bar.classList.remove('show');
+        loadGroupMembers(currentGroup.id).then(renderGroupPanel); // 解除后刷新角色显示
+        return;
+      }
+      const h=Math.floor(left/3600000),m=Math.floor(left%3600000/60000),s=Math.floor(left%60000/1000);
+      timeEl.textContent=(h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    };
+    tick();muteTimer=setInterval(tick,1000);
+  }else{
+    input.classList.remove('muted');bar.classList.remove('show');
+    // 只在群聊视图恢复；私聊/系统视图的按钮状态由各自函数管理
+    if(groupView){input.disabled=false;$('sendBtn').disabled=false;$('attachBtn').disabled=false;$('emojiBtn').disabled=false;}
+  }
+}
+function clearMuteState(){
+  if(muteTimer){clearInterval(muteTimer);muteTimer=null;}
+  const input=$('msgInput');input.classList.remove('muted');
+  $('muteCountdown').classList.remove('show');
+}
 async function openGroup(g){
+  clearMuteState();
   currentGroup=g;groupView=true;sysView=false;currentPeer=null;
   $('app').classList.add('chat-open');
   $('peerName').textContent='👥 '+g.name;
@@ -726,6 +768,7 @@ async function openGroup(g){
   $('grpPanel').classList.add('show');
   await loadGroupMembers(g.id);
   renderGroupPanel();
+  applyMuteState(); // 被禁言则禁用输入框+倒计时
   await loadGroupHistory(g.id);
   subscribeGroup(g.id);
   renderList();
@@ -860,7 +903,7 @@ function subscribeGroup(gid){
     }).subscribe();
   groupMemberCh=sb.channel('group-mem-'+gid)
     .on('postgres_changes',{event:'*',schema:'public',table:'group_members',filter:'group_id=eq.'+gid},()=>{
-      loadGroupMembers(gid).then(renderGroupPanel);
+      loadGroupMembers(gid).then(()=>{renderGroupPanel();applyMuteState();});
     }).subscribe();
 }
 let groupMemberCh=null;
@@ -963,7 +1006,15 @@ async function groupMute(uid,days){
   const until=days>0?new Date(Date.now()+days*86400000).toISOString():new Date(0).toISOString();
   const {error}=await sb.from('group_members').update({muted_until:until}).eq('group_id',currentGroup.id).eq('user_id',uid);
   if(error){toast('操作失败：'+error.message);return;}
-  toast(days>0?('已禁言 '+days+' 天'):'已解除禁言');loadGroupMembers(currentGroup.id).then(renderGroupPanel);
+  // 群内系统消息：谁把谁禁言了多久（全员可见，存库）
+  const targetAcct=profileAccounts.get(uid);
+  const targetName=targetAcct?.username||groupMembers.find(m=>m.user_id===uid)?.user_id?.slice(0,8)||'某成员';
+  const text=days>0
+    ? (myNick+' 禁言了 '+targetName+' '+days+' 天')
+    : (myNick+' 解除了 '+targetName+' 的禁言');
+  await postGroupSystemMsg(currentGroup.id,'system',text,{kind:'mute',target_id:uid,days});
+  toast(days>0?('已禁言 '+days+' 天'):'已解除禁言');
+  loadGroupMembers(currentGroup.id).then(()=>{renderGroupPanel();applyMuteState();});
 }
 async function groupDissolve(){
   if(!confirm('⚠️ 确认解散群？群内所有消息和文件记录将被删除，不可恢复！'))return;
@@ -971,6 +1022,7 @@ async function groupDissolve(){
   if(error){toast('解散失败：'+error.message);return;}
   toast('群已解散');
   $('grpPanel').classList.remove('show');
+  clearMuteState();
   currentGroup=null;groupView=false;
   setTab('groups');
 }
@@ -1980,6 +2032,7 @@ async function sendSysChat(){
   finally{sysChatBusy=false;}
 }
 async function openSysMessages(){
+  clearMuteState();
   groupView=false;currentGroup=null;$('grpPanel').classList.remove('show');
   currentPeer={id:SYS_ID,name:'系统消息'};sysView=true;
   unread.set(SYS_ID,0);sysUnread=0;
@@ -2133,6 +2186,7 @@ function restoreFromProfile(){
       $('msgInput').placeholder=canSendPrivate?'输入消息，Enter 发送，Shift+Enter 换行':'游客只读 · 登录账号后可发言';
     }else if(groupView){$('msgInput').placeholder='发消息到群…';}
   }
+  applyMuteState(); // 返回群聊时恢复禁言倒计时
   renderList();
 }
 $('profileBackBtn').onclick=restoreFromProfile;
@@ -2209,6 +2263,7 @@ $('setSaveBtn').onclick=async()=>{
 let chatOpenSeq=0; // B6: 会话切换竞态序号
 async function openChat(peer){
   const seq=++chatOpenSeq; // B6: 每次打开递增，异步返回后校验
+  clearMuteState();
   sysView=false;groupView=false;currentGroup=null;
   $('grpPanel').classList.remove('show');
   if(groupMsgCh){sb.removeChannel(groupMsgCh);groupMsgCh=null;}
@@ -2230,6 +2285,7 @@ async function openChat(peer){
 }
 $('backBtn').onclick=()=>{
   if(typingTimer){clearTimeout(typingTimer);if(roomCh)roomCh.send({type:'broadcast',event:'typing',payload:{from:myId,typing:false}});}
+  clearMuteState();
   currentPeer=null;sysView=false;groupView=false;currentGroup=null;
   $('grpPanel').classList.remove('show');
   if(groupMsgCh){sb.removeChannel(groupMsgCh);groupMsgCh=null;}
