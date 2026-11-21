@@ -6,13 +6,34 @@
 <!--
   ============================================================
   版本记录 / BUILD LOG
-  版本数字：7        （文件名即 7.html；本项目版本以递增整数标识，后续为 8、9、10…）
-  版本：v1.7 图鉴头像点击全屏详情版
-  日期：2026-11-12
-  基于：6.html（v1.6 移动端竖屏 HUD 紧凑化版，md5 6ca9def44ffe2ac5b1887815152188cb，842415 字节）
+  版本数字：8        （文件名即 8.html；本项目版本以递增整数标识，后续为 9、10、11…）
+  版本：v1.8 BGM2《一路生花》就位 + 歌名显示版
+  日期：2026-11-21
+  基于：7.html（v1.7 图鉴头像点击全屏详情版，md5 2d40a3c83984323780b6a130c4a6e96e，847470 字节）
   血脉：v1.0 核心基准 → v1.1 弹性改进 → v1.2 弹性+BGM → v1.3 竖屏友好
-        → v1.4 设置/图鉴 → v1.5 全视口布局 → v1.6 竖屏HUD → v1.7 本版本
-  本版改动（在 6.html 基础上新增，图鉴交互升级，其余全部保持 v1.6 原样）：
+        → v1.4 设置/图鉴 → v1.5 全视口布局 → v1.6 竖屏HUD → v1.7 全屏详情
+        → v1.8 本版本
+  v1.8 本版改动（在 7.html 基础上新增，补齐 BGM2 与歌名显示，其余全部保持 v1.7 原样）：
+    一、补齐第二首背景音乐
+      1. 新增同目录音频 bgm2.mp3 = 温奕心《一路生花》
+         （MP3 / 64kbps / 22050Hz / 单声道 / 256.25 秒 / 2050826 字节）
+         BGM2 的文件名 bgm2.mp3 自 v1.4 起就已预留，本版把真实音频补上
+      2. BGM_TRACKS[1] 由占位名「BGM2」改为「BGM2 · 一路生花」，
+         并新增 title 完整信息「BGM2 · 温奕心《一路生花》」
+      3. 曲目增加 ready 标记：BGM1 / BGM2 初始化即视为「已就位」；
+         BGM3~BGM5 仍为 unknown，缺文件时照旧提示并自动回退
+    二、歌名显示优化
+      4. 设置面板 BGM 列表每个按钮补 title，悬停 / 长按可看完整歌名与歌手，
+         窄屏两列布局被省略号截断时信息不丢
+      5. 设置面板新增「正在播放：…」当前曲目行（矮屏横屏随 .set-hint 一起隐藏，
+         不挤占弹性 / 重力滑块空间），随切歌与静音实时更新
+      6. 切歌 toast 由「已选择 BGM2」升级为「🎵 BGM2 · 温奕心《一路生花》」
+      7. HUD 右上角 🎵 按钮的 title 带上当前曲目；bgmApplySrc() 切歌时同步刷新
+      8. 缺文件回退提示中的曲目名同步使用新歌名
+    三、未改动：分级弹性、弹性 / 重力设置与持久化、做题、计分、合成判定、
+        HUD 紧凑化、竖屏 / 横屏布局、合成链、人物图鉴与全屏详情、
+        静音偏好 bioBgmMuted、设置键 bioSettings 及全部 localStorage 逻辑
+  v1.7 改动（在 6.html 基础上新增，图鉴交互升级，其余全部保持 v1.6 原样）：
     一、图鉴卡片可点开全屏详情
       1. 图鉴弹窗内点击任意人物卡片（头像 / 名字均可），弹出独立全屏详情层
          #person-overlay（z-index:75，盖在图鉴之上），居中显示：
@@ -38,7 +59,7 @@
       道具列   76×232 (8,313)    —— 单项最大，4 个按钮各 52px 高带文字
       主界面   76×38  (8,267)
       HUD 遮挡面积合计 34166 / 画布 205350 = 16.6%
-  本版改动（仅 @media (orientation:portrait) and (max-width:600px)，
+  v1.6 改动（仅 @media (orientation:portrait) and (max-width:600px)，
             手机竖屏生效；平板竖屏 / 手机横屏 / 桌面横屏一律保持 v1.5 原样）：
     一、左上角
       1. 得分：padding 6/14→3/4、宽 60px、圆角 8px；「得分」标签 11→9px、
@@ -66,9 +87,10 @@
       9. 画布尺寸、480:720 比例、v1.5 的竖屏合成链人物带、做题面板、
          设置面板、人物图鉴、BGM、弹性/重力、题库、计分、合成判定均未改动
   配套音频（必须与本 HTML 同一目录，文件名固定小写）：
-    bgm.mp3   BGM1（已有，《樱花树下的约定》）
-    bgm2.mp3  BGM2（待补）   bgm3.mp3  BGM3（待补）
-    bgm4.mp3  BGM4（待补）   bgm5.mp3  BGM5（待补）
+    bgm.mp3   BGM1《樱花树下的约定》    已就位（151.4 秒 / 1212038 字节）
+    bgm2.mp3  BGM2 温奕心《一路生花》  已就位（256.25 秒 / 2050826 字节，本版新增）
+    bgm3.mp3  BGM3（待补）   bgm4.mp3  BGM4（待补）   bgm5.mp3  BGM5（待补）
+    缺哪首都不影响游戏：设置里会提示「缺文件」并自动回退到上一首可播曲目。
   部署说明：纯静态、无构建流程。HTML 文件名可任意，音频文件名不可变。
   ============================================================
 -->
@@ -310,6 +332,8 @@
   .set-row input[type=range]{flex:1;min-width:0;accent-color:#ff7a45;}
   .set-val{min-width:56px;text-align:right;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
   .set-hint{font-size:11.5px;color:#888;line-height:1.6;margin:4px 0 0;}
+  /* v1.8：设置面板「正在播放」当前曲目行；矮屏横屏沿用 .set-hint{display:none} 自动隐藏 */
+  .bgm-now{color:#2c3e50;font-weight:800;margin:0 0 7px;}
   .bgm-list{display:flex;flex-direction:column;gap:6px;}
   .bgm-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:2px solid #dfe6e9;
     background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-size:13px;color:#2c3e50;}
@@ -653,6 +677,7 @@
         <div class="qmeta">设置自动保存并立即生效，刷新 / 重开也不会丢</div>
         <div class="set-sec">
           <h4>🎵 背景音乐（5 首）</h4>
+          <div class="set-hint bgm-now" id="bgm-now">正在播放：—</div>
           <div class="bgm-list" id="bgm-list"></div>
           <p class="set-hint">音频需与 HTML 放在同一目录。点选即试听；未放置文件的曲目会提示并自动回退，游戏不受影响。</p>
         </div>
@@ -914,11 +939,11 @@ function beep(freq, dur, type, vol){
 const BGM_MUTE_KEY = "bioBgmMuted";
 const SETTINGS_KEY = "bioSettings";
 const BGM_TRACKS = [
-  {name:"BGM1 · 樱花树下的约定", file:"bgm.mp3"},
-  {name:"BGM2", file:"bgm2.mp3"},
-  {name:"BGM3", file:"bgm3.mp3"},
-  {name:"BGM4", file:"bgm4.mp3"},
-  {name:"BGM5", file:"bgm5.mp3"}
+  {name:"BGM1 · 樱花树下的约定", title:"BGM1 · 《樱花树下的约定》",       file:"bgm.mp3",  ready:true},
+  {name:"BGM2 · 一路生花",       title:"BGM2 · 温奕心《一路生花》",       file:"bgm2.mp3", ready:true},
+  {name:"BGM3",                  title:"BGM3（待补，放入 bgm3.mp3 即可用）", file:"bgm3.mp3"},
+  {name:"BGM4",                  title:"BGM4（待补，放入 bgm4.mp3 即可用）", file:"bgm4.mp3"},
+  {name:"BGM5",                  title:"BGM5（待补，放入 bgm5.mp3 即可用）", file:"bgm5.mp3"}
 ];
 const DEFAULT_SETTINGS = {bgm:0, bounce:1, gravity:1.15};
 const bgmAudio = document.getElementById("bgm-audio");
@@ -927,7 +952,8 @@ let bgmMuted = false, bgmStarted = false, bgmFailed = false;
 let settings = Object.assign({}, DEFAULT_SETTINGS);
 let bgmIndex = 0;
 /* 曲目状态：ready=已确认可播 / unknown=尚未验证 / missing=确认缺文件 */
-const trackState = BGM_TRACKS.map(function(_, i){ return i === 0 ? "ready" : "unknown"; });
+/* v1.8：随版本提供音频的曲目（ready:true）直接标记就位，其余待验证 */
+const trackState = BGM_TRACKS.map(function(t){ return t.ready ? "ready" : "unknown"; });
 let lastReadyIdx = 0;            // 缺文件回退时优先回到「上一首能播的」
 
 function sClamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
@@ -962,7 +988,9 @@ function syncBgmBtn(){
   if(!el) return;
   el.textContent = bgmMuted ? "🔇" : "🎵";
   const tip = bgmMuted ? "开启背景音乐" : "关闭背景音乐";
-  el.title = tip; el.setAttribute("aria-label", tip);
+  /* v1.8：HUD 音乐按钮悬停 / 长按可看当前曲目 */
+  const full = tip + " · 当前：" + (BGM_TRACKS[bgmIndex] ? BGM_TRACKS[bgmIndex].name : "BGM1");
+  el.title = full; el.setAttribute("aria-label", full);
 }
 function syncBgmList(){
   const box = document.getElementById("bgm-list");
@@ -971,6 +999,7 @@ function syncBgmList(){
   BGM_TRACKS.forEach(function(t, i){
     const btn = document.createElement("button");
     btn.type = "button";
+    btn.title = t.title || t.name;   /* v1.8：完整歌名 / 歌手，窄屏截断也不丢信息 */
     btn.className = "bgm-item" + (i === bgmIndex ? " active" : "") +
       (trackState[i] === "missing" ? " missing" : "");
     const st = trackState[i] === "missing" ? "缺文件" :
@@ -982,6 +1011,13 @@ function syncBgmList(){
     btn.addEventListener("click", function(){ selectBgm(i); });
     box.appendChild(btn);
   });
+  /* v1.8：设置面板「正在播放」当前曲目行（矮屏横屏随 .set-hint 一起隐藏） */
+  const now = document.getElementById("bgm-now");
+  if(now){
+    const cur = BGM_TRACKS[bgmIndex];
+    now.textContent = "正在播放：" + (cur ? (cur.title || cur.name) : "—") +
+      (bgmMuted ? "（已静音）" : "");
+  }
 }
 function bgmPlay(){
   if(bgmMuted || bgmFailed) return;
@@ -1008,13 +1044,14 @@ function bgmApplySrc(idx, autoplay){
   // 允许对「缺文件」的曲目重试（玩家可能刚把音频放进目录）
   if(trackState[idx] === "missing") trackState[idx] = "unknown";
   syncBgmList();
+  syncBgmBtn();                     /* v1.8：切歌后同步刷新 HUD 音乐按钮的当前曲目 */
   if(autoplay && !bgmMuted) bgmPlay();
 }
 function selectBgm(i){
   settings.bgm = i; saveSettings();
   bgmStarted = true;             // 点选曲目本身是用户手势，允许立即试听
   bgmApplySrc(i, true);
-  toast("已选择 " + BGM_TRACKS[i].name);
+  toast("🎵 " + (BGM_TRACKS[i].title || BGM_TRACKS[i].name));
 }
 bgmAudio.addEventListener("canplay", function(){
   trackState[bgmIndex] = "ready";
