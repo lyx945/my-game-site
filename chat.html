@@ -1070,11 +1070,8 @@ $('inviteSend').onclick=async()=>{
     }));
     const {error}=await sb.from('messages').insert(rows);
     if(error){$('inviteErr').textContent='发送失败：'+error.message;return;}
-    // 群内系统提示：xxx邀请yyy进群（所有人可见，存库持久化）
-    for(const p of picked){
-      await postGroupSystemMsg(currentGroup.id,'system',
-        myNick+' 邀请 '+p.name+' 加入了群（通过邀请卡片）',{kind:'invite',invitee_id:p.id});
-    }
+    // 修复：邀请发出时不写系统消息。只有对方真正点卡片入群后才写（见 buildInviteCard），
+    // 否则会出现"邀请了6人但群里只有2人"的假象
     $('inviteModal').classList.remove('show');
     toast('已向 '+picked.length+' 人发送群邀请');
   }catch(e){$('inviteErr').textContent='发送失败：'+(e.message||'网络异常');}
@@ -2400,6 +2397,10 @@ function buildInviteCard(m){
         if(insErr&&!/duplicate|unique/i.test(insErr.message||''))throw new Error(insErr.message);
         await sb.from('messages').update({invite_status:'accepted'}).eq('id',m.id);
         m.invite_status='accepted';
+        // 只有真正入群成功才写系统消息（真实反映成员变化，避免"邀请多人实际没进"的假象）
+        const inviter=m.sender_nickname||'群成员';
+        await postGroupSystemMsg(g.id,'system',
+          myNick+' 接受了 '+inviter+' 的邀请，加入了群',{kind:'invite_accepted',invitee_id:myId,inviter_name:inviter});
         btn.textContent='✅ 已加入';toast('已加入群「'+gname+'」');
         loadMyGroups();
       }catch(e){btn.disabled=false;btn.textContent='加入该群';toast('加入失败：'+e.message);}
