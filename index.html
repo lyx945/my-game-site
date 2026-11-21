@@ -59,7 +59,8 @@ html.js .reveal.visible{opacity:1;transform:none}
 .text-outline{color:transparent;-webkit-text-stroke:1px color-mix(in oklab,var(--gold) 60%,transparent)}
 
 /* 光标 */
-#aura{position:fixed;inset:0;z-index:80;pointer-events:none}
+/* 层级需高于 #dialog(100)，否则弹窗打开时光环被遮住、而光标已被 cursor:none 隐藏 */
+#aura{position:fixed;inset:0;z-index:110;pointer-events:none}
 #aura canvas{position:absolute;inset:0;display:block}
 #aura .ring,#aura .dot{position:absolute;left:0;top:0;border-radius:50%;opacity:0;will-change:transform}
 #aura .ring{width:36px;height:36px;border:1px solid color-mix(in oklab,var(--gold) 60%,transparent);transition:background-color .3s,border-color .3s}
