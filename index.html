@@ -473,7 +473,7 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
         <div><dt>职责</dt><dd id="dRole"></dd></div>
       </dl>
       <div class="tags" id="dTags"></div>
-      <div class="d-cta"><a class="btn-gold" href="#contact" id="dCta">洽谈类似项目
+      <div class="d-cta"><a class="btn-gold" href="#contact" id="dCta"><span id="dCtaText">洽谈类似项目</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg></a></div>
     </div>
   </div>
@@ -493,8 +493,8 @@ var IMG = {
   echo:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-echo.png?auth_key=154162297caad1a939b79d48814b2948de30bbcbf5b4433e1a1909abb2809fa4'
 };
 var PROJECTS = [
-  {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨'},
-  {id:'orbit',index:'02',title:'12班我最溜 · 合成大西瓜生物版',client:'12 班同学',category:'数字体验',year:'2026',cover:IMG.orbit,tags:['游戏开发','生物科普','班级定制'],desc:'把合成大西瓜玩成了一场生物课：合成生物解锁人物图鉴，做题拿道具冲上排行榜，配上班级专属照片与 BGM，让课间十分钟热闹起来。',role:'游戏设计 / 前端开发 / 内容策划'},
+  {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨',link:'https://303329.xyz/chat.html'},
+  {id:'orbit',index:'02',title:'12班我最溜 · 合成大西瓜生物版',client:'12 班同学',category:'数字体验',year:'2026',cover:IMG.orbit,tags:['游戏开发','生物科普','班级定制'],desc:'把合成大西瓜玩成了一场生物课：合成生物解锁人物图鉴，做题拿道具冲上排行榜，配上班级专属照片与 BGM，让课间十分钟热闹起来。',role:'游戏设计 / 前端开发 / 内容策划',link:'https://303329.xyz/12wz6.html'},
   {id:'muse',index:'03',title:'MUSE · 艺术展视觉叙事',client:'MUSE 艺术中心',category:'视觉叙事',year:'2024',cover:IMG.muse,tags:['展览视觉','海报系统','空间图形'],desc:'为年度特展「流金之形」创作主视觉与海报系统，让一笔金色笔触从纸面延伸至整个展览空间。',role:'展览主视觉 / 海报系统 / 空间图形'},
   {id:'terra',index:'04',title:'TERRA · 精品咖啡品牌',client:'TERRA Roastery',category:'品牌识别',year:'2024',cover:IMG.terra,tags:['品牌识别','包装系统','门店物料'],desc:'以大地色与金线勾勒海拔风土的故事，从咖啡袋到门店菜单，构建一致而温暖的触点体验。',role:'品牌识别 / 包装系统 / 门店物料'},
   {id:'pulse',index:'05',title:'PULSE · 金融产品界面',client:'PULSE 科技',category:'数字体验',year:'2023',cover:IMG.pulse,tags:['产品设计','设计系统','数据可视化'],desc:'为 PULSE 设计深色交易界面与完整设计系统，用金色视觉层级让密集的金融数据变得可读而优雅。',role:'产品设计 / 设计系统 / 数据可视化'},
@@ -602,6 +602,10 @@ function openDialog(p){
   document.getElementById('dClient').textContent=p.client;
   document.getElementById('dRole').textContent=p.role;
   document.getElementById('dTags').innerHTML=p.tags.map(function(t){return '<span>'+esc(t)+'</span>';}).join('');
+  // 有 link 的项目：按钮变「直接跳转」，点击在新标签打开对应页面；否则恢复默认
+  var cta=document.getElementById('dCta'),ctaText=document.getElementById('dCtaText');
+  if(p.link){ctaText.textContent='直接跳转';cta.href=p.link;cta.target='_blank';cta.rel='noopener';}
+  else{ctaText.textContent='洽谈类似项目';cta.href='#contact';cta.target='';cta.rel='';}
   dialog.classList.add('open');
   document.body.style.overflow='hidden';
 }
