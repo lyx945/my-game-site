@@ -1673,20 +1673,56 @@ document.getElementById("side-quiz-btn").addEventListener("click", function(){
   openQuiz();
 });
 
-/* ================== 排行榜 & 结算 ================== */
+/* ================== 排行榜 & 结算（Supabase 云端共享） ==================
+   排行榜不再只存本机 localStorage，改为读写 Supabase 的 class12_scores 表。
+   断网或请求失败时回退到本机缓存，保证游戏本身不受影响。                */
 const LB_KEY = "class12_lb_v1", CG_KEY = "class12_cg_v1";
-function lbLoad(){ try{ return JSON.parse(localStorage.getItem(LB_KEY)) || []; }catch(e){ return []; } }
-function lbSave(list){ try{ localStorage.setItem(LB_KEY, JSON.stringify(list)); }catch(e){} }
-function lbAdd(name, sc, acc, qn){
-  const list = lbLoad();
-  const rec = {n:name, s:sc, acc:(acc===undefined?null:acc), qn:(qn===undefined?null:qn),
+const LB_API = "https://znqiksqldqthcnlbrwzi.supabase.co/rest/v1/class12_scores";
+const LB_PUB = "sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg";
+const LB_HEAD = {"apikey":LB_PUB,"Authorization":"Bearer "+LB_PUB,"Content-Type":"application/json"};
+function lbSignal(){ try{ return AbortSignal.timeout(6000); }catch(e){ return undefined; } }
+function lbLocalLoad(){ try{ return JSON.parse(localStorage.getItem(LB_KEY)) || []; }catch(e){ return []; } }
+function lbLocalSave(list){ try{ localStorage.setItem(LB_KEY, JSON.stringify(list)); }catch(e){} }
+function lbTime(iso){
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return "";
+  function p(n){ return String(n).padStart(2,"0"); }
+  return p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+async function lbLoad(){
+  try{
+    const res = await fetch(LB_API+"?select=id,name,score,accuracy,qcount,created_at&order=score.desc&limit=20",
+      {headers:LB_HEAD, cache:"no-store", signal:lbSignal()});
+    if(!res.ok) throw new Error("http "+res.status);
+    const rows = await res.json();
+    return rows.map(function(x){
+      return {id:x.id, n:x.name, s:x.score, acc:x.accuracy, qn:x.qcount, t:lbTime(x.created_at)};
+    });
+  }catch(e){
+    return lbLocalLoad().sort(function(a,b){ return b.s - a.s; }).slice(0,20);
+  }
+}
+async function lbAdd(name, sc, acc, qn){
+  const a = (acc===undefined?null:acc), q = (qn===undefined?null:qn);
+  const rec = {id:null, n:name, s:sc, acc:a, qn:q,
     t:new Date().toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})};
-  list.push(rec);
-  lbSave(list);
+  try{
+    const res = await fetch(LB_API,{
+      method:"POST",
+      headers:Object.assign({},LB_HEAD,{"Prefer":"return=representation"}),
+      body:JSON.stringify({name:name,score:sc,accuracy:a,qcount:q}),
+      signal:lbSignal()
+    });
+    if(!res.ok) throw new Error("http "+res.status);
+    const rows = await res.json();
+    if(rows && rows[0]) rec.id = rows[0].id;
+  }catch(e){
+    const list = lbLocalLoad(); list.push(rec); lbLocalSave(list);
+  }
   return rec;
 }
-function showLB(highlight){
-  const list = lbLoad().sort(function(a,b){ return b.s - a.s; });
+async function showLB(highlight){
+  const list = await lbLoad();
   const box = document.getElementById("lb-list");
   box.innerHTML = "";
   if(list.length === 0){
@@ -1694,7 +1730,8 @@ function showLB(highlight){
   }else{
     list.slice(0,20).forEach(function(r, i){
       const row = document.createElement("div");
-      const isMe = highlight && r.n===highlight.n && r.s===highlight.s && r.t===highlight.t;
+      const isMe = highlight && (highlight.id ? r.id===highlight.id :
+        (r.n===highlight.n && r.s===highlight.s && r.t===highlight.t));
       row.className = "lb-row" + (isMe ? " me" : "");
       const medal = ["🥇","🥈","🥉"][i] || (i+1);
       const accTxt = (r.acc === null || r.acc === undefined) ? "—" :
@@ -1721,10 +1758,11 @@ document.getElementById("settle-btn").addEventListener("click", openSettle);
 document.getElementById("settle-cancel").addEventListener("click", function(){
   document.getElementById("settle-overlay").classList.remove("show");
 });
-document.getElementById("settle-ok").addEventListener("click", function(){
+document.getElementById("settle-ok").addEventListener("click", async function(){
   const name = document.getElementById("settle-name").value.trim();
   if(!name){ toast("要先写下你的名字哦！"); return; }
-  const rec = lbAdd(name, score, qTotal ? quizAcc() : null, qTotal);
+  // 先发起云端写入，同时立刻收起结算界面，避免网络等待时界面卡住
+  const saving = lbAdd(name, score, qTotal ? quizAcc() : null, qTotal);
   document.getElementById("settle-overlay").classList.remove("show");
   document.getElementById("quiz-overlay").classList.remove("show");
   quizOpen = false;
@@ -1732,7 +1770,8 @@ document.getElementById("settle-ok").addEventListener("click", function(){
   toggleGameUI(false);
   state = "menu";
   document.getElementById("menu-overlay").classList.add("show");
-  showLB(rec);
+  const rec = await saving;
+  await showLB(rec);
   toast("🎉 已上榜！返回主界面可再来一局");
 });
 
