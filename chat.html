@@ -223,6 +223,8 @@
   .icon-btn:disabled{opacity:.4;cursor:not-allowed}
   .composer textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:11px;padding:10px 12px;max-height:120px;min-height:40px;outline:none;background:var(--panel-2)}
   .composer textarea:focus{border-color:var(--brand-2);background:#fff}
+  .ai-balance{font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-soft);border:1px solid var(--brand-2);border-radius:10px;padding:3px 8px;white-space:nowrap;cursor:pointer}
+  .ai-balance:hover{background:var(--brand-2);color:#fff}
   .mention-pop{display:none;position:absolute;bottom:calc(100% + 6px);left:12px;right:12px;max-height:230px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.14);z-index:40}
   .mention-pop.show{display:block}
   .mention-pop .mt-item{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
@@ -364,6 +366,7 @@
         <button class="back-btn" id="backBtn" aria-label="返回">‹</button>
         <div class="avatar" id="peerAvatar">?</div>
         <div><div class="chat-title" id="peerName">选择一个联系人</div><div class="chat-sub" id="peerSub">在线即可聊天</div></div>
+        <span class="ai-balance" id="aiBalance" style="display:none" title="DeepSeek 账户剩余余额">余额 ¥--</span>
         <div class="head-actions">
           <button class="pdf-btn" id="exportPdfBtn" style="display:none">📄 导出PDF</button>
           <button class="follow-btn" id="followBtn" style="display:none">☆ 关注</button>
@@ -769,6 +772,7 @@ async function openGroup(g){
   $('app').classList.add('chat-open');
   $('peerName').textContent='👥 '+g.name;
   $('peerSub').textContent='群号 '+g.group_no+' · '+myGroups.find(x=>x.id===g.id)?.myRole;
+  $('aiBalance').style.display='none';
   setAvatar($('peerAvatar'),g.id,g.name);
   $('exportPdfBtn').style.display='none';$('followBtn').style.display='none';
   $('msgInput').disabled=false;$('sendBtn').disabled=false;$('attachBtn').disabled=false;$('emojiBtn').disabled=false;
@@ -1760,14 +1764,23 @@ async function sendLobby(){
 // 大厅 @DeepSeek：调 AI 并把回复以 AI 身份写到公共大厅
 async function askAILobby(question){
   try{
+    // 取最近 16 条文字消息（倒序取再反转），只传文字不传文件，省 token
     const {data:hist}=await sb.from('public_messages').select('sender_name, content, msg_type')
-      .order('created_at',{ascending:true}).limit(12);
-    const msgs=(hist||[]).filter(m=>!m.msg_type||m.msg_type==='text')
-      .map(m=>({role:m.sender_name==='DeepSeek'?'assistant':'user',content:m.content}));
+      .order('created_at',{ascending:false}).limit(24);
+    const recent=(hist||[]).reverse();
+    const msgs=recent.filter(m=>(!m.msg_type||m.msg_type==='text')&&m.content)
+      .slice(-16)
+      .map(m=>({
+        role:m.sender_name==='DeepSeek'?'assistant':'user',
+        content:(m.sender_name==='DeepSeek'?'':((m.sender_name||'游客')+'：'))+m.content
+      }));
     const res=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({callerId:myId,scope:'lobby',messages:msgs})
+      body:JSON.stringify({
+        callerId:myId,scope:'lobby',messages:msgs,
+        context:{askerName:currentLobbyName()}
+      })
     });
     const out=await res.json();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
@@ -1975,6 +1988,7 @@ function renderSysNotices(){
   box.innerHTML='';
   $('peerName').textContent='系统消息';
   $('peerSub').textContent='全员通告 · 在线咨询（自动回复）';
+  $('aiBalance').style.display='none';
   setAvatar($('peerAvatar'),SYS_ID,'系统');
   $('msgInput').disabled=false;$('sendBtn').disabled=false;
   $('msgInput').placeholder='输入咨询内容，Enter 发送…';
@@ -2328,8 +2342,8 @@ async function openChat(peer){
   const canChat=canSendPrivate||isAI; // AI 会话对所有人生效（含游客）
   $('app').classList.add('chat-open');
   $('peerName').textContent=peer.name;setTyping(false);
-  if(isAI){setProfileAvatar($('peerAvatar'),AI_ACCOUNT,'DeepSeek');}
-  else setAvatarSmart($('peerAvatar'),peer.id,peer.name);
+  if(isAI){setProfileAvatar($('peerAvatar'),AI_ACCOUNT,'DeepSeek');$('aiBalance').style.display='';loadAIBalance();}
+  else{setAvatarSmart($('peerAvatar'),peer.id,peer.name);$('aiBalance').style.display='none';}
   $('msgInput').disabled=!canChat;$('sendBtn').disabled=!canChat;
   $('attachBtn').disabled=!canChat;$('emojiBtn').disabled=!canChat;
   $('msgInput').placeholder=canChat?'输入消息，Enter 发送，Shift+Enter 换行':'游客只读 · 登录账号后可发言';
@@ -2467,6 +2481,20 @@ $('peerName').onclick=()=>{if(currentPeer&&currentPeer.id!==SYS_ID)openProfile(c
 
 /* ========== 11. 发送（私聊） ========== */
 let sendBusy=false;
+// 加载并显示 DeepSeek 账户余额（公开可见）
+async function loadAIBalance(){
+  const el=$('aiBalance');
+  try{
+    const res=await fetch(SUPABASE_URL+'/functions/v1/ai-balance',{
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+    });
+    const out=await res.json();
+    if(out.ok)el.textContent='余额 ¥'+Number(out.total||0).toFixed(2);
+    else el.textContent='余额 --';
+  }catch(e){el.textContent='余额 --';}
+}
+$('aiBalance').onclick=loadAIBalance; // 点击刷新余额
+
 // 调用 AI 并把回复写回私聊会话
 async function askAI(room){
   const hint=document.createElement('div');hint.className='sys-msg-row';
@@ -2480,7 +2508,7 @@ async function askAI(room){
     const res=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({callerId:myId,scope:'private',messages:msgs})
+      body:JSON.stringify({callerId:myId,scope:'private',messages:msgs,context:{askerName:myNick}})
     });
     const out=await res.json();
     hint.remove();
@@ -2498,14 +2526,29 @@ async function askAI(room){
 async function askAIGroup(question){
   if(!currentGroup)return;
   try{
+    // 取最近 16 条（先倒序取再反转，才是最新的一段）
     const {data:hist}=await sb.from('group_messages').select('sender_id, sender_nickname, content, msg_type')
-      .eq('group_id',currentGroup.id).order('created_at',{ascending:true}).limit(12);
-    const msgs=(hist||[]).filter(m=>m.msg_type!=='system'&&m.msg_type!=='join_request')
-      .map(m=>({role:m.sender_id===AI_ID?'assistant':'user',content:m.content}));
+      .eq('group_id',currentGroup.id).order('created_at',{ascending:false}).limit(16);
+    const recent=(hist||[]).reverse();
+    const msgs=recent.filter(m=>m.msg_type!=='system'&&m.msg_type!=='join_request')
+      .map(m=>({
+        role:m.sender_id===AI_ID?'assistant':'user',
+        content:(m.sender_id===AI_ID?'':((m.sender_nickname||'成员')+'：'))+m.content
+      }));
+    // 群成员名单+角色
+    const members=groupMembers.map(m=>{
+      const acc=profileAccounts.get(m.user_id);
+      const nm=m.user_id===AI_ID?'DeepSeek':(acc?acc.username:(m.user_id===myId?myNick:m.user_id.slice(0,8)));
+      const role=m.user_id===AI_ID?'AI 助手':(m.role==='owner'?'群主':m.role==='admin'?'管理员':'成员');
+      return {name:nm,role};
+    });
     const res=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({callerId:myId,scope:'group',messages:msgs})
+      body:JSON.stringify({
+        callerId:myId,scope:'group',messages:msgs,
+        context:{groupName:currentGroup.name,groupNo:currentGroup.group_no,members,askerName:myNick}
+      })
     });
     const out=await res.json();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
