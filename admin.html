@@ -74,6 +74,17 @@
   .btn-no { background:var(--danger); }
   .fold-more{display:block;width:100%;margin:8px 0 0;padding:9px;border:1px dashed var(--line);border-radius:9px;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
   .fold-more:hover{border-color:var(--brand-2);color:var(--brand-2)}
+  .ai-model-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:9px;background:var(--panel-2);display:flex;gap:12px;align-items:flex-start}
+  .ai-model-item.active{border-color:var(--brand);background:var(--brand-soft)}
+  .ai-model-item .mi-main{flex:1}
+  .ai-model-item .mi-title{font-weight:700;font-size:14px;margin-bottom:4px}
+  .ai-model-item .mi-title .cur{font-size:10px;color:#fff;background:var(--brand);border-radius:8px;padding:1px 7px;margin-left:7px}
+  .ai-model-item .mi-desc{font-size:12px;color:var(--muted);line-height:1.6}
+  .ai-model-item .mi-price{font-size:11px;color:var(--brand-2);margin-top:5px}
+  .ai-model-item button{border:0;border-radius:9px;background:var(--brand);color:#fff;font-size:12px;font-weight:600;padding:7px 13px;cursor:pointer;white-space:nowrap}
+  .ai-model-item button:disabled{opacity:.55;cursor:default}
+  .ai-stat{margin-top:12px;padding:11px 13px;border:1px dashed var(--line);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.9}
+  .ai-stat b{color:var(--brand-2)}
   .grp-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--panel-2)}
   .grp-card .gc-name{font-weight:700;font-size:14px;margin-bottom:6px}
   .grp-card .gc-no{font-family:monospace;color:var(--brand-2);font-weight:700;letter-spacing:1px}
@@ -155,6 +166,13 @@
     <div id="allGroupsList"></div>
   </div>
 
+  <div class="card" id="aiModelCard">
+    <h2>DeepSeek 模型管理 <span id="aiCurModel" style="color:var(--star)"></span></h2>
+    <div class="desc">为全服选择 DeepSeek 当前使用的模型。切换后所有用户发送的新消息立即生效，昵称也会同步更新。</div>
+    <div id="aiModelList"></div>
+    <div class="ai-stat" id="aiUsageStat">用量统计加载中…</div>
+  </div>
+
   <div class="card">
     <h2>后续功能</h2>
     <div class="desc">预留：封禁账号、重置密码、删除账号、消息审计、空间配额调整等。需要时告诉我。</div>
@@ -208,8 +226,51 @@ function showAdmin() {
   loadRequests();
   loadGroupRequests();
   loadAllGroups();
+  loadAIModelAdmin();
 }
 
+const AI_MODELS=[
+  {id:'deepseek-flash',name:'Flash · 轻量快速',desc:'日常聊天首选，响应快、成本极低。基于 DeepSeek V4.1 Flash，1M 上下文，适合高频对话与简单问答。',price:'输入 ¥1 / 输出 ¥4（每百万 token，低谷时段）'},
+  {id:'deepseek-v4-pro',name:'V4 Pro · 旗舰推理',desc:'更强的推理与复杂任务处理能力，适合深度分析、长文本与高难度问题。成本约为 Flash 的 4 倍。',price:'输入 ¥4.5 / 输出 ¥13.5（每百万 token，低谷时段）'}
+];
+async function loadAIModelAdmin(){
+  const box=$('aiModelList');
+  const {data:cfg}=await sb.from('ai_model_config').select('model_id, updated_at, updated_by').eq('id',1).maybeSingle();
+  const cur=cfg?.model_id||'deepseek-flash';
+  $('aiCurModel').textContent='· 当前 '+((AI_MODELS.find(m=>m.id===cur)||{}).name||cur);
+  box.innerHTML='';
+  AI_MODELS.forEach(m=>{
+    const item=document.createElement('div');item.className='ai-model-item'+(m.id===cur?' active':'');
+    const main=document.createElement('div');main.className='mi-main';
+    main.innerHTML='<div class="mi-title">'+esc(m.name)+(m.id===cur?'<span class="cur">使用中</span>':'')+'</div>'+
+      '<div class="mi-desc">'+esc(m.desc)+'</div><div class="mi-price">'+esc(m.price)+'</div>';
+    const btn=document.createElement('button');
+    if(m.id===cur){btn.textContent='当前模型';btn.disabled=true;}
+    else{btn.textContent='切换为此模型';btn.onclick=()=>switchAIModel(m.id);}
+    item.append(main,btn);box.appendChild(item);
+  });
+  // 用量统计
+  const today=new Date();today.setHours(0,0,0,0);
+  const {data:logs}=await sb.from('ai_usage_log').select('model_id,total_tokens,created_at');
+  const all=logs||[];
+  const todayLogs=all.filter(l=>new Date(l.created_at)>=today);
+  const sum=a=>a.reduce((s,l)=>s+(l.total_tokens||0),0);
+  const totalTok=sum(all),todayTok=sum(todayLogs);
+  const flashTok=sum(all.filter(l=>l.model_id==='deepseek-flash'));
+  const proTok=sum(all.filter(l=>l.model_id==='deepseek-v4-pro'));
+  $('aiUsageStat').innerHTML='<b>用量统计</b><br>'+
+    '今日调用 <b>'+todayLogs.length+'</b> 次 · 今日消耗 <b>'+todayTok.toLocaleString()+'</b> token<br>'+
+    '累计调用 <b>'+all.length+'</b> 次 · 累计消耗 <b>'+totalTok.toLocaleString()+'</b> token'+
+    (totalTok?' · 平均 '+Math.round(totalTok/all.length)+' token/次':'')+'<br>'+
+    '按模型：Flash '+flashTok.toLocaleString()+' token · V4 Pro '+proTok.toLocaleString()+' token'+
+    (cfg?.updated_at?'<br>上次切换：'+esc(new Date(cfg.updated_at).toLocaleString('zh-CN',{hour12:false}))+(cfg.updated_by?' · 操作者 '+esc(cfg.updated_by):''):'');
+}
+async function switchAIModel(modelId){
+  if(!confirm('确认将全服 AI 模型切换为「'+(AI_MODELS.find(m=>m.id===modelId)||{}).name+'」？所有用户的新消息立即生效。'))return;
+  const {error}=await sb.from('ai_model_config').update({model_id:modelId,updated_at:new Date().toISOString(),updated_by:admin.username}).eq('id',1);
+  if(error){toast('切换失败：'+error.message);return;}
+  toast('已切换全服 AI 模型');loadAIModelAdmin();
+}
 // 账号申请审批
 async function loadAllGroups(){
   const box=$('allGroupsList');
