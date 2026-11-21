@@ -71,7 +71,9 @@
   .img-thumb{display:block;max-width:240px;max-height:200px;border-radius:9px;object-fit:cover;cursor:zoom-in;background:#eef0f5;transition:opacity .2s}
   .img-thumb:hover{opacity:.88}
   .video-thumb{position:relative;display:block;width:240px;max-width:240px;height:180px;border-radius:9px;overflow:hidden;cursor:pointer;background:#111}
-  .video-thumb video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .video-thumb video,.video-thumb .v-cover{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .video-thumb .v-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;background:linear-gradient(135deg,#e8eaf2,#d5d9e6)}
+  .video-thumb .v-fallback{position:absolute;inset:0}
   .video-thumb .v-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.18)}
   .video-thumb .v-play::after{content:'▶';width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:19px;display:flex;align-items:center;justify-content:center;padding-left:3px}
   .video-thumb:hover .v-play{background:rgba(0,0,0,.28)}
@@ -749,6 +751,49 @@ function fileIcon(mime,name){const m=mime||'';if(m.startsWith('image/'))return'�
 function isImageMsg(m){return m.msg_type==='file'&&m.file_url&&((m.file_mime||'').startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(m.file_name||''));}
 function isVideoMsg(m){return m.msg_type==='file'&&m.file_url&&((m.file_mime||'').startsWith('video/')||/\.(mp4|webm|mov|m4v|ogv)$/i.test(m.file_name||''));}
 // 共用的文件/图片消息节点：图片显示缩略图（点击预览），其他显示文件卡片
+// 视频封面抓取：canvas 抽第1秒的帧转 dataURL，带缓存 + 黑帧重试
+const videoThumbCache=new Map(); // url -> dataURL | null(失败，避免反复重试)
+function grabVideoFrame(url){
+  if(videoThumbCache.has(url))return Promise.resolve(videoThumbCache.get(url));
+  return new Promise(resolve=>{
+    const v=document.createElement('video');
+    v.crossOrigin='anonymous';v.preload='auto';v.muted=true;v.playsInline=true;v.src=url;
+    let done=false,tries=[1,2,0.5],ti=0;
+    const finish=(res)=>{if(done)return;done=true;videoThumbCache.set(url,res);try{v.src='';}catch(_){}resolve(res);};
+    const timeout=setTimeout(()=>finish(null),12000); // 12秒兜底
+    const clear=()=>clearTimeout(timeout);
+    const attempt=()=>{
+      if(done)return;
+      const t=Math.min(tries[ti],Math.max(0,(v.duration||3)-0.1));
+      try{v.currentTime=t;}catch(_){}
+      const onSeeked=()=>{
+        v.removeEventListener('seeked',onSeeked);
+        if(done)return;
+        try{
+          const w=v.videoWidth||320,h=v.videoHeight||240;
+          const c=document.createElement('canvas');c.width=Math.min(w,480);c.height=Math.round(c.width*h/w);
+          const ctx=c.getContext('2d');ctx.drawImage(v,0,0,c.width,c.height);
+          const d=ctx.getImageData(0,0,c.width,c.height).data;
+          // 亮度检测：平均亮度过低视为黑帧，换下一个时间点重试
+          let sum=0,n=0;
+          for(let i=0;i<d.length;i+=40){sum+=(d[i]+d[i+1]+d[i+2])/3;n++;}
+          const avg=n?sum/n:0;
+          if(avg<12&&ti<tries.length-1){ti++;setTimeout(attempt,60);return;}
+          if(avg<8&&ti>=tries.length-1){clear();finish(null);return;}
+          clear();finish(c.toDataURL('image/jpeg',0.72));
+        }catch(e){ // canvas 被污染或抓帧失败
+          if(ti<tries.length-1){ti++;setTimeout(attempt,60);}
+          else{clear();finish(null);}
+        }
+      };
+      v.addEventListener('seeked',onSeeked);
+      // 若 currentTime 未变化（已在该点），手动触发
+      if(Math.abs(v.currentTime-t)<0.01)setTimeout(onSeeked,80);
+    };
+    v.addEventListener('loadeddata',()=>{if(!done)attempt();},{once:true});
+    v.addEventListener('error',()=>{clear();finish(null);},{once:true});
+  });
+}
 function buildFileNode(m){
   if(isImageMsg(m)){
     const img=document.createElement('img');img.className='img-thumb';img.src=m.file_url;img.alt=m.file_name||'图片';
@@ -758,20 +803,33 @@ function buildFileNode(m){
   }
   if(isVideoMsg(m)){
     const wrap=document.createElement('div');wrap.className='video-thumb';
-    const v=document.createElement('video');v.src=m.file_url;v.preload='metadata';v.muted=true;v.playsInline=true;
-    v.addEventListener('loadedmetadata',()=>{
-      try{v.currentTime=Math.min(0.1,(v.duration||0)/10);}catch(_){}
-    });
-    v.addEventListener('error',()=>{
-      const s=document.createElement('span');s.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px';s.textContent='🎬';wrap.appendChild(s);
+    // 占位：抓帧期间显示图标（不再是黑屏）
+    const ph=document.createElement('div');ph.className='v-placeholder';ph.textContent='🎬';
+    wrap.appendChild(ph);
+    // 异步抓取第1秒画面作为封面
+    grabVideoFrame(m.file_url).then(dataUrl=>{
+      if(!wrap.isConnected)return; // 节点已被移除，放弃
+      if(dataUrl){
+        const img=document.createElement('img');img.className='v-cover';img.src=dataUrl;img.alt=m.file_name||'视频封面';
+        wrap.insertBefore(img,wrap.firstChild);
+        if(ph.parentNode)ph.remove(); // 移除占位，避免盖住封面
+      }else{
+        // 抓帧失败：回退用原生 video 显示首帧
+        const v=document.createElement('video');v.className='v-fallback';v.src=m.file_url;v.preload='metadata';v.muted=true;v.playsInline=true;
+        v.addEventListener('loadedmetadata',()=>{try{v.currentTime=0.1;}catch(_){}});
+        wrap.insertBefore(v,wrap.firstChild);
+        if(ph.parentNode)ph.remove();
+      }
     });
     const play=document.createElement('div');play.className='v-play';wrap.appendChild(play);
     const dur=document.createElement('div');dur.className='v-dur';dur.textContent='视频';
-    v.addEventListener('loadedmetadata',()=>{
-      const d=Math.floor(v.duration||0);
+    // 时长：用轻量 video 只读元数据
+    const mv=document.createElement('video');mv.preload='metadata';mv.src=m.file_url;mv.muted=true;
+    mv.addEventListener('loadedmetadata',()=>{
+      const d=Math.floor(mv.duration||0);
       if(d>0)dur.textContent=Math.floor(d/60)+':'+String(d%60).padStart(2,'0');
+      mv.src='';
     });
-    wrap.appendChild(dur);
     wrap.onclick=()=>openVideoViewer(m);
     return wrap;
   }
