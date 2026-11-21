@@ -53,6 +53,11 @@
   .dot-online{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--online);margin-right:5px}
   .user-list{flex:1;overflow-y:auto;padding:0 8px 10px}
   .user-item{display:flex;align-items:center;gap:9px;padding:9px;border-radius:11px;cursor:pointer;border:1px solid transparent}
+  .online-dot{width:8px;height:8px;border-radius:50%;background:#5ec98a;box-shadow:0 0 0 2px rgba(94,201,138,.18);flex:0 0 8px;margin-left:2px}
+  .user-item .online-dot{margin-left:auto}
+  .chat-head .online-dot{margin-left:-6px}
+  .user-item.grp-mentioned{background:var(--brand-soft);border-left:3px solid var(--brand)}
+  .grp-at-badge{font-size:10px;font-weight:600;color:#fff;background:var(--brand);border-radius:9px;padding:1px 7px;margin-left:6px}
   .user-item:hover{background:#fff}
   .user-item.active{background:var(--brand-soft);border-color:#dcd9ff}
   .user-meta{flex:1;min-width:0}
@@ -196,6 +201,8 @@
   .lobby-msg-row{align-items:flex-start;gap:9px}
   /* row-reverse 反转主轴：justify-content 需用 flex-start 才等于视觉靠右（与微信一致） */
   .lobby-msg-row.mine{flex-direction:row-reverse;justify-content:flex-start}
+  .grp-msg-row{align-items:flex-start;gap:9px}
+  .grp-msg-row.mine{flex-direction:row-reverse;justify-content:flex-start}
   .msg-avatar{width:32px;height:32px;flex:0 0 32px;cursor:pointer;border-radius:50%;margin-top:2px}
   .msg-avatar:hover{box-shadow:0 0 0 2px var(--brand-2)}
   .bubble{max-width:min(78%,540px);padding:9px 13px 6px;border-radius:15px;box-shadow:0 2px 8px rgba(31,36,52,.05)}
@@ -365,6 +372,7 @@
       <div class="chat-head">
         <button class="back-btn" id="backBtn" aria-label="返回">‹</button>
         <div class="avatar" id="peerAvatar">?</div>
+        <span class="online-dot" id="peerOnlineDot" style="display:none" title="在线"></span>
         <div><div class="chat-title" id="peerName">选择一个联系人</div><div class="chat-sub" id="peerSub">在线即可聊天</div></div>
         <span class="ai-balance" id="aiBalance" style="display:none" title="DeepSeek 账户剩余余额">余额 ¥--</span>
         <div class="head-actions">
@@ -768,11 +776,12 @@ function clearMuteState(){
 }
 async function openGroup(g){
   clearMuteState();
+  groupMentioned.delete(g.id); // 点进群聊即清除@高亮
   currentGroup=g;groupView=true;sysView=false;currentPeer=null;
   $('app').classList.add('chat-open');
   $('peerName').textContent='👥 '+g.name;
   $('peerSub').textContent='群号 '+g.group_no+' · '+myGroups.find(x=>x.id===g.id)?.myRole;
-  $('aiBalance').style.display='none';
+  $('aiBalance').style.display='none';$('peerOnlineDot').style.display='none';
   setAvatar($('peerAvatar'),g.id,g.name);
   $('exportPdfBtn').style.display='none';$('followBtn').style.display='none';
   $('msgInput').disabled=false;$('sendBtn').disabled=false;$('attachBtn').disabled=false;$('emojiBtn').disabled=false;
@@ -893,11 +902,18 @@ function renderGroupMessage(m){
     row.appendChild(inner);box.appendChild(row);trimMessages('messages',300);return;
   }
   const mine=m.sender_id===myId;
-  const row=document.createElement('div');row.className='msg-row '+(mine?'mine':'theirs');row.dataset.id=m.id;
+  const row=document.createElement('div');row.className='msg-row grp-msg-row '+(mine?'mine':'theirs');row.dataset.id=m.id;
+  // 头像：微信风格，气泡旁显示（自己靠右、他人靠左）
+  const av=document.createElement('div');av.className='avatar msg-avatar';
+  if(m.sender_id===AI_ID){setProfileAvatar(av,AI_ACCOUNT,'DeepSeek');}
+  else setAvatarSmart(av,m.sender_id,m.sender_nickname||'成员');
+  av.title='查看 '+(m.sender_id===AI_ID?'DeepSeek':(m.sender_nickname||'成员'))+' 的资料';
+  av.onclick=()=>{if(m.sender_id!==AI_ID)openProfile(m.sender_id);};
+  row.appendChild(av);
   const bubble=document.createElement('div');bubble.className='bubble';
   if(!mine){
     const s=document.createElement('div');s.className='msg-sender';
-    const n=document.createElement('span');n.textContent=m.sender_nickname||'成员';s.appendChild(n);bubble.appendChild(s);
+    const n=document.createElement('span');n.textContent=m.sender_id===AI_ID?aiDisplayName():(m.sender_nickname||'成员');s.appendChild(n);bubble.appendChild(s);
   }
   if(m.msg_type==='file'&&m.file_url){bubble.appendChild(buildFileNode(m));}
   else{const t=document.createElement('div');t.className='msg-text';t.textContent=m.content||'';bubble.appendChild(t);}
@@ -1248,8 +1264,18 @@ const SYS_ID='__system__';
 let systemNotices=[], sysUnread=0, sysView=false, sysChats=[];
 // 群聊
 let myGroups=[], currentGroup=null, groupView=false, groupMembers=[], groupMsgCh=null;
+const groupMentioned=new Set(); // 被@的群ID（高亮标记）
 const AI_ID='00000000-0000-0000-0000-000000000042'; // DeepSeek AI 账号固定 ID
 const AI_ACCOUNT={id:AI_ID,username:'DeepSeek',role:'ai',avatar_url:'https://znqiksqldqthcnlbrwzi.supabase.co/storage/v1/object/public/chat-files/avatar/deepseek/logo.png'};
+const MODEL_LABELS={ 'deepseek-flash':'Flash', 'deepseek-v4-pro':'V4 Pro' };
+let currentAIModel='deepseek-flash', currentAIModelLabel='Flash';
+function aiDisplayName(){return 'DeepSeek · '+(MODEL_LABELS[currentAIModel]||currentAIModelLabel||'AI');}
+async function loadAIModelConfig(){
+  if(!sb)return;
+  const {data}=await sb.from('ai_model_config').select('model_id').eq('id',1).maybeSingle();
+  if(data&&data.model_id){currentAIModel=data.model_id;currentAIModelLabel=MODEL_LABELS[data.model_id]||data.model_id;}
+  renderList(); // 让固定入口昵称同步
+}
 const groupSeenIds=new Set(); // B3/B14: 群消息去重 + 裁剪
 let profileOrigin={view:'private',currentPeer:null,currentGroup:null,groupView:false}; // B4: 个人页返回来源
 let groupInfoCache=new Map(); // 群邀请卡片用：groupId -> {name,group_no,owner_id}
@@ -1297,6 +1323,10 @@ function initPresence(){
     Object.values(state).flat().forEach(p=>{if(p.id&&p.id!==myId)map.set(p.id,p);});
     peers=Array.from(map.values());
     renderList();
+    // 当前私聊窗口的在线绿点实时同步
+    if(currentPeer&&!groupView&&!sysView){
+      $('peerOnlineDot').style.display=isUserOnline(currentPeer.id)?'':'none';
+    }
   }).subscribe(async status=>{
     if(status==='SUBSCRIBED'){
       presenceReady=true;
@@ -1375,6 +1405,7 @@ $('searchInput').addEventListener('input',e=>{
 });
 
 /* ========== 6. 列表渲染 ========== */
+function isUserOnline(uid){return !!uid&&peers.some(p=>p.id===uid);}
 function buildUserItem(p,{showBadge}){
   const item=document.createElement('div');
   item.className='user-item'+(currentPeer&&currentPeer.id===p.id?' active':'');
@@ -1386,6 +1417,7 @@ function buildUserItem(p,{showBadge}){
   tm.textContent=p.role==='admin'?'管理员':(p.id?'账号用户':'');
   meta.append(name,tm);item.append(av,meta);
   if(showBadge){const b=document.createElement('span');b.className='badge'+(unread.get(p.id)?' show':'');b.textContent=unread.get(p.id)||'';item.appendChild(b);}
+  if(isUserOnline(p.id)){const dot=document.createElement('span');dot.className='online-dot';dot.title='在线';item.appendChild(dot);}
   item.onclick=()=>openChat({id:p.id,name:p.username||p.name});
   return item;
 }
@@ -1413,7 +1445,7 @@ function buildAIItem(){
   const img=document.createElement('img');img.src=AI_ACCOUNT.avatar_url;img.style.cssText='width:100%;height:100%;object-fit:contain';
   av.appendChild(img);
   const meta=document.createElement('div');meta.className='user-meta';
-  const name=document.createElement('div');name.className='user-name';name.textContent='DeepSeek';
+  const name=document.createElement('div');name.className='user-name';name.textContent=aiDisplayName();
   const tm=document.createElement('div');tm.className='user-time';tm.textContent='AI 助手 · 可直接对话';
   meta.append(name,tm);item.append(av,meta);
   const tag=document.createElement('span');tag.className='kind-tag account';tag.textContent='AI';
@@ -1484,12 +1516,13 @@ async function loadMyGroups(){
 function buildGroupItem(g){
   const wrap=document.createElement('div');
   const item=document.createElement('div');
-  item.className='user-item'+(currentGroup&&currentGroup.id===g.id?' active':'');
+  item.className='user-item'+(currentGroup&&currentGroup.id===g.id?' active':'')+(groupMentioned.has(g.id)?' grp-mentioned':'');
   const av=document.createElement('div');av.className='avatar';
   if(g.avatar_url){setProfileAvatar(av,{id:g.id,avatar_url:g.avatar_url},g.name);}
   else{av.style.background=colorOf(g.id);av.textContent=g.name.charAt(0);}
   const meta=document.createElement('div');meta.className='user-meta';
   const nm=document.createElement('div');nm.className='user-name';nm.textContent='👥 '+g.name;
+  if(groupMentioned.has(g.id)){const bd=document.createElement('span');bd.className='grp-at-badge';bd.textContent='有人@你';nm.appendChild(bd);}
   const sub=document.createElement('div');sub.className='group-badge';
   sub.innerHTML='群号 <span class="group-no">'+esc(g.group_no)+'</span> · '+(g.myRole==='owner'?'群主':(g.myRole==='admin'?'管理员':'成员'));
   meta.append(nm,sub);item.append(av,meta);
@@ -1675,7 +1708,7 @@ function renderLobbyMsg(m){
   const bubble=document.createElement('div');bubble.className='bubble';
   // 昵称：所有人（含自己）都显示
   const s=document.createElement('div');s.className='msg-sender';
-  const n=document.createElement('span');n.textContent=m.sender_name||'游客';
+  const n=document.createElement('span');n.textContent=m.sender_id===AI_ID?aiDisplayName():(m.sender_name||'游客');
   s.appendChild(n);
   const tag=document.createElement('span');
   tag.className='kind-tag'+(m.sender_kind==='admin'?' admin':(m.sender_kind==='account'?' account':(m.sender_kind==='ai'?' account':'')));
@@ -1785,7 +1818,7 @@ async function askAILobby(question){
     const out=await res.json();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     await sb.from('public_messages').insert({
-      sender_name:'DeepSeek',sender_id:AI_ID,sender_kind:'ai',
+      sender_name:aiDisplayName(),sender_id:AI_ID,sender_kind:'ai',
       content:'@'+currentLobbyName()+' '+String(out.content).slice(0,2000)
     });
   }catch(e){console.error('[askAILobby]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
@@ -1988,7 +2021,7 @@ function renderSysNotices(){
   box.innerHTML='';
   $('peerName').textContent='系统消息';
   $('peerSub').textContent='全员通告 · 在线咨询（自动回复）';
-  $('aiBalance').style.display='none';
+  $('aiBalance').style.display='none';$('peerOnlineDot').style.display='none';
   setAvatar($('peerAvatar'),SYS_ID,'系统');
   $('msgInput').disabled=false;$('sendBtn').disabled=false;
   $('msgInput').placeholder='输入咨询内容，Enter 发送…';
@@ -2344,6 +2377,7 @@ async function openChat(peer){
   $('peerName').textContent=peer.name;setTyping(false);
   if(isAI){setProfileAvatar($('peerAvatar'),AI_ACCOUNT,'DeepSeek');$('aiBalance').style.display='';loadAIBalance();}
   else{setAvatarSmart($('peerAvatar'),peer.id,peer.name);$('aiBalance').style.display='none';}
+  $('peerOnlineDot').style.display=isUserOnline(peer.id)?'':'none'; // 在线绿点
   $('msgInput').disabled=!canChat;$('sendBtn').disabled=!canChat;
   $('attachBtn').disabled=!canChat;$('emojiBtn').disabled=!canChat;
   $('msgInput').placeholder=canChat?'输入消息，Enter 发送，Shift+Enter 换行':'游客只读 · 登录账号后可发言';
@@ -2514,7 +2548,7 @@ async function askAI(room){
     hint.remove();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     const {data,error}=await sb.from('messages').insert({
-      room_id:room,sender_id:AI_ID,sender_nickname:'DeepSeek',
+      room_id:room,sender_id:AI_ID,sender_nickname:aiDisplayName(),
       receiver_id:myId,content:String(out.content).slice(0,2000)
     }).select();
     if(error){toast('保存 AI 回复失败：'+error.message);return;}
@@ -2553,7 +2587,7 @@ async function askAIGroup(question){
     const out=await res.json();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     const {data,error}=await sb.from('group_messages').insert({
-      group_id:currentGroup.id,sender_id:AI_ID,sender_nickname:'DeepSeek',
+      group_id:currentGroup.id,sender_id:AI_ID,sender_nickname:aiDisplayName(),
       content:'@'+myNick+' '+String(out.content).slice(0,2000)
     }).select();
     if(error){console.error('[askAIGroup]',error.message);return;}
@@ -2863,6 +2897,16 @@ function buildPdfDoc(rows,peerName){
 
 /* ========== 12. Postgres Changes ========== */
 function initMessageChanges(){
+  // 全局监听群消息：检测 @我 的群并高亮（当前打开的群不算）
+  sb.channel('group-mention-watch')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages'},({new:m})=>{
+      if(m.sender_id===myId||!m.content)return;
+      if(m.content.includes('@'+myNick)){
+        if(!(groupView&&currentGroup&&currentGroup.id===m.group_id)){
+          groupMentioned.add(m.group_id);renderList();
+        }
+      }
+    }).subscribe();
   msgCh=sb.channel('messages-stream')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>{
       if(seenIds.has(m.id))return;seenIds.add(m.id);
@@ -2986,6 +3030,11 @@ if(sb){
   loadSysChats();
   loadMyGroups();
   loadAllGroupsInfo(); // 群邀请卡片用
+  loadAIModelConfig(); // 加载全服当前AI模型
+  // 模型配置变更时实时同步昵称
+  sb.channel('ai-model-config').on('postgres_changes',
+    {event:'*',schema:'public',table:'ai_model_config'},()=>{loadAIModelConfig();}
+  ).subscribe();
   switchView('lobby'); // 默认进入公共房间，同步 DOM 与视图状态
   renderList();
   // 管理员后台跳转：?profile=群主id → 直接打开该账号的个人资料页
