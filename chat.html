@@ -70,6 +70,20 @@
   /* 图片缩略图（微信式） */
   .img-thumb{display:block;max-width:240px;max-height:200px;border-radius:9px;object-fit:cover;cursor:zoom-in;background:#eef0f5;transition:opacity .2s}
   .img-thumb:hover{opacity:.88}
+  .video-thumb{position:relative;display:block;width:240px;max-width:240px;height:180px;border-radius:9px;overflow:hidden;cursor:pointer;background:#111}
+  .video-thumb video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .video-thumb .v-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.18)}
+  .video-thumb .v-play::after{content:'▶';width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:19px;display:flex;align-items:center;justify-content:center;padding-left:3px}
+  .video-thumb:hover .v-play{background:rgba(0,0,0,.28)}
+  .video-thumb .v-dur{position:absolute;right:7px;bottom:7px;background:rgba(0,0,0,.72);color:#fff;font-size:10px;padding:2px 6px;border-radius:5px}
+  .video-viewer{position:fixed;inset:0;z-index:160;background:rgba(8,10,16,.96);display:none;flex-direction:column;backdrop-filter:blur(4px)}
+  .video-viewer.show{display:flex}
+  .vv-stage{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;min-height:0}
+  .vv-stage video{max-width:100%;max-height:100%;border-radius:6px;background:#000}
+  .vv-bar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:12px 16px 20px}
+  .vv-bar button{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer}
+  .vv-bar button:hover{background:rgba(255,255,255,.22)}
+  .vv-bar button.active{background:var(--brand);border-color:var(--brand)}
   /* 图片预览弹层 */
   .img-viewer{position:fixed;inset:0;z-index:150;background:rgba(10,12,20,.93);display:none;flex-direction:column;backdrop-filter:blur(4px)}
   .img-viewer.show{display:flex}
@@ -499,6 +513,19 @@
   <div class="iv-hint">滚轮缩放 · 拖动移动 · Esc 关闭</div>
 </div>
 
+<div class="video-viewer" id="videoViewer">
+  <div class="iv-top"><span class="iv-name" id="vvName">视频</span><button id="vvClose" title="关闭">✕</button></div>
+  <div class="vv-stage"><video id="vvVideo" playsinline webkit-playsinline controls preload="metadata"></video></div>
+  <div class="vv-bar">
+    <button id="vvPlay">⏸ 暂停</button>
+    <button id="vvBack10">⏪ 后退10秒</button>
+    <button id="vvFwd10">⏩ 快进10秒</button>
+    <button id="vvSpeed">1.0×</button>
+    <button id="vvForward">🔁 转发</button>
+    <button id="vvDownload">⬇️ 下载</button>
+  </div>
+</div>
+
 <!-- 转发目标弹窗 -->
 <div class="modal" id="forwardModal">
   <div class="modal-card">
@@ -720,6 +747,7 @@ function isDangerousFile(name){
 }
 function fileIcon(mime,name){const m=mime||'';if(m.startsWith('image/'))return'🖼️';if(m.includes('pdf'))return'📕';if(m.includes('zip')||m.includes('rar')||m.includes('7z'))return'🗜️';if(m.startsWith('video/'))return'🎬';if(m.startsWith('audio/'))return'🎵';if(m.includes('word')||/\.(doc|docx)$/i.test(name||''))return'📘';if(m.includes('sheet')||/\.(xls|xlsx|csv)$/i.test(name||''))return'📗';return'📎';}
 function isImageMsg(m){return m.msg_type==='file'&&m.file_url&&((m.file_mime||'').startsWith('image/')||/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(m.file_name||''));}
+function isVideoMsg(m){return m.msg_type==='file'&&m.file_url&&((m.file_mime||'').startsWith('video/')||/\.(mp4|webm|mov|m4v|ogv)$/i.test(m.file_name||''));}
 // 共用的文件/图片消息节点：图片显示缩略图（点击预览），其他显示文件卡片
 function buildFileNode(m){
   if(isImageMsg(m)){
@@ -727,6 +755,25 @@ function buildFileNode(m){
     img.loading='lazy';img.onerror=()=>{const s=document.createElement('span');s.textContent='🖼️ '+(m.file_name||'图片');img.replaceWith(s);};
     img.onclick=()=>openImageViewer(m);
     return img;
+  }
+  if(isVideoMsg(m)){
+    const wrap=document.createElement('div');wrap.className='video-thumb';
+    const v=document.createElement('video');v.src=m.file_url;v.preload='metadata';v.muted=true;v.playsInline=true;
+    v.addEventListener('loadedmetadata',()=>{
+      try{v.currentTime=Math.min(0.1,(v.duration||0)/10);}catch(_){}
+    });
+    v.addEventListener('error',()=>{
+      const s=document.createElement('span');s.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px';s.textContent='🎬';wrap.appendChild(s);
+    });
+    const play=document.createElement('div');play.className='v-play';wrap.appendChild(play);
+    const dur=document.createElement('div');dur.className='v-dur';dur.textContent='视频';
+    v.addEventListener('loadedmetadata',()=>{
+      const d=Math.floor(v.duration||0);
+      if(d>0)dur.textContent=Math.floor(d/60)+':'+String(d%60).padStart(2,'0');
+    });
+    wrap.appendChild(dur);
+    wrap.onclick=()=>openVideoViewer(m);
+    return wrap;
   }
   const a=document.createElement('a');a.className='file-card';a.href=m.file_url;a.target='_blank';a.rel='noopener';a.download=m.file_name||'file';
   const ic=document.createElement('div');ic.className='file-icon';ic.textContent=fileIcon(m.file_mime,m.file_name);
@@ -1181,8 +1228,8 @@ $('ivCopy').onclick=async()=>{
   }
 };
 // 转发
-$('ivForward').onclick=()=>{
-  closeImageViewer(); // 先关预览层，否则高 z-index 遮罩会盖住转发弹窗
+function openForwardModal(closeFn){
+  if(closeFn)closeFn(); // 先关预览层，否则高 z-index 遮罩会盖住转发弹窗
   const box=$('forwardList');box.innerHTML='';
   // 公共大厅选项（登录用户才能转发文件）
   if(isLoggedIn){
@@ -1201,7 +1248,8 @@ $('ivForward').onclick=()=>{
   if(!box.children.length)box.innerHTML='<div class="list-empty">暂无可转发的会话</div>';
   $('forwardErr').textContent='';
   $('forwardModal').classList.add('show');
-};
+}
+$('ivForward').onclick=()=>openForwardModal(closeImageViewer);
 $('forwardCancel').onclick=()=>$('forwardModal').classList.remove('show');
 let forwardBusy=false;
 async function forwardImageTo(type,peer){
@@ -1240,10 +1288,48 @@ async function forwardImageTo(type,peer){
     }
     $('forwardModal').classList.remove('show');
     closeImageViewer();
-    toast('图片已转发到'+(type==='lobby'?'公共大厅':(' '+peer.username)));
+    toast('已转发到'+(type==='lobby'?'公共大厅':(' '+peer.username)));
   }catch(e){$('forwardErr').textContent='转发失败：'+(e.message||'网络异常');}
   finally{forwardBusy=false;}
 }
+
+/* ===== 视频播放器：缩略封面点击弹出，支持播放/变速/快进/转发 ===== */
+let vvMsg=null,vvSpeeds=[0.5,0.75,1,1.25,1.5,2],vvSpeedIdx=2;
+function openVideoViewer(m){
+  vvMsg=m;
+  const v=$('vvVideo');
+  v.src=m.file_url;v.currentTime=0;v.playbackRate=1;vvSpeedIdx=2;
+  $('vvSpeed').textContent='1.0×';$('vvName').textContent=m.file_name||'视频';
+  $('vvPlay').textContent='⏸ 暂停';
+  $('videoViewer').classList.add('show');
+  v.play().catch(()=>{}); // 自动播放（用户已点击，通常允许）
+}
+function closeVideoViewer(){
+  $('videoViewer').classList.remove('show');
+  $('vvVideo').pause();$('vvVideo').src='';vvMsg=null;
+}
+$('vvClose').onclick=closeVideoViewer;
+$('videoViewer').addEventListener('click',e=>{if(e.target===$('videoViewer')||e.target.classList.contains('vv-stage'))closeVideoViewer();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('videoViewer').classList.contains('show'))closeVideoViewer();});
+$('vvVideo').addEventListener('play',()=>$('vvPlay').textContent='⏸ 暂停');
+$('vvVideo').addEventListener('pause',()=>$('vvPlay').textContent='▶ 播放');
+$('vvPlay').onclick=()=>{const v=$('vvVideo');if(v.paused)v.play();else v.pause();};
+$('vvBack10').onclick=()=>{const v=$('vvVideo');v.currentTime=Math.max(0,v.currentTime-10);};
+$('vvFwd10').onclick=()=>{const v=$('vvVideo');v.currentTime=Math.min(v.duration||0,v.currentTime+10);};
+$('vvSpeed').onclick=()=>{
+  vvSpeedIdx=(vvSpeedIdx+1)%vvSpeeds.length;
+  const s=vvSpeeds[vvSpeedIdx];$('vvVideo').playbackRate=s;$('vvSpeed').textContent=s.toFixed(2).replace(/0$/,'')+'×';
+};
+$('vvDownload').onclick=()=>{
+  if(!vvMsg)return;
+  const a=document.createElement('a');a.href=vvMsg.file_url;a.download=vvMsg.file_name||'video';a.target='_blank';a.click();
+};
+$('vvForward').onclick=()=>{
+  if(!vvMsg)return;
+  ivState={url:vvMsg.file_url,name:vvMsg.file_name||'视频',msg:vvMsg,scale:1,rotate:0,x:0,y:0,drag:null};
+  closeVideoViewer();
+  openForwardModal(null);
+};
 
 function renderMe(){
   $('meName').textContent=myNick;
@@ -1548,6 +1634,9 @@ $('tabLobby').onclick=()=>{
 };
 
 function switchView(v){
+  // 修复多屏：切换到主视图时，先关闭个人资料页/设置页（它们用 .show 控制）
+  $('profileView').classList.remove('show');
+  $('settingsView').classList.remove('show');
   view=v;
   $('privateView').classList.toggle('hidden',v==='lobby');
   $('lobbyView').classList.toggle('hidden',v==='private');
@@ -1789,6 +1878,7 @@ async function sendLobby(){
     else{
       input.value=''; // 只有成功后才清空
       $('mentionPopLobby').classList.remove('show');
+      scrollLobby(true); // 自己发消息后滚到底部
       if(/@DeepSeek/i.test(content))await askAILobby(content);
     }
   }catch(e){console.error('[lobbySend]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
@@ -1796,17 +1886,28 @@ async function sendLobby(){
 }
 // 大厅 @DeepSeek：调 AI 并把回复以 AI 身份写到公共大厅
 async function askAILobby(question){
+  const hint=document.createElement('div');hint.className='sys-msg-row';
+  hint.innerHTML='<div class="sys-msg-inner">DeepSeek 正在思考…</div>';
+  $('lobbyMessages').appendChild(hint);scrollLobby(true);
   try{
     // 取最近 16 条文字消息（倒序取再反转），只传文字不传文件，省 token
-    const {data:hist}=await sb.from('public_messages').select('sender_name, content, msg_type')
+    const {data:hist}=await sb.from('public_messages').select('sender_id, sender_name, content, msg_type, file_url, file_name, file_mime')
       .order('created_at',{ascending:false}).limit(24);
     const recent=(hist||[]).reverse();
-    const msgs=recent.filter(m=>(!m.msg_type||m.msg_type==='text')&&m.content)
+    const msgs=recent.filter(m=>m.content||(m.msg_type==='file'&&m.file_url))
       .slice(-16)
-      .map(m=>({
-        role:m.sender_name==='DeepSeek'?'assistant':'user',
-        content:(m.sender_name==='DeepSeek'?'':((m.sender_name||'游客')+'：'))+m.content
-      }));
+      .map(m=>{
+        const isAI=m.sender_id===AI_ID||/^DeepSeek/i.test(m.sender_name||'');
+        const who=(m.sender_name||'游客')+'：';
+        // 大厅：图片不传给 AI，只传占位文字
+        if(m.msg_type==='file'&&m.file_url&&isImageMsg(m)){
+          return {role:'user',content:who+'[发了一张图片，但受系统限制，你（DeepSeek）目前无法读取图片内容]'};
+        }
+        return {
+          role:isAI?'assistant':'user',
+          content:isAI?m.content:who+m.content
+        };
+      });
     const res=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
@@ -1816,12 +1917,13 @@ async function askAILobby(question){
       })
     });
     const out=await res.json();
+    hint.remove();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     await sb.from('public_messages').insert({
       sender_name:aiDisplayName(),sender_id:AI_ID,sender_kind:'ai',
       content:'@'+currentLobbyName()+' '+String(out.content).slice(0,2000)
     });
-  }catch(e){console.error('[askAILobby]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
+  }catch(e){hint.remove();console.error('[askAILobby]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
 }
 $('lobbySendBtn').onclick=sendLobby;
 $('lobbyInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendLobby();}});
@@ -2535,10 +2637,19 @@ async function askAI(room){
   hint.innerHTML='<div class="sys-msg-inner">DeepSeek 正在思考…</div>';
   $('messages').appendChild(hint);scrollBottom(true);
   try{
-    const {data:hist}=await sb.from('messages').select('sender_id, content, msg_type')
+    const {data:hist}=await sb.from('messages').select('sender_id, content, msg_type, file_url, file_name, file_mime')
       .eq('room_id',room).order('created_at',{ascending:true}).limit(16);
     const msgs=(hist||[]).filter(m=>m.msg_type!=='group_invite')
-      .map(m=>({role:m.sender_id===AI_ID?'assistant':'user',content:m.content}));
+      .map(m=>{
+        // 私聊：图片消息转成 vision 格式（文字说明 + 图片URL），让 DeepSeek 真正理解
+        if(m.sender_id!==AI_ID&&m.msg_type==='file'&&m.file_url&&isImageMsg(m)){
+          return {role:'user',content:[
+            {type:'text',text:(m.content&&!/^[\w\-. ]+\.(png|jpe?g|gif|webp)$/i.test(m.content)?m.content:'请看这张图片，请描述或分析它。')},
+            {type:'image_url',image_url:{url:m.file_url}}
+          ]};
+        }
+        return {role:m.sender_id===AI_ID?'assistant':'user',content:m.content};
+      });
     const res=await fetch(SUPABASE_URL+'/functions/v1/ai-chat',{
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
@@ -2556,20 +2667,25 @@ async function askAI(room){
     scrollBottom(true);
   }catch(e){hint.remove();console.error('[askAI]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
 }
-// 群聊 @DeepSeek：调 AI 并把纯文本回复写到群里
+// 群聊 @DeepSeek：调 AI 并把纯文本回复写到群里（群聊不传图片，只传占位说明）
 async function askAIGroup(question){
   if(!currentGroup)return;
+  const hint=document.createElement('div');hint.className='sys-msg-row';
+  hint.innerHTML='<div class="sys-msg-inner">DeepSeek 正在思考…</div>';
+  $('messages').appendChild(hint);scrollBottom(true);
   try{
-    // 取最近 16 条（先倒序取再反转，才是最新的一段）
-    const {data:hist}=await sb.from('group_messages').select('sender_id, sender_nickname, content, msg_type')
+    const {data:hist}=await sb.from('group_messages').select('sender_id, sender_nickname, content, msg_type, file_url')
       .eq('group_id',currentGroup.id).order('created_at',{ascending:false}).limit(16);
     const recent=(hist||[]).reverse();
     const msgs=recent.filter(m=>m.msg_type!=='system'&&m.msg_type!=='join_request')
-      .map(m=>({
-        role:m.sender_id===AI_ID?'assistant':'user',
-        content:(m.sender_id===AI_ID?'':((m.sender_nickname||'成员')+'：'))+m.content
-      }));
-    // 群成员名单+角色
+      .map(m=>{
+        const who=m.sender_id===AI_ID?'':((m.sender_nickname||'成员')+'：');
+        // 群聊：图片不传给 AI，只传占位文字保持上下文连贯
+        if(m.msg_type==='file'&&m.file_url&&isImageMsg(m)){
+          return {role:'user',content:who+'[发了一张图片，但受系统限制，你（DeepSeek）目前无法读取图片内容]'};
+        }
+        return {role:m.sender_id===AI_ID?'assistant':'user',content:who+m.content};
+      });
     const members=groupMembers.map(m=>{
       const acc=profileAccounts.get(m.user_id);
       const nm=m.user_id===AI_ID?'DeepSeek':(acc?acc.username:(m.user_id===myId?myNick:m.user_id.slice(0,8)));
@@ -2585,6 +2701,7 @@ async function askAIGroup(question){
       })
     });
     const out=await res.json();
+    hint.remove();
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     const {data,error}=await sb.from('group_messages').insert({
       group_id:currentGroup.id,sender_id:AI_ID,sender_nickname:aiDisplayName(),
@@ -2593,7 +2710,7 @@ async function askAIGroup(question){
     if(error){console.error('[askAIGroup]',error.message);return;}
     (data||[]).forEach(m=>{if(!groupSeenIds.has(m.id)){groupSeenIds.add(m.id);renderGroupMessage(m);}});
     scrollBottom(true);
-  }catch(e){console.error('[askAIGroup]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
+  }catch(e){hint.remove();console.error('[askAIGroup]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
 }
 async function sendMessage(){
   if(sendBusy)return; // 防连点重复发送
