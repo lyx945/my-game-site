@@ -188,8 +188,38 @@ h1{font-family:var(--font-display);font-weight:300;font-size:clamp(3rem,9vw,7.5r
 @keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
 #dialog .close{position:absolute;top:.75rem;right:.75rem;z-index:2;width:2.25rem;height:2.25rem;border-radius:50%;background:color-mix(in oklab,var(--ink) 60%,transparent);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;color:var(--foreground)}
 #dialog .close:hover{color:var(--gold)}
-#dialog .d-cover{aspect-ratio:16/9;overflow:hidden;position:relative}
+#dialog .d-cover{aspect-ratio:16/9;overflow:hidden;position:relative;background:#100e0a}
 #dialog .d-cover img{width:100%;height:100%;object-fit:cover}
+
+/* 详情封面轮播 */
+.dc-track{position:absolute;inset:0}
+.dc-slide{position:absolute;inset:0;opacity:0;transition:opacity .9s var(--ease);pointer-events:none}
+.dc-slide.on{opacity:1}
+.dc-slide img{transform:scale(1)}
+.dc-slide.on img{animation:dcPush 7.2s linear forwards}
+@keyframes dcPush{from{transform:scale(1)}to{transform:scale(1.06)}}
+.dc-cover.multi::after{content:"";position:absolute;inset:auto 0 0 0;height:58%;z-index:1;pointer-events:none;
+  background:linear-gradient(to top,color-mix(in oklab,var(--ink) 94%,transparent),transparent)}
+.dc-cover .badge.idx{z-index:3}
+.dc-cap{position:absolute;left:1.25rem;bottom:2.15rem;z-index:3;font-size:.6875rem;letter-spacing:.14em;
+  color:color-mix(in oklab,var(--foreground) 88%,transparent);text-shadow:0 1px 10px rgba(0,0,0,.7);
+  opacity:0;transform:translateY(6px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+.dc-cover.multi .dc-cap{opacity:1;transform:none}
+.dc-dots{position:absolute;left:1.25rem;bottom:1.15rem;z-index:3;display:flex;gap:.375rem;opacity:0;pointer-events:none}
+.dc-cover.multi .dc-dots{opacity:1;pointer-events:auto}
+.dc-dot{height:2px;width:1.1rem;padding:0;border-radius:2px;background:color-mix(in oklab,var(--foreground) 32%,transparent);
+  transition:width .35s var(--ease),background .35s var(--ease),box-shadow .35s var(--ease)}
+.dc-dot:hover{background:color-mix(in oklab,var(--gold) 65%,transparent)}
+.dc-dot.on{width:2.1rem;background:var(--gold);box-shadow:0 0 10px color-mix(in oklab,var(--gold) 55%,transparent)}
+.dc-nav{position:absolute;inset:0;z-index:2;display:none;align-items:center;justify-content:space-between;padding:0 .75rem;pointer-events:none}
+.dc-cover.multi .dc-nav{display:flex}
+.dc-nav button{pointer-events:auto;width:2.25rem;height:2.25rem;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:var(--foreground);background:color-mix(in oklab,var(--ink) 55%,transparent);border:1px solid color-mix(in oklab,var(--gold) 22%,transparent);
+  backdrop-filter:blur(6px);opacity:0;transition:opacity .3s var(--ease),color .3s,border-color .3s,transform .3s var(--ease)}
+.dc-cover:hover .dc-nav button,.dc-nav button:focus-visible{opacity:1}
+.dc-nav button:hover{color:var(--gold);border-color:color-mix(in oklab,var(--gold) 58%,transparent);transform:scale(1.06)}
+@media (max-width:640px){.dc-cover.multi .dc-nav{display:none}.dc-cap{font-size:.625rem;left:1rem}.dc-dots{left:1rem}}
+@media (prefers-reduced-motion:reduce){.dc-slide{transition:none}.dc-slide.on img{animation:none}}
 #dialog .d-body{padding:1.5rem}
 @media (min-width:768px){#dialog .d-body{padding:2rem}}
 #dialog h3{font-family:var(--font-display);font-size:1.6rem;font-weight:400;line-height:1.3}
@@ -462,7 +492,20 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
     <button class="close" id="dClose" aria-label="关闭">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </button>
-    <div class="d-cover"><img id="dImg" src="" alt="" /><span class="badge idx" id="dIdx"></span></div>
+    <div class="d-cover dc-cover" id="dCover">
+      <div class="dc-track" id="dcTrack"></div>
+      <span class="badge idx" id="dIdx"></span>
+      <div class="dc-nav">
+        <button type="button" id="dcPrev" aria-label="上一张">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button type="button" id="dcNext" aria-label="下一张">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="dc-cap" id="dcCap"></div>
+      <div class="dc-dots" id="dcDots"></div>
+    </div>
     <div class="d-body">
       <h3 id="dTitle"></h3>
       <p class="d-desc" id="dDesc"></p>
@@ -492,9 +535,23 @@ var IMG = {
   pulse:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-pulse.png?auth_key=b7deb762877953b85d3b36d37fd636e099f80a01e677883e262fabe6c19d8ae3',
   echo:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-echo.png?auth_key=154162297caad1a939b79d48814b2948de30bbcbf5b4433e1a1909abb2809fa4'
 };
+/* 详情页轮播：两个自研项目的展示图 */
+var P_BASE = 'https://znqiksqldqthcnlbrwzi.supabase.co/storage/v1/object/public/chat-files/portfolio/';
+var CHAT_IMG = [P_BASE+'chat-01.jpg', P_BASE+'chat-02.jpg', P_BASE+'chat-03.jpg'];
+var GAME_IMG = [P_BASE+'game-01.jpg', P_BASE+'game-02.jpg', P_BASE+'game-03.jpg'];
 var PROJECTS = [
-  {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨',link:'https://303329.xyz/chat.html'},
-  {id:'orbit',index:'02',title:'12班我最溜 · 合成大西瓜生物版',client:'12 班同学',category:'数字体验',year:'2026',cover:IMG.orbit,tags:['游戏开发','生物科普','班级定制'],desc:'把合成大西瓜玩成了一场生物课：合成生物解锁人物图鉴，做题拿道具冲上排行榜，配上班级专属照片与 BGM，让课间十分钟热闹起来。',role:'游戏设计 / 前端开发 / 内容策划',link:'https://303329.xyz/12wz6.html'},
+  {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨',link:'https://303329.xyz/chat.html',
+   gallery:[
+     {src:CHAT_IMG[0],label:'桌面与移动 · 同一扇窗'},
+     {src:CHAT_IMG[1],label:'AI 常驻 · 对话即助手'},
+     {src:CHAT_IMG[2],label:'私聊 · 群聊 · 大厅一张网'}
+   ]},
+  {id:'orbit',index:'02',title:'12班我最溜 · 合成大西瓜生物版',client:'12 班同学',category:'数字体验',year:'2026',cover:IMG.orbit,tags:['游戏开发','生物科普','班级定制'],desc:'把合成大西瓜玩成了一场生物课：合成生物解锁人物图鉴，做题拿道具冲上排行榜，配上班级专属照片与 BGM，让课间十分钟热闹起来。',role:'游戏设计 / 前端开发 / 内容策划',link:'https://303329.xyz/12wz6.html',
+   gallery:[
+     {src:GAME_IMG[0],label:'合成细胞 · 一层层进化'},
+     {src:GAME_IMG[1],label:'生物图鉴 · 收集与解锁'},
+     {src:GAME_IMG[2],label:'班级排行榜 · 课间竞技'}
+   ]},
   {id:'muse',index:'03',title:'MUSE · 艺术展视觉叙事',client:'MUSE 艺术中心',category:'视觉叙事',year:'2024',cover:IMG.muse,tags:['展览视觉','海报系统','空间图形'],desc:'为年度特展「流金之形」创作主视觉与海报系统，让一笔金色笔触从纸面延伸至整个展览空间。',role:'展览主视觉 / 海报系统 / 空间图形'},
   {id:'terra',index:'04',title:'TERRA · 精品咖啡品牌',client:'TERRA Roastery',category:'品牌识别',year:'2024',cover:IMG.terra,tags:['品牌识别','包装系统','门店物料'],desc:'以大地色与金线勾勒海拔风土的故事，从咖啡袋到门店菜单，构建一致而温暖的触点体验。',role:'品牌识别 / 包装系统 / 门店物料'},
   {id:'pulse',index:'05',title:'PULSE · 金融产品界面',client:'PULSE 科技',category:'数字体验',year:'2023',cover:IMG.pulse,tags:['产品设计','设计系统','数据可视化'],desc:'为 PULSE 设计深色交易界面与完整设计系统，用金色视觉层级让密集的金融数据变得可读而优雅。',role:'产品设计 / 设计系统 / 数据可视化'},
@@ -591,9 +648,63 @@ function renderWorks(){
 
 /* 详情弹窗 */
 var dialog=document.getElementById('dialog');
+
+/* 封面轮播：多图自动切换 + 指示点 + 左右箭头 + 手机滑动 */
+var dcCover=document.getElementById('dCover'),dcTrack=document.getElementById('dcTrack'),
+    dcDots=document.getElementById('dcDots'),dcCap=document.getElementById('dcCap');
+var dcList=[],dcIndex=0,dcTimer=null;
+function renderCarousel(p){
+  var items=(p.gallery&&p.gallery.length)?p.gallery:[{src:p.cover,label:''}];
+  dcList=items;dcIndex=0;
+  dcTrack.innerHTML='';dcDots.innerHTML='';
+  dcCover.classList.toggle('multi',items.length>1);
+  items.forEach(function(g,i){
+    var s=document.createElement('div');
+    s.className='dc-slide'+(i===0?' on':'');
+    s.innerHTML='<img src="'+g.src+'" alt="'+esc(p.title)+' 展示图 '+(i+1)+'" draggable="false"/>';
+    dcTrack.appendChild(s);
+    if(items.length>1){
+      var b=document.createElement('button');
+      b.type='button';b.className='dc-dot'+(i===0?' on':'');
+      b.setAttribute('aria-label','第 '+(i+1)+' 张：'+g.label);
+      b.addEventListener('click',function(){goSlide(i);});
+      dcDots.appendChild(b);
+    }
+  });
+  updateSlideUI();
+}
+function updateSlideUI(){
+  var n=dcList.length;
+  Array.prototype.forEach.call(dcTrack.children,function(s,k){s.classList.toggle('on',k===dcIndex);});
+  Array.prototype.forEach.call(dcDots.children,function(d,k){d.classList.toggle('on',k===dcIndex);});
+  dcCap.textContent = n>1 ? ('0'+(dcIndex+1)).slice(-2)+' / 0'+n+(dcList[dcIndex].label?' · '+dcList[dcIndex].label:'') : '';
+}
+function goSlide(i){
+  if(!dcList.length)return;
+  dcIndex=(i+dcList.length)%dcList.length;
+  updateSlideUI();
+  startTimer();
+}
+function startTimer(){
+  clearInterval(dcTimer);
+  if(dcList.length>1)dcTimer=setInterval(function(){goSlide(dcIndex+1);},4500);
+}
+dcCover.addEventListener('mouseenter',function(){clearInterval(dcTimer);});
+dcCover.addEventListener('mouseleave',startTimer);
+document.getElementById('dcPrev').addEventListener('click',function(){goSlide(dcIndex-1);});
+document.getElementById('dcNext').addEventListener('click',function(){goSlide(dcIndex+1);});
+var dcTouchX=null;
+dcCover.addEventListener('touchstart',function(e){dcTouchX=e.touches[0].clientX;},{passive:true});
+dcCover.addEventListener('touchend',function(e){
+  if(dcTouchX===null)return;
+  var dx=e.changedTouches[0].clientX-dcTouchX;
+  if(Math.abs(dx)>40)goSlide(dcIndex+(dx<0?1:-1));
+  dcTouchX=null;
+},{passive:true});
+
 function openDialog(p){
-  document.getElementById('dImg').src=p.cover;
-  document.getElementById('dImg').alt=p.title;
+  renderCarousel(p);
+  startTimer();
   document.getElementById('dIdx').textContent=p.index;
   document.getElementById('dTitle').textContent=p.title;
   document.getElementById('dDesc').textContent=p.desc;
@@ -609,7 +720,7 @@ function openDialog(p){
   dialog.classList.add('open');
   document.body.style.overflow='hidden';
 }
-function closeDialog(){dialog.classList.remove('open');document.body.style.overflow='';}
+function closeDialog(){dialog.classList.remove('open');document.body.style.overflow='';clearInterval(dcTimer);}
 document.getElementById('dClose').addEventListener('click',closeDialog);
 document.getElementById('dBackdrop').addEventListener('click',closeDialog);
 document.getElementById('dCta').addEventListener('click',closeDialog);
