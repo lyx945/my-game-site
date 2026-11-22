@@ -33,6 +33,10 @@
   #configWarning code{background:#ffedcc;padding:1px 5px;border-radius:4px}
   #toast{position:fixed;z-index:120;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2434;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:var(--shadow)}
   #toast.show{opacity:1}
+  .push-nudge{position:fixed;z-index:119;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(92vw,560px);background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);font-size:12px;color:var(--text)}
+  .push-nudge .pn-txt{flex:1;line-height:1.5}
+  .push-nudge .pn-ok{flex:0 0 auto;border:0;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:11px;font-weight:600;padding:7px 12px;cursor:pointer}
+  .push-nudge .pn-x{flex:0 0 auto;border:0;background:transparent;color:var(--muted);font-size:14px;cursor:pointer;padding:4px}
 
   .app{display:flex;height:100%;max-width:1160px;margin:0 auto;background:var(--panel);box-shadow:var(--shadow)}
   .sidebar{width:330px;flex:0 0 330px;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel-2)}
@@ -570,6 +574,14 @@
             <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">关闭页面后也能收到新消息提醒；点通知可直接进入对应会话。</div>
             <button class="foot-btn" id="pushToggleBtn" style="width:100%;padding:11px 6px;font-size:12px">开启桌面推送</button>
             <div id="pushHint" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">iOS 需先「添加到主屏幕」，再从桌面图标打开本页开启</div>
+            <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
+              <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:600">
+                <input type="checkbox" id="soundEnabled" checked style="width:17px;height:17px;accent-color:var(--brand)">
+                新消息提示音
+              </label>
+              <div style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.5">收到他人消息且不在当前会话时播放，可在下方试听。</div>
+              <button class="foot-btn" id="soundTestBtn" style="width:100%;padding:9px 6px;font-size:11px;margin-top:9px">🔊 试听提示音</button>
+            </div>
           </div>
         </div>
       </div>
@@ -929,6 +941,51 @@ function pushNotify(receivers,title,body,url){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{pushInit().then(pushUpdateUI);});
 else pushInit().then(pushUpdateUI);
 $('pushToggleBtn')?.addEventListener('click',()=>{if(pushSub)pushDisable();else pushEnable();});
+
+/* ========== 新消息提示音 + 开通知引导 ========== */
+const MSG_SOUND_URL='/msg-notify.mp3', LS_SOUND='qiaohua_msg_sound';
+let msgAudio=null, soundOn=true;
+try{ const v=localStorage.getItem(LS_SOUND); soundOn=(v===null?true:v==='1'); }catch(e){}
+function playMsgSound(){
+  if(!soundOn)return;
+  try{
+    if(!msgAudio)msgAudio=new Audio(MSG_SOUND_URL);
+    msgAudio.currentTime=0;
+    const p=msgAudio.play();
+    if(p&&p.catch)p.catch(()=>{});
+  }catch(e){}
+}
+/* 收到他人消息且不在当前会话时：响铃 + 温和引导开通知（可关闭，不写数据库） */
+function notifyNewMessage(senderId,senderName){
+  if(senderId===myId)return;
+  const inThisChat=currentPeer&&currentPeer.id===senderId&&!groupView&&!sysView;
+  if(inThisChat)return;
+  playMsgSound();
+  if(!pushSub&&'Notification' in window&&Notification.permission!=='granted')showPushNudge(senderName);
+}
+let nudgeEl=null, nudgeTimer=null;
+function showPushNudge(name){
+  if(nudgeEl&&nudgeEl.parentNode)return;
+  nudgeEl=document.createElement('div');
+  nudgeEl.className='push-nudge';
+  nudgeEl.innerHTML='<span class="pn-txt">💬 '+(name?esc(name)+' 发来新消息':'收到一条新消息')+' · 开启通知，关闭页面也能收到</span>'+
+    '<button class="pn-ok" type="button">去开启</button><button class="pn-x" type="button" aria-label="关闭">✕</button>';
+  document.body.appendChild(nudgeEl);
+  const close=()=>{ if(nudgeEl&&nudgeEl.parentNode)nudgeEl.parentNode.removeChild(nudgeEl); nudgeEl=null; clearTimeout(nudgeTimer); };
+  nudgeEl.querySelector('.pn-ok').onclick=async()=>{
+    close();
+    if(typeof openSettings==='function')openSettings();
+    await pushEnable();
+    const sc=$('settingsScroll');if(sc)setTimeout(()=>{sc.scrollTop=sc.scrollHeight;},200);
+  };
+  nudgeEl.querySelector('.pn-x').onclick=close;
+  nudgeTimer=setTimeout(close,8000);
+}
+(function(){
+  const cb=$('soundEnabled');
+  if(cb){cb.checked=soundOn;cb.onchange=()=>{soundOn=cb.checked;try{localStorage.setItem(LS_SOUND,soundOn?'1':'0');}catch(e){}toast(soundOn?'已开启提示音':'已关闭提示音');};}
+  const tb=$('soundTestBtn');if(tb)tb.onclick=()=>{if(!soundOn){toast('提示音已关闭，请先勾选');return;}playMsgSound();};
+})();
 function fmtSize(n){if(!n&&n!==0)return'';if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(1)+' KB';return (n/1024/1024).toFixed(2)+' MB';}
 // B8: 安全提取文件扩展名（白名单），防路径注入
 function safeExt(name){const m=String(name||'').match(/\.([a-zA-Z0-9]{1,8})$/);return m?'.'+m[1].toLowerCase():'';}
@@ -3703,6 +3760,9 @@ function initMessageChanges(){
   sb.channel('group-mention-watch')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages'},({new:m})=>{
       if(m.sender_id===myId||!m.content)return;
+      if(!(groupView&&currentGroup&&currentGroup.id===m.group_id)){
+        notifyNewMessage(m.sender_id,m.sender_nickname);
+      }
       if(m.content.includes('@'+myNick)){
         if(!(groupView&&currentGroup&&currentGroup.id===m.group_id)){
           groupMentioned.add(m.group_id);renderList();
@@ -3712,6 +3772,7 @@ function initMessageChanges(){
   msgCh=sb.channel('messages-stream')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>{
       if(seenIds.has(m.id))return;seenIds.add(m.id);
+      if(m.receiver_id===myId)notifyNewMessage(m.sender_id,m.sender_nickname);
       const inChat=currentPeer&&(m.sender_id===currentPeer.id||m.receiver_id===currentPeer.id);
       if(inChat){
         renderMessage(m);
