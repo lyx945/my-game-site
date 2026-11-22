@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Manrope:wght@300..800&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet" />
-<script type="module" src="https://znqiksqldqthcnlbrwzi.supabase.co/storage/v1/object/public/chat-files/portfolio/model-viewer.min.js"></script>
+<script type="module" src="/assets/model-viewer.min.js"></script>
 <style>
 :root{
   --background:oklch(0.165 0.012 85);
@@ -253,7 +253,17 @@ model-viewer{display:block;width:100%;height:100%;background:transparent;--poste
 .btn-ghost{border:1px solid var(--border);border-radius:999px;padding:.35rem .9rem;font-size:.75rem;color:var(--foreground);
   transition:color .25s,border-color .25s;white-space:nowrap}
 .btn-ghost:hover{color:var(--gold);border-color:var(--gold)}
-@media (max-width:640px){#modelDialog .mv-panel{height:92dvh}#modelDialog .mv-foot{font-size:.6875rem;padding:.6rem 1rem}}
+/* 3D 配色方案面板 */
+.mv-palette{position:absolute;right:1rem;top:50%;transform:translateY(-50%);z-index:4;
+  display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.75rem .5rem;
+  border-radius:999px;border:1px solid var(--border);background:color-mix(in oklab,var(--popover) 88%,transparent);backdrop-filter:blur(8px)}
+.mv-palette .lbl{font-size:.625rem;letter-spacing:.18em;color:var(--muted-foreground);margin-bottom:.15rem}
+.mv-swatch{width:1.6rem;height:1.6rem;padding:0;border-radius:50%;border:2px solid transparent;cursor:pointer;
+  transition:transform .25s var(--ease),border-color .25s;box-shadow:0 1px 4px rgba(0,0,0,.28)}
+.mv-swatch:hover{transform:scale(1.14)}
+.mv-swatch.on{border-color:var(--gold);transform:scale(1.14)}
+@media (max-width:640px){#modelDialog .mv-panel{height:92dvh}#modelDialog .mv-foot{font-size:.6875rem;padding:.6rem 1rem}
+  .mv-palette{right:.5rem;padding:.55rem .35rem;gap:.45rem}.mv-swatch{width:1.35rem;height:1.35rem}}
 
 /* 关于 */
 .about-grid{display:grid;gap:3rem}
@@ -402,7 +412,7 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
       <div class="hero-visual">
         <div class="orbit"><i></i></div>
         <div class="orbit rev"><i></i></div>
-        <img class="hero-orb" src="https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-hero-orb.png?auth_key=685f25a688763036591f7a91a9222c9f700c10fe47f51c6ef7c6b24eaadfe6ea" alt="LYX STUDIO 主视觉 — 鎏金环形雕塑" draggable="false" />
+        <img class="hero-orb" src="/assets/lyx-hero-orb.jpg" alt="LYX STUDIO 主视觉 — 鎏金环形雕塑" draggable="false" />
       </div>
     </div>
     <div class="hero-foot"><div class="container">
@@ -558,7 +568,13 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
       auto-rotate auto-rotate-delay="800" rotation-per-second="25deg" shadow-intensity="1"
       environment-image="neutral" exposure="1.05" min-camera-orbit="auto auto 40%" max-camera-orbit="auto auto 220%"
       ar ar-modes="webxr scene-viewer quick-look" camera-orbit="35deg 75deg 110%"></model-viewer>
-    <div class="mv-foot"><span>拖拽旋转 · 双指缩放 · 支持 AR</span><button class="btn-ghost" id="mvReset">重置视角</button></div>
+    <div class="mv-palette" id="mvPalette" role="group" aria-label="模型配色方案">
+      <span class="lbl">配色</span>
+      <button type="button" class="mv-swatch on" data-pal="0" style="background:linear-gradient(135deg,#ffffff,#ddd8cc)" title="珠光白" aria-label="珠光白"></button>
+      <button type="button" class="mv-swatch" data-pal="1" style="background:linear-gradient(135deg,#e8cb86,#b8893c)" title="香槟金" aria-label="香槟金"></button>
+      <button type="button" class="mv-swatch" data-pal="2" style="background:linear-gradient(135deg,#4a4844,#1c1b19)" title="石墨黑" aria-label="石墨黑"></button>
+    </div>
+    <div class="mv-foot"><span>拖拽旋转 · 双指缩放 · 右侧切换配色</span><button class="btn-ghost" id="mvReset">重置视角</button></div>
   </div>
 </div>
 
@@ -568,15 +584,15 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
 document.documentElement.classList.add('js');
 var EMAIL = '2442311042@qq.com';
 var IMG = {
-  aurora:'https://znqiksqldqthcnlbrwzi.supabase.co/storage/v1/object/public/chat-files/portfolio/chat-tool.png',
-  orbit:'https://znqiksqldqthcnlbrwzi.supabase.co/storage/v1/object/public/chat-files/portfolio/watermelon-game.png',
-  muse:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-muse.png?auth_key=a315617dbb0c9a9be56e92839691f566c95e969e13260f9e2bf5d959b77e87c7',
-  terra:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-terra.png?auth_key=936d6382554e6cf54953b2fedff598b3f1c48b98a6b1c514d38afe28a91fceb7',
-  pulse:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-pulse.png?auth_key=b7deb762877953b85d3b36d37fd636e099f80a01e677883e262fabe6c19d8ae3',
-  echo:'https://g.cdn.meoo.host/eq3z8vr8e5x2/ai-images/lyx-cover-echo.png?auth_key=154162297caad1a939b79d48814b2948de30bbcbf5b4433e1a1909abb2809fa4'
+  aurora:'/assets/chat-tool.png',
+  orbit:'/assets/watermelon-game.png',
+  muse:'/assets/lyx-cover-muse.jpg',
+  terra:'/assets/lyx-cover-terra.jpg',
+  pulse:'/assets/lyx-cover-pulse.jpg',
+  echo:'/assets/lyx-cover-echo.jpg'
 };
 /* 详情页轮播：两个自研项目的展示图 */
-var P_BASE = 'https://znqiksqldqthcnlbrwzi.supabase.co/storage/v1/object/public/chat-files/portfolio/';
+var P_BASE = '/assets/';
 var CHAT_IMG = [P_BASE+'chat-01.jpg', P_BASE+'chat-02.jpg', P_BASE+'chat-03.jpg'];
 var GAME_IMG = [P_BASE+'game-01.jpg', P_BASE+'game-02.jpg', P_BASE+'game-03.jpg'];
 var PROJECTS = [
@@ -777,10 +793,23 @@ document.getElementById('dCta').addEventListener('click',function(){
 
 /* 3D 预览弹层 */
 var modelDialog=document.getElementById('modelDialog'),mvViewer=document.getElementById('mvViewer');
+/* 3 套配色：切换预生成的 GLB 变体（原模型含 72 个不同材质，运行时改色不可靠） */
+var MV_PALS=['school-badge-white.glb','school-badge-gold.glb','school-badge-dark.glb'];
+var mvPal=0;
+function mvApplyPalette(i){
+  mvPal=i;
+  Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===i);});
+  if(mvViewer.getAttribute('src'))mvViewer.src='/assets/'+MV_PALS[i];
+}
+Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b){
+  b.addEventListener('click',function(){mvApplyPalette(+b.getAttribute('data-pal'));});
+});
 function openModelViewer(p){
   if(!p||!p.model)return;
   document.getElementById('mvTitle').textContent=p.title;
-  mvViewer.src=p.model;
+  mvPal=0;
+  Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===0);});
+  mvViewer.src='/assets/'+MV_PALS[0];   /* 默认珠光白 */
   mvViewer.alt=p.title+' 3D 模型';
   modelDialog.classList.add('open');
   document.body.style.overflow='hidden';
