@@ -19,7 +19,14 @@ self.addEventListener('push', event => {
     data: { url: data.url || '/chat.html' },
     actions: [{ action: 'open', title: '查看消息' }],
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    // 接收端正看着聊天页就不弹，避免重复打扰；页面在后台/最小化/关闭时才弹
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const inForeground = wins.some(c => c.visibilityState === 'visible' && c.focused &&
+      new URL(c.url).pathname === '/chat.html');
+    if (inForeground) return;
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 async function focusOrOpen(url) {
