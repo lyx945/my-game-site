@@ -809,12 +809,13 @@ function notifyOwner(name,email,type,msg){
     fd.append('subject','【LYX STUDIO】新客户项目简报 · '+name+' · '+type);
     fd.append('from_name','LYX STUDIO 网站表单');
     fd.append('replyto',email);
-    fd.append('姓名',name);
-    fd.append('联系邮箱',email);
-    fd.append('项目类型',type);
-    fd.append('项目描述',msg);
-    fd.append('提交时间',new Date().toLocaleString('zh-CN'));
-    fd.append('来源','303329.xyz 主页联系表单');
+    /* Web3Forms 对字段名按 Latin-1 解码，中文 key 会乱码；中文标签放进值里 */
+    fd.append('Customer Name','姓名：'+name);
+    fd.append('Customer Email','联系邮箱：'+email);
+    fd.append('Project Type','项目类型：'+type);
+    fd.append('Project Brief','项目描述：'+msg);
+    fd.append('Submitted At','提交时间：'+new Date().toLocaleString('zh-CN'));
+    fd.append('Source Page','来源：303329.xyz 主页联系表单');
     fetch('https://api.web3forms.com/submit',{method:'POST',body:fd})
       .then(function(r){return r.json();})
       .then(function(d){if(!d||!d.success)console.warn('[notifyOwner]',d);})
