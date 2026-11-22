@@ -156,7 +156,39 @@
     <div id="rankingPanel"><h3>排行榜（本地）</h3><div id="rankingBody"></div></div>
     <div id="overlay"></div>
   </div>
+  <!-- 全程 BGM：复用根目录 bgm4.mp3（文武贝《繁华的寂静》），独立于场景切换 -->
+  <audio id="gameBgm" src="../bgm4.mp3" loop preload="auto"></audio>
   <script src="game.js"></script>
   <script src="runtime.js"></script>
+  <script>
+  (function(){
+    var a = document.getElementById('gameBgm');
+    if(!a) return;
+    a.volume = 0.5;
+    var started = false;
+    function detach(){
+      document.removeEventListener('pointerdown', start, true);
+      document.removeEventListener('touchend', start, true);
+      document.removeEventListener('keydown', start, true);
+      document.removeEventListener('click', start, true);
+    }
+    function start(){
+      if(started) return;
+      try{
+        var p = a.play();
+        if(p && typeof p.then === 'function'){
+          p.then(function(){ started = true; detach(); })
+           .catch(function(){ /* 浏览器拒绝则保留监听，等待下一次用户手势重试 */ });
+        }else{
+          started = true; detach();
+        }
+      }catch(e){}
+    }
+    document.addEventListener('pointerdown', start, true);
+    document.addEventListener('touchend', start, true);
+    document.addEventListener('keydown', start, true);
+    document.addEventListener('click', start, true);
+  })();
+  </script>
 </body>
 </html>
