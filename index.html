@@ -799,7 +799,7 @@ var mvPal=0;
 function mvApplyPalette(i){
   mvPal=i;
   Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===i);});
-  if(mvViewer.getAttribute('src'))mvViewer.src='/assets/'+MV_PALS[i];
+  mvViewer.setAttribute('src','/assets/'+MV_PALS[i]);
 }
 Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b){
   b.addEventListener('click',function(){mvApplyPalette(+b.getAttribute('data-pal'));});
@@ -809,7 +809,7 @@ function openModelViewer(p){
   document.getElementById('mvTitle').textContent=p.title;
   mvPal=0;
   Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===0);});
-  mvViewer.src='/assets/'+MV_PALS[0];   /* 默认珠光白 */
+  mvViewer.setAttribute('src','/assets/'+MV_PALS[0]);   /* 默认珠光白 */
   mvViewer.alt=p.title+' 3D 模型';
   modelDialog.classList.add('open');
   document.body.style.overflow='hidden';
