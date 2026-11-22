@@ -902,11 +902,48 @@ function autoDropFrames(){
 }
 function levelPoints(l){ return (l+1)*2; }
 
-/* 👑 生物之王全班合成次数（本地持久累计） */
-function kingGet(){ return parseInt(localStorage.getItem("bioKingCount")||"0",10)||0; }
-function kingAdd(){ const n = kingGet()+1; localStorage.setItem("bioKingCount", String(n)); updKing(); return n; }
-function updKing(){ const el = document.getElementById("king-num"); if(el) el.textContent = kingGet(); }
+/* 👑 生物之王全班合成次数（Supabase 共享计数，localStorage 仅断网兜底）
+   用数据库端的原子自增函数，避免多人同时合成时互相覆盖。
+   本机先乐观 +1 保证提示即时，云端返回后以权威值为准；请求串行化防止乱序回退。 */
+const KING_READ = "https://znqiksqldqthcnlbrwzi.supabase.co/rest/v1/class12_king_count?id=eq.1&select=value";
+const KING_INC  = "https://znqiksqldqthcnlbrwzi.supabase.co/rest/v1/rpc/class12_king_inc";
+const KING_PUB  = "sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg";
+const KING_HEAD = {"apikey":KING_PUB,"Authorization":"Bearer "+KING_PUB,"Content-Type":"application/json"};
+const KING_KEY  = "bioKingCount";
+let kingCount = (function(){ try{ return parseInt(localStorage.getItem(KING_KEY)||"0",10)||0; }catch(e){ return 0; } })();
+let kingChain = Promise.resolve();
+function kingGet(){ return kingCount; }
+function updKing(){ const el=document.getElementById("king-num"); if(el) el.textContent=kingCount; }
+function kingLocalSet(n){ try{ localStorage.setItem(KING_KEY,String(n)); }catch(e){} }
+function kingSignal(){ try{ return AbortSignal.timeout(6000); }catch(e){ return undefined; } }
+function kingAdd(){
+  kingCount += 1; updKing(); kingLocalSet(kingCount);
+  kingChain = kingChain.then(async function(){
+    try{
+      const res = await fetch(KING_INC,{method:"POST",headers:KING_HEAD,body:"{}",signal:kingSignal()});
+      if(!res.ok) throw new Error("http "+res.status);
+      const n = await res.json();
+      if(typeof n === "number"){ kingCount = Math.max(kingCount, n); updKing(); kingLocalSet(kingCount); }
+    }catch(e){ /* 断网：保留本机计数，不回滚、不重复上报 */ }
+  });
+  return kingCount;
+}
+async function kingLoad(){
+  kingChain = kingChain.then(async function(){
+    try{
+      const res = await fetch(KING_READ,{headers:KING_HEAD,cache:"no-store",signal:kingSignal()});
+      if(!res.ok) throw new Error("http "+res.status);
+      const rows = await res.json();
+      if(rows && rows[0] && typeof rows[0].value === "number"){
+        kingCount = rows[0].value; updKing(); kingLocalSet(kingCount);
+      }
+    }catch(e){ /* 断网：沿用本机缓存 */ }
+  });
+}
 updKing();
+kingLoad();
+setInterval(function(){ if(!document.hidden) kingLoad(); }, 60000);
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) kingLoad(); });
 function scoreMult(){ return score >= MS_BIG ? 2 : 1; }  // 5000分以上得分×2
 
 /* 弹性按等级递减：小球像乒乓球，大瓜像实心西瓜；高阶大球几乎不弹，保住堆叠稳定 */
