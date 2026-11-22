@@ -1,7 +1,8 @@
 /* 悄悄话 · Web Push Service Worker */
-const CACHE = 'qiaohua-sw-v1';
+const CACHE = 'qiaohua-sw-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('message', e => { if (e.data === 'SKIP_WAITING') self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(self.clients.claim());
 });
