@@ -796,10 +796,31 @@ document.getElementById('copyBtn').addEventListener('click',function(){
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(EMAIL).then(done,fallback);}else{fallback();}
 });
 
-/* 联系表单：真实提交到 Supabase */
+/* 联系表单：入库 Supabase + Web3Forms 邮件通知站长 */
 var SB_URL='https://znqiksqldqthcnlbrwzi.supabase.co';
 var SB_KEY='sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
+var W3F_KEY='5a621963-2801-4791-a5ea-5c456334817c';
 var formBusy=false;
+/* 邮件通知：仅发给站长，失败静默，不影响访客看到的提交结果 */
+function notifyOwner(name,email,type,msg){
+  try{
+    var fd=new FormData();
+    fd.append('access_key',W3F_KEY);
+    fd.append('subject','【LYX STUDIO】新客户项目简报 · '+name+' · '+type);
+    fd.append('from_name','LYX STUDIO 网站表单');
+    fd.append('replyto',email);
+    fd.append('姓名',name);
+    fd.append('联系邮箱',email);
+    fd.append('项目类型',type);
+    fd.append('项目描述',msg);
+    fd.append('提交时间',new Date().toLocaleString('zh-CN'));
+    fd.append('来源','303329.xyz 主页联系表单');
+    fetch('https://api.web3forms.com/submit',{method:'POST',body:fd})
+      .then(function(r){return r.json();})
+      .then(function(d){if(!d||!d.success)console.warn('[notifyOwner]',d);})
+      .catch(function(err){console.warn('[notifyOwner]',err);});
+  }catch(err){console.warn('[notifyOwner]',err);}
+}
 document.getElementById('contactForm').addEventListener('submit',async function(e){
   e.preventDefault();
   if(formBusy)return;
@@ -820,6 +841,7 @@ document.getElementById('contactForm').addEventListener('submit',async function(
       body:JSON.stringify({name:name,email:email,project_type:type,message:msg,source:'studio'})
     });
     if(!res.ok)throw new Error('HTTP '+res.status);
+    notifyOwner(name,email,type,msg);   /* 旁路邮件通知，失败不影响提交结果 */
     e.target.reset();
     toast('已收到你的项目简报，我会尽快回复！');
   }catch(err){
