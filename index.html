@@ -242,6 +242,8 @@ h1{font-family:var(--font-display);font-weight:300;font-size:clamp(3rem,9vw,7.5r
 @media (min-width:768px){#dialog dl{grid-template-columns:repeat(4,1fr)}}
 #dialog dt{font-size:.6875rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted-foreground)}
 #dialog dd{margin-top:.375rem;font-size:.875rem}
+#dialog dd.creator{color:var(--gold);font-weight:600;letter-spacing:.02em;white-space:nowrap}
+#dialog dd.creator::before{content:"✦ ";color:var(--gold);opacity:.75;margin-right:.15rem;font-size:.75em}
 #dialog .tags span{border-color:color-mix(in oklab,var(--gold) 30%,transparent);color:var(--gold)}
 #dialog .d-cta{margin-top:1.5rem}
 
@@ -560,6 +562,7 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
         <div><dt>年份</dt><dd id="dYear"></dd></div>
         <div><dt>客户</dt><dd id="dClient"></dd></div>
         <div><dt>职责</dt><dd id="dRole"></dd></div>
+        <div><dt>创作者</dt><dd id="dCreator" class="creator"></dd></div>
       </dl>
       <div class="tags" id="dTags"></div>
       <div class="d-cta"><a class="btn-gold" href="#contact" id="dCta"><span id="dCtaText">洽谈类似项目</span>
@@ -608,20 +611,20 @@ var P_BASE = '/assets/';
 var CHAT_IMG = [P_BASE+'chat-01.jpg', P_BASE+'chat-02.jpg', P_BASE+'chat-03.jpg'];
 var GAME_IMG = [P_BASE+'game-01.jpg', P_BASE+'game-02.jpg', P_BASE+'game-03.jpg'];
 var PROJECTS = [
-  {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨',link:'https://303329.xyz/chat.html',
+  {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',creator:'刘易轩',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨',link:'https://303329.xyz/chat.html',
    gallery:[
      {src:CHAT_IMG[0],label:'桌面与移动 · 同一扇窗'},
      {src:CHAT_IMG[1],label:'AI 常驻 · 对话即助手'},
      {src:CHAT_IMG[2],label:'私聊 · 群聊 · 大厅一张网'}
    ]},
-  {id:'orbit',index:'02',title:'12班我最溜 · 合成大西瓜生物版',client:'12 班同学',category:'数字体验',year:'2026',cover:IMG.orbit,tags:['游戏开发','生物科普','班级定制'],desc:'把合成大西瓜玩成了一场生物课：合成生物解锁人物图鉴，做题拿道具冲上排行榜，配上班级专属照片与 BGM，让课间十分钟热闹起来。',role:'游戏设计 / 前端开发 / 内容策划',link:'https://303329.xyz/12wz6.html',
+  {id:'orbit',index:'02',title:'12班我最溜 · 合成大西瓜生物版',client:'12 班同学',category:'数字体验',year:'2026',creator:'苏泊睿 刘易轩',cover:IMG.orbit,tags:['游戏开发','生物科普','班级定制'],desc:'把合成大西瓜玩成了一场生物课：合成生物解锁人物图鉴，做题拿道具冲上排行榜，配上班级专属照片与 BGM，让课间十分钟热闹起来。',role:'游戏设计 / 前端开发 / 内容策划',link:'https://303329.xyz/12wz6.html',
    gallery:[
      {src:GAME_IMG[0],label:'合成细胞 · 一层层进化'},
      {src:GAME_IMG[1],label:'生物图鉴 · 收集与解锁'},
      {src:GAME_IMG[2],label:'班级排行榜 · 课间竞技'}
    ]},
-  {id:'badge',index:'03',title:'包九十五中校徽 · 3D 打印实践',client:'包头九十五中 · 社会实践',category:'数字体验',year:'2026',cover:P_BASE+'school-badge-preview.jpg',tags:['3D 建模','3D 打印','校徽设计'],desc:'数字建模勾勒校徽轮廓，3D 打印赋予它实体温度。与同伴一同抠图、建模型、调试打印，在社会实践课堂解锁三维设计技能，让属于包头九十五中的标志落地成型，这份亲手做出来的作品，就是最好的实践纪念。',role:'三维建模 / 3D 打印 / 实践记录',model:P_BASE+'school-badge.glb'},
-  {id:'duofangge',index:'04',title:'躲方格 2024 · 我的第一个游戏',client:'个人项目 · 初二',category:'数字体验',year:'2024',cover:P_BASE+'duofangge-cover.png',tags:['网页小游戏','编程猫','童年回忆'],desc:'2024 年读初二时，用编程猫搭出的第一个完整小游戏。当时的积木编程极大地吸引了我，后来把作品导出成 HTML，保留下基本玩法供大家游玩。功能简单，却承载着我满满的回忆。',role:'积木编程 / 游戏设计 / 童年记录',link:'https://303329.xyz/duofangge/dfg2024.html'},
+  {id:'badge',index:'03',title:'包九十五中校徽 · 3D 打印实践',client:'包头九十五中 · 社会实践',category:'数字体验',year:'2026',creator:'黄锦铭 刘易轩',cover:P_BASE+'school-badge-preview.jpg',tags:['3D 建模','3D 打印','校徽设计'],desc:'数字建模勾勒校徽轮廓，3D 打印赋予它实体温度。与同伴一同抠图、建模型、调试打印，在社会实践课堂解锁三维设计技能，让属于包头九十五中的标志落地成型，这份亲手做出来的作品，就是最好的实践纪念。',role:'三维建模 / 3D 打印 / 实践记录',model:P_BASE+'school-badge.glb'},
+  {id:'duofangge',index:'04',title:'躲方格 2024 · 我的第一个游戏',client:'个人项目 · 初二',category:'数字体验',year:'2024',creator:'刘易轩',cover:P_BASE+'duofangge-cover.png',tags:['网页小游戏','编程猫','童年回忆'],desc:'2024 年读初二时，用编程猫搭出的第一个完整小游戏。当时的积木编程极大地吸引了我，后来把作品导出成 HTML，保留下基本玩法供大家游玩。功能简单，却承载着我满满的回忆。',role:'积木编程 / 游戏设计 / 童年记录',link:'https://303329.xyz/duofangge/dfg2024.html'},
   {id:'terra',index:'05',title:'TERRA · 精品咖啡品牌',client:'TERRA Roastery',category:'品牌识别',year:'2024',cover:IMG.terra,tags:['品牌识别','包装系统','门店物料'],desc:'以大地色与金线勾勒海拔风土的故事，从咖啡袋到门店菜单，构建一致而温暖的触点体验。',role:'品牌识别 / 包装系统 / 门店物料'},
   {id:'pulse',index:'06',title:'PULSE · 金融产品界面',client:'PULSE 科技',category:'数字体验',year:'2023',cover:IMG.pulse,tags:['产品设计','设计系统','数据可视化'],desc:'为 PULSE 设计深色交易界面与完整设计系统，用金色视觉层级让密集的金融数据变得可读而优雅。',role:'产品设计 / 设计系统 / 数据可视化'},
   {id:'echo',index:'07',title:'ECHO · 生成艺术装置',client:'ECHO 音乐节',category:'视觉叙事',year:'2023',cover:IMG.echo,tags:['生成艺术','装置设计','现场视觉'],desc:'将现场声音实时转译为流动的金色粒子球体，完成一件横跨十二米环幕的沉浸式生成艺术装置。',role:'生成艺术 / 装置设计 / 现场视觉'}
@@ -794,6 +797,7 @@ function openDialog(p){
   document.getElementById('dYear').textContent=p.year;
   document.getElementById('dClient').textContent=p.client;
   document.getElementById('dRole').textContent=p.role;
+  document.getElementById('dCreator').textContent=p.creator||'—';
   document.getElementById('dTags').innerHTML=p.tags.map(function(t){return '<span>'+esc(t)+'</span>';}).join('');
   // 有 link 的项目：按钮变「直接跳转」，点击在新标签打开对应页面；否则恢复默认
   var cta=document.getElementById('dCta'),ctaText=document.getElementById('dCtaText');
