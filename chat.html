@@ -906,9 +906,11 @@ function pushUpdateUI(){
     ?'已开启：页面关闭后也能收到新消息提醒。点按钮可关闭。'
     :'关闭页面后也能收到新消息提醒（iOS 需先「添加到主屏幕」）';
 }
-/* 由发送方调用，推给接收方；前台可见时跳过 */
+/* 由发送方调用，推给接收方。
+   注意：发送方自己是否订阅推送、是否在前台，都与接收方能否收到通知无关，
+   这里必须无条件发出；「前台不打扰」由接收端的 sw.js 判断。 */
 function pushNotify(receivers,title,body,url){
-  if(!pushSub||!sb||pushVisible())return;
+  if(!sb)return;
   const list=(receivers||[]).filter(x=>x&&x!==myId);
   if(!list.length)return;
   fetch(PUSH_API,{
