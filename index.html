@@ -602,14 +602,13 @@ var IMG = {
   aurora:'/assets/chat-tool.png',
   orbit:'/assets/watermelon-game.png',
   muse:'/assets/lyx-cover-muse.jpg',
-  terra:'/assets/lyx-cover-terra.jpg',
-  pulse:'/assets/lyx-cover-pulse.jpg',
-  echo:'/assets/lyx-cover-echo.jpg'
+  xingjie:'/assets/xingjie-cover.png'
 };
 /* 详情页轮播：两个自研项目的展示图 */
 var P_BASE = '/assets/';
 var CHAT_IMG = [P_BASE+'chat-01.jpg', P_BASE+'chat-02.jpg', P_BASE+'chat-03.jpg'];
 var GAME_IMG = [P_BASE+'game-01.jpg', P_BASE+'game-02.jpg', P_BASE+'game-03.jpg'];
+var XJ_IMG = [P_BASE+'xingjie-01.jpg', P_BASE+'xingjie-02.jpg', P_BASE+'xingjie-03.jpg'];
 var PROJECTS = [
   {id:'aurora',index:'01',title:'悄悄话 · 全场景聊天工具',client:'个人项目',category:'数字体验',year:'2026',creator:'刘易轩',cover:IMG.aurora,tags:['实时私聊','群聊大厅','AI 助手'],desc:'一个把所有对话装进同一扇窗口的聊天工具：一对一私聊、群聊与公共大厅自由切换，在线状态、已读回执、文件传输一应俱全，还请来 DeepSeek 常驻陪聊。',role:'产品设计 / 全栈开发 / 交互打磨',link:'https://303329.xyz/chat.html',
    gallery:[
@@ -625,11 +624,14 @@ var PROJECTS = [
    ]},
   {id:'badge',index:'03',title:'包九十五中校徽 · 3D 打印实践',client:'包头九十五中 · 社会实践',category:'数字体验',year:'2026',creator:'黄锦铭 刘易轩',cover:P_BASE+'school-badge-preview.jpg',tags:['3D 建模','3D 打印','校徽设计'],desc:'数字建模勾勒校徽轮廓，3D 打印赋予它实体温度。与同伴一同抠图、建模型、调试打印，在社会实践课堂解锁三维设计技能，让属于包头九十五中的标志落地成型，这份亲手做出来的作品，就是最好的实践纪念。',role:'三维建模 / 3D 打印 / 实践记录',model:P_BASE+'school-badge.glb'},
   {id:'duofangge',index:'04',title:'躲方格 2024 · 我的第一个游戏',client:'个人项目 · 初二',category:'数字体验',year:'2024',creator:'刘易轩',cover:P_BASE+'duofangge-cover.png',tags:['网页小游戏','编程猫','童年回忆'],desc:'2024 年读初二时，用编程猫搭出的第一个完整小游戏。当时的积木编程极大地吸引了我，后来把作品导出成 HTML，保留下基本玩法供大家游玩。功能简单，却承载着我满满的回忆。',role:'积木编程 / 游戏设计 / 童年记录',link:'https://303329.xyz/duofangge/dfg2024.html'},
-  {id:'terra',index:'05',title:'TERRA · 精品咖啡品牌',client:'TERRA Roastery',category:'品牌识别',year:'2024',cover:IMG.terra,tags:['品牌识别','包装系统','门店物料'],desc:'以大地色与金线勾勒海拔风土的故事，从咖啡袋到门店菜单，构建一致而温暖的触点体验。',role:'品牌识别 / 包装系统 / 门店物料'},
-  {id:'pulse',index:'06',title:'PULSE · 金融产品界面',client:'PULSE 科技',category:'数字体验',year:'2023',cover:IMG.pulse,tags:['产品设计','设计系统','数据可视化'],desc:'为 PULSE 设计深色交易界面与完整设计系统，用金色视觉层级让密集的金融数据变得可读而优雅。',role:'产品设计 / 设计系统 / 数据可视化'},
-  {id:'echo',index:'07',title:'ECHO · 生成艺术装置',client:'ECHO 音乐节',category:'视觉叙事',year:'2023',cover:IMG.echo,tags:['生成艺术','装置设计','现场视觉'],desc:'将现场声音实时转译为流动的金色粒子球体，完成一件横跨十二米环幕的沉浸式生成艺术装置。',role:'生成艺术 / 装置设计 / 现场视觉'}
+  {id:'xingjie',index:'05',title:'星界审判：自由意志的曙光',client:'个人项目 · 编程猫',category:'数字体验',year:'2024',creator:'一抹晨曦',cover:IMG.xingjie,tags:['剧情冒险','战斗系统','多结局'],desc:'一款用编程猫开发的剧情冒险游戏。在审判者与玩家的博弈中，探索神秘森林、穿越梦幻星空，每一次对话与选择都在推动剧情、改写属于自己的结局。',role:'剧情设计 / 游戏开发 / 美术整合',link:'https://303329.xyz/xingjie/index.html',
+   gallery:[
+     {src:XJ_IMG[0],label:'审判者 · 红色竞技场'},
+     {src:XJ_IMG[1],label:'神秘森林 · 自由意志之旅'},
+     {src:XJ_IMG[2],label:'星界审判 · 命运抉择'}
+   ]}
 ];
-var FILTERS = ['全部','品牌识别','数字体验','视觉叙事'];
+var FILTERS = ['全部','数字体验'];
 var SERVICES = [
   {no:'01',title:'创意工具开发',desc:'把脑海里的点子做成真正能用起来的网页工具，从想法、原型到上线一站式完成。',deliverables:['需求分析','原型开发','上线部署']},
   {no:'02',title:'网页小游戏',desc:'轻量、好玩、打开即玩的小游戏——合成、闯关、答题，适配手机与电脑多种屏幕。',deliverables:['玩法设计','游戏开发','排行榜与存档']},
