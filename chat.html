@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f7f8fc">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -860,6 +863,10 @@ async function pushInit(){
   if(!pushSupported())return false;
   try{
     pushReg=await navigator.serviceWorker.register('/sw.js');
+    pushReg.update().catch(()=>{}); // 强制检查新版本，避免旧 SW 缓存导致行为不一致
+    if(navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+    }
     pushSub=await pushReg.pushManager.getSubscription();
     if(pushSub){
       await pushStore(pushSub);
@@ -1374,6 +1381,12 @@ async function uploadVoice(blob, dur, mime){
     }
     clearQuote();
     scrollBottom(true);
+    if(groupView&&currentGroup){
+      pushNotify(groupMembers.map(m=>m.user_id).filter(x=>x&&x!==AI_ID&&x!==myId),
+        myNick+' · '+currentGroup.name,'[语音] '+dur+'″','/chat.html?push_group='+encodeURIComponent(currentGroup.id));
+    }else if(currentPeer){
+      pushNotify([currentPeer.id],myNick,'[语音] '+dur+'″','/chat.html?push_peer='+encodeURIComponent(currentPeer.id)+'&name='+encodeURIComponent(currentPeer.name||''));
+    }
   }catch(e){
     console.error('[voice]', e);
     toast('语音发送失败：' + (e.message || '网络异常'));
@@ -1906,6 +1919,8 @@ async function forwardImageTo(type,peer){
     $('forwardModal').classList.remove('show');
     closeImageViewer();
     toast('已转发到'+(type==='lobby'?'公共大厅':(' '+peer.username)));
+    if(type==='private'&&peer)pushNotify([peer.id],myNick,'[转发消息]',
+      '/chat.html?push_peer='+encodeURIComponent(peer.id)+'&name='+encodeURIComponent(peer.username||''));
   }catch(e){$('forwardErr').textContent='转发失败：'+(e.message||'网络异常');}
   finally{forwardBusy=false;}
 }
@@ -3529,6 +3544,13 @@ async function handlePrivateFile(file){
     }
     clearQuote();
     scrollBottom(true);toast('文件已发送');
+    const fHint='[文件] '+(file.name||'文件');
+    if(groupView&&currentGroup){
+      pushNotify(groupMembers.map(m=>m.user_id).filter(x=>x&&x!==AI_ID&&x!==myId),
+        myNick+' · '+currentGroup.name,fHint,'/chat.html?push_group='+encodeURIComponent(currentGroup.id));
+    }else if(currentPeer){
+      pushNotify([currentPeer.id],myNick,fHint,'/chat.html?push_peer='+encodeURIComponent(currentPeer.id)+'&name='+encodeURIComponent(currentPeer.name||''));
+    }
   }catch(err){console.error('[sendFile]',err);toast('上传失败：'+err.message);}
   finally{$('uploadBar').classList.remove('show');$('attachBtn').disabled=false;$('sendBtn').disabled=groupView?false:(canSendPrivate?false:true);}
 }
@@ -3691,7 +3713,12 @@ function initMessageChanges(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>{
       if(seenIds.has(m.id))return;seenIds.add(m.id);
       const inChat=currentPeer&&(m.sender_id===currentPeer.id||m.receiver_id===currentPeer.id);
-      if(inChat){renderMessage(m);if(m.receiver_id===myId)markAsRead(m.sender_id);scrollBottom();} // B11: 智能滚动
+      if(inChat){
+        renderMessage(m);
+        // 只有本标签页真正在前台才标已读；后台/最小化的标签页不能替用户读消息
+        if(m.receiver_id===myId&&pushVisible())markAsRead(m.sender_id);
+        scrollBottom();
+      }
       else if(m.receiver_id===myId){unread.set(m.sender_id,(unread.get(m.sender_id)||0)+1);renderList();}
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},({new:m})=>{
