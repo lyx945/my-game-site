@@ -574,6 +574,8 @@
             <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">关闭页面后也能收到新消息提醒；点通知可直接进入对应会话。</div>
             <button class="foot-btn" id="pushToggleBtn" style="width:100%;padding:11px 6px;font-size:12px">开启桌面推送</button>
             <div id="pushHint" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">iOS 需先「添加到主屏幕」，再从桌面图标打开本页开启</div>
+            <div id="pushDiag" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;display:none"></div>
+            <button class="foot-btn" id="pushSelfTest" style="width:100%;padding:9px 6px;font-size:11px;margin-top:9px">🩺 推送自检</button>
             <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
               <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:600">
                 <input type="checkbox" id="soundEnabled" checked style="width:17px;height:17px;accent-color:var(--brand)">
@@ -881,6 +883,7 @@ async function pushInit(){
     }
     pushSub=await pushReg.pushManager.getSubscription();
     if(pushSub){
+      // 每次启动都同步一次订阅：服务端记录若丢失（清缓存/切设备）自动补回
       await pushStore(pushSub);
       pushUpdateUI();
     }
@@ -981,6 +984,32 @@ function showPushNudge(name){
   nudgeEl.querySelector('.pn-x').onclick=close;
   nudgeTimer=setTimeout(close,8000);
 }
+async function pushSelfTest(){
+  const box=$('pushDiag');if(!box)return;
+  box.style.display='block';box.textContent='检测中…';
+  const rows=[];
+  const ok=(n,v)=>rows.push((v?'✅ ':'❌ ')+n);
+  ok('浏览器支持 Push API',pushSupported());
+  ok('通知权限已授予','Notification' in window&&Notification.permission==='granted');
+  ok('Service Worker 已激活',!!(pushReg&&pushReg.active));
+  ok('本机已订阅',!!pushSub);
+  let serverOk=false,serverCount=0;
+  try{
+    if(sb&&myId){
+      const {data,error}=await sb.from('push_subscriptions').select('id').eq('user_id',myId);
+      if(!error){serverCount=(data||[]).length;serverOk=serverCount>0;}
+    }
+  }catch(e){}
+  ok('服务端有订阅记录（'+serverCount+' 条）',serverOk);
+  // 自动修复：本机有订阅但服务端丢失 → 补存
+  if(pushSub&&!serverOk){
+    rows.push('🔧 服务端记录丢失，正在自动补存…');
+    await pushStore(pushSub);
+    rows.push('✅ 已补存，请重新测试推送');
+  }
+  box.innerHTML=rows.join('<br/>');
+}
+$('pushSelfTest')?.addEventListener('click',pushSelfTest);
 (function(){
   const cb=$('soundEnabled');
   if(cb){cb.checked=soundOn;cb.onchange=()=>{soundOn=cb.checked;try{localStorage.setItem(LS_SOUND,soundOn?'1':'0');}catch(e){}toast(soundOn?'已开启提示音':'已关闭提示音');};}
