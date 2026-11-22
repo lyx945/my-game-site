@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f7f8fc">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="悄悄话">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>悄悄话 · 私聊</title>
 <style>
   :root {
@@ -536,6 +542,11 @@
             <input id="setWechat" maxlength="100" placeholder="微信号" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2)"></div>
           <div class="field" style="text-align:left;margin-bottom:11px"><label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">QQ</label>
             <input id="setQq" maxlength="100" placeholder="QQ 号" style="width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;outline:none;background:var(--panel-2)"></div>
+          <div class="field" style="text-align:left;margin-bottom:11px">
+            <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px">消息通知</label>
+            <button class="foot-btn" id="pushToggleBtn" style="width:100%">开启桌面推送</button>
+            <div id="pushHint" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">关闭页面后也能收到新消息提醒（iOS 需先「添加到主屏幕」）</div>
+          </div>
           <div class="err" id="setErr"></div>
           <div class="profile-actions"><button class="primary" id="setSaveBtn">保存设置</button></div>
         </div>
@@ -814,6 +825,82 @@ const avatarColors=['#5b5bd6','#e0715a','#2f9e7e','#c9579b','#3d8bd6','#b8862f']
 function colorOf(id){let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return avatarColors[h%avatarColors.length];}
 function setAvatar(el,id,name){el.style.background=colorOf(id);el.textContent=(name||'?').trim().charAt(0).toUpperCase()||'?';}
 function fmtTime(iso){const d=new Date(iso),n=new Date(),hm=d.toTimeString().slice(0,5);return d.toDateString()===n.toDateString()?hm:(d.getMonth()+1)+'/'+d.getDate()+' '+hm;}
+
+/* ========== Web Push 通知 ==========
+   前端触发：发消息时由发送方通知服务端推送给接收方，不依赖 Database Webhook。
+   仅在前台不可见时才弹，避免自己聊自己时打扰。                            */
+const PUSH_VAPID_PUBLIC='BJ2Lx31fxq0Hq3MejCaTPCFHGp-acRyX4b0EGlCCA9azh1Fqk_kmZW3B7wEwOghdyGK4yQY723xV8ZKJFnlaWFI';
+const PUSH_API=SUPABASE_URL+'/functions/v1/push-send';
+let pushReg=null, pushSub=null;
+
+function pushUrlBase64(b){return btoa(String.fromCharCode.apply(null,new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function pushSupported(){return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;}
+function pushVisible(){return document.visibilityState==='visible' && document.hasFocus();}
+
+async function pushInit(){
+  if(!pushSupported())return false;
+  try{
+    pushReg=await navigator.serviceWorker.register('/sw.js');
+    pushSub=await pushReg.pushManager.getSubscription();
+    if(pushSub){
+      await pushStore(pushSub);
+      pushUpdateUI();
+    }
+    return true;
+  }catch(e){console.warn('[push init]',e);return false;}
+}
+async function pushStore(sub){
+  if(!sb)return;
+  const j=sub.toJSON();
+  // 同一设备换账号时，先清掉旧的 user_id 订阅，避免给已退出账号推送
+  await sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint).neq('user_id',myId);
+  const {error}=await sb.from('push_subscriptions').upsert({
+    user_id:myId,endpoint:sub.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth,
+    user_agent:(navigator.userAgent||'').slice(0,300)
+  },{onConflict:'user_id,endpoint'});
+  if(error)console.warn('[push store]',error.message);
+}
+async function pushEnable(){
+  if(!pushSupported()){toast('当前浏览器不支持消息推送');return;}
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('需要允许通知才能开启推送');pushUpdateUI();return;}
+  try{
+    if(!pushReg)pushReg=await navigator.serviceWorker.register('/sw.js');
+    pushSub=await pushReg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:PUSH_VAPID_PUBLIC});
+    await pushStore(pushSub);
+    pushUpdateUI();
+    toast('✅ 已开启消息推送');
+  }catch(e){console.error('[push enable]',e);toast('开启失败：'+(e.message||'请检查浏览器设置'));pushUpdateUI();}
+}
+async function pushDisable(){
+  try{ if(pushSub)await pushSub.unsubscribe(); }catch(e){}
+  if(sb)await sb.from('push_subscriptions').delete().eq('user_id',myId);
+  pushSub=null;pushUpdateUI();toast('已关闭消息推送');
+}
+function pushUpdateUI(){
+  const btn=$('pushToggleBtn'),hint=$('pushHint');
+  if(!btn)return;
+  const on=!!pushSub&&'Notification' in window&&Notification.permission==='granted';
+  btn.textContent=on?'关闭桌面推送':'开启桌面推送';
+  btn.style.color=on?'#c0392b':'';
+  if(hint)hint.textContent=on
+    ?'已开启：页面关闭后也能收到新消息提醒。点按钮可关闭。'
+    :'关闭页面后也能收到新消息提醒（iOS 需先「添加到主屏幕」）';
+}
+/* 由发送方调用，推给接收方；前台可见时跳过 */
+function pushNotify(receivers,title,body,url){
+  if(!pushSub||!sb||pushVisible())return;
+  const list=(receivers||[]).filter(x=>x&&x!==myId);
+  if(!list.length)return;
+  fetch(PUSH_API,{
+    method:'POST',
+    headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({receivers:list,title:title,body:body,url:url||location.pathname,sender:myNick})
+  }).catch(()=>{});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{pushInit().then(pushUpdateUI);});
+else pushInit().then(pushUpdateUI);
+$('pushToggleBtn')?.addEventListener('click',()=>{if(pushSub)pushDisable();else pushEnable();});
 function fmtSize(n){if(!n&&n!==0)return'';if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(1)+' KB';return (n/1024/1024).toFixed(2)+' MB';}
 // B8: 安全提取文件扩展名（白名单），防路径注入
 function safeExt(name){const m=String(name||'').match(/\.([a-zA-Z0-9]{1,8})$/);return m?'.'+m[1].toLowerCase():'';}
@@ -3271,6 +3358,8 @@ async function sendMessage(){
       scrollBottom(true);
       input.value='';clearQuote();
       $('mentionPopPrivate').classList.remove('show');
+      pushNotify(groupMembers.map(m=>m.user_id).filter(x=>x&&x!==AI_ID),
+        myNick+' · '+currentGroup.name,content,'/chat.html?push_group='+encodeURIComponent(currentGroup.id));
       if(/@DeepSeek/i.test(content))await askAIGroup(content);
     }else{
       // B12: 统一 slice(2000)
@@ -3281,6 +3370,7 @@ async function sendMessage(){
       if(error){toast('发送失败：'+error.message);return;}
       (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom(true);
       input.value='';clearQuote();
+      if(!isAIChat)pushNotify([currentPeer.id],myNick,content,'/chat.html?push_peer='+encodeURIComponent(currentPeer.id)+'&name='+encodeURIComponent(currentPeer.name||''));
       if(isAIChat)await askAI(roomIdOf(myId,AI_ID));
     }
   }catch(e){console.error('[sendMessage]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
@@ -3732,6 +3822,20 @@ if(sb){
     try{const p=JSON.parse(pending);sessionStorage.removeItem('qiaohua_pending_peer');openChat(p);}catch(e){}
   }
 }
+  // 推送通知点击跳转：普通用户也可打开对应会话（与管理员 ?peer= 逻辑隔离）
+  (function(){
+    var q=new URLSearchParams(location.search),pp=q.get('push_peer'),pg=q.get('push_group');
+    if(!pp&&!pg)return;
+    history.replaceState(null,'',location.pathname);
+    if(pp){openChat({id:pp,name:q.get('name')||'会话'});return;}
+    if(pg){
+      if(typeof myGroups!=='undefined'&&Array.isArray(myGroups)){
+        var g=myGroups.find(function(x){return x.id===pg;});
+        if(g){openGroup(g);return;}
+      }
+      setTab('groups');
+    }
+  })();
   if(isLoggedIn)$('guestNickBtn').classList.add('hidden'); // 已登录用户用账号名，无需改昵称
 }else{
   $('userList').innerHTML='<div class="list-empty">请先配置 Supabase</div>';
