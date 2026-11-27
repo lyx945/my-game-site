@@ -254,6 +254,9 @@ h1{font-family:var(--font-display);font-weight:300;font-size:clamp(3rem,9vw,7.5r
 #dialog .d-process .dp-item img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:.375rem;border:1px solid var(--border)}
 #dialog .d-process .dp-item .dp-cap{font-size:.78rem;line-height:1.6;color:var(--muted-foreground)}
 @media (max-width:767px){#dialog .d-process .dp-grid{grid-template-columns:1fr}}
+#dialog .d-video{margin-top:1.75rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+#dialog .d-video video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;border-radius:.375rem;border:1px solid var(--border);background:#000}
+#dialog .d-video .dv-cap{margin-top:.65rem;font-size:.8rem;line-height:1.6;color:var(--muted-foreground)}
 #dialog .d-cta{margin-top:1.5rem}
 
 /* 3D 模型预览弹层 */
@@ -581,6 +584,10 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
         </div>
         <div class="dp-grid" id="dpGrid"></div>
       </div>
+      <div class="d-video" id="dVideo" hidden>
+        <video id="dVideoEl" muted playsinline preload="none" controls controlslist="nodownload"></video>
+        <p class="dv-cap" id="dVideoCap"></p>
+      </div>
       <div class="d-cta"><a class="btn-gold" href="#contact" id="dCta"><span id="dCtaText">洽谈类似项目</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg></a></div>
     </div>
@@ -646,7 +653,8 @@ var PROJECTS = [
      {src:XJ_IMG[1],label:'神秘森林 · 自由意志之旅'},
      {src:XJ_IMG[2],label:'星界审判 · 命运抉择'}
    ]},
-  {id:'crab',index:'06',title:'宝可梦巨钳蟹笔架 · 3D 打印',client:'高二 · 社会实践',category:'3D打印',year:'2026',creator:'刘易轩',cover:P_BASE+'crab-cover.jpg',tags:['3D 打印','创意摆件','实践记录'],desc:'高二上学期期中考试后，我们开展了本学年第二次社会实践。受时长限制，本次模型由他人完成，我负责 3D 打印制作。这件螃蟹造型的笔托，兼具趣味与实用性，可收纳笔具，在实操中熟悉打印流程，体会数字造物的乐趣。',role:'3D 打印制作 / 流程实践',model:P_BASE+'crab-penholder.glb',
+  {id:'crab',index:'06',title:'宝可梦巨钳蟹笔架 · 3D 打印',client:'高二 · 社会实践',category:'3D打印',year:'2026',creator:'刘易轩',cover:P_BASE+'crab-cover.jpg',tags:['3D 打印','创意摆件','实践记录'],desc:'高二上学期期中考试后，我们开展了本学年第二次社会实践。受时长限制，本次模型由他人完成，我负责 3D 打印制作。这件螃蟹造型的笔托，兼具趣味与实用性，可收纳笔具，在实操中熟悉打印流程，体会数字造物的乐趣。',role:'3D 打印制作 / 流程实践',model:P_BASE+'crab-penholder.glb',crabPals:true,
+   video:{src:P_BASE+'crab-timelapse.mp4',caption:'本延时摄影展示了此模型的真实打印过程'},
    gallery:[
      {src:P_BASE+'crab-cover.jpg',label:'成品 · 巨钳蟹笔架'},
      {src:P_BASE+'crab-product.jpg',label:'实拍 · 棕色打印成品'}
@@ -836,6 +844,16 @@ function openDialog(p){
     }).join('');
     dp.hidden=false;
   }else{dp.hidden=true;}
+  // 延时摄影：仅带 video 的项目显示；观察器负责滚动露出时自动播放
+  var dvb=document.getElementById('dVideo'),dve=document.getElementById('dVideoEl');
+  if(p.video){
+    document.getElementById('dVideoCap').textContent=p.video.caption||'';
+    if(dve.getAttribute('src')!==p.video.src){dve.setAttribute('src',p.video.src);dve.load();}
+    dvb.hidden=false;
+  }else{
+    dvb.hidden=true;dve.pause();
+    if(dve.hasAttribute('src')){dve.removeAttribute('src');dve.load();}
+  }
   // 有 link 的项目：按钮变「直接跳转」，点击在新标签打开对应页面；否则恢复默认
   var cta=document.getElementById('dCta'),ctaText=document.getElementById('dCtaText');
   if(p.model){ctaText.textContent='预览';cta.href='#model';cta.target='';cta.rel='';}
@@ -844,10 +862,30 @@ function openDialog(p){
   currentProject=p;
   dialog.classList.add('open');
   document.body.style.overflow='hidden';
+  if(p.video)requestAnimationFrame(function(){
+    var v=document.getElementById('dVideoEl'),r=v.getBoundingClientRect(),pr=dialog.querySelector('.panel').getBoundingClientRect();
+    if(r.top<pr.bottom&&r.bottom>pr.top){var q=v.play();if(q&&q.catch)q.catch(function(){});}
+  });
 }
 var currentProject=null;
-function closeDialog(){dialog.classList.remove('open');document.body.style.overflow='';clearInterval(dcTimer);}
+function closeDialog(){dialog.classList.remove('open');document.body.style.overflow='';clearInterval(dcTimer);var dv=document.getElementById('dVideoEl');if(dv)dv.pause();}
 document.getElementById('dClose').addEventListener('click',closeDialog);
+/* 延时摄影：以弹窗滚动容器 .panel 为 root，露出约 1/4 时自动播放，滚出暂停。
+   muted + playsinline 是移动端/微信浏览器允许自动播放的必要条件；只在「由不可见进入可见」时播一次，
+   避免滚动过程中反复调用 play() 覆盖用户手动暂停。 */
+(function(){
+  var v=document.getElementById('dVideoEl'),panel=document.querySelector('#dialog .panel');
+  if(!v||!panel||!('IntersectionObserver' in window))return;
+  var wasVisible=false;
+  new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      var now=e.isIntersecting&&e.intersectionRatio>=.25;
+      if(now&&!wasVisible){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}
+      if(!e.isIntersecting)v.pause();
+      wasVisible=now;
+    });
+  },{root:panel,threshold:[0,.25,.5,.75]}).observe(v);
+})();
 document.getElementById('dBackdrop').addEventListener('click',closeDialog);
 document.getElementById('dCta').addEventListener('click',function(){
   if(currentProject&&currentProject.model){
@@ -862,11 +900,12 @@ document.getElementById('dCta').addEventListener('click',function(){
 var modelDialog=document.getElementById('modelDialog'),mvViewer=document.getElementById('mvViewer');
 /* 3 套配色：切换预生成的 GLB 变体（原模型含 72 个不同材质，运行时改色不可靠） */
 var MV_PALS=['school-badge-white.glb','school-badge-gold.glb','school-badge-dark.glb'];
-var mvPal=0;
+var CRAB_PALS=['crab-penholder.glb','crab-penholder-gold.glb','crab-penholder-dark.glb'];
+var mvPalFiles=MV_PALS,mvPal=0;
 function mvApplyPalette(i){
   mvPal=i;
   Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===i);});
-  mvViewer.setAttribute('src','/assets/'+MV_PALS[i]);
+  mvViewer.setAttribute('src','/assets/'+mvPalFiles[i]);
 }
 Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b){
   b.addEventListener('click',function(){mvApplyPalette(+b.getAttribute('data-pal'));});
@@ -875,11 +914,13 @@ function openModelViewer(p){
   if(!p||!p.model)return;
   document.getElementById('mvTitle').textContent=p.title;
   var palette=document.getElementById('mvPalette');
-  if(p.modelPals){   /* 校徽：3 套配色切换 */
+  var pals=p.modelPals?MV_PALS:(p.crabPals?CRAB_PALS:null);
+  if(pals){          /* 校徽 / 巨钳蟹：共用右侧 3 套配色 */
+    mvPalFiles=pals;
     mvPal=0;
     palette.style.display='';
     Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===0);});
-    mvViewer.setAttribute('src','/assets/'+MV_PALS[0]);
+    mvViewer.setAttribute('src','/assets/'+pals[0]);
   }else{             /* 其它：单一模型，隐藏配色栏 */
     palette.style.display='none';
     mvViewer.setAttribute('src',p.model);
