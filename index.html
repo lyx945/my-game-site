@@ -245,6 +245,15 @@ h1{font-family:var(--font-display);font-weight:300;font-size:clamp(3rem,9vw,7.5r
 #dialog dd.creator{color:var(--gold);font-weight:600;letter-spacing:.02em;white-space:nowrap}
 #dialog dd.creator::before{content:"✦ ";color:var(--gold);opacity:.75;margin-right:.15rem;font-size:.75em}
 #dialog .tags span{border-color:color-mix(in oklab,var(--gold) 30%,transparent);color:var(--gold)}
+#dialog .d-process{margin-top:1.75rem;padding-top:1.75rem;border-top:1px solid var(--border)}
+#dialog .d-process .dp-head{margin-bottom:1.1rem}
+#dialog .d-process .dp-head h4{font-size:1rem;letter-spacing:.12em;color:var(--foreground);font-weight:500}
+#dialog .d-process .dp-head p{margin-top:.4rem;font-size:.8rem;color:var(--muted-foreground)}
+#dialog .d-process .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+#dialog .d-process .dp-item{display:flex;flex-direction:column;gap:.55rem}
+#dialog .d-process .dp-item img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:.375rem;border:1px solid var(--border)}
+#dialog .d-process .dp-item .dp-cap{font-size:.78rem;line-height:1.6;color:var(--muted-foreground)}
+@media (max-width:767px){#dialog .d-process .dp-grid{grid-template-columns:1fr}}
 #dialog .d-cta{margin-top:1.5rem}
 
 /* 3D 模型预览弹层 */
@@ -565,6 +574,13 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
         <div><dt>创作者</dt><dd id="dCreator" class="creator"></dd></div>
       </dl>
       <div class="tags" id="dTags"></div>
+      <div class="d-process" id="dProcess" hidden>
+        <div class="dp-head">
+          <h4 id="dpTitle">实践过程</h4>
+          <p id="dpNote"></p>
+        </div>
+        <div class="dp-grid" id="dpGrid"></div>
+      </div>
       <div class="d-cta"><a class="btn-gold" href="#contact" id="dCta"><span id="dCtaText">洽谈类似项目</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg></a></div>
     </div>
@@ -622,16 +638,25 @@ var PROJECTS = [
      {src:GAME_IMG[1],label:'生物图鉴 · 收集与解锁'},
      {src:GAME_IMG[2],label:'班级排行榜 · 课间竞技'}
    ]},
-  {id:'badge',index:'03',title:'包九十五中校徽 · 3D 打印实践',client:'包头九十五中 · 社会实践',category:'数字体验',year:'2026',creator:'黄锦铭 刘易轩',cover:P_BASE+'school-badge-preview.jpg',tags:['3D 建模','3D 打印','校徽设计'],desc:'数字建模勾勒校徽轮廓，3D 打印赋予它实体温度。与同伴一同抠图、建模型、调试打印，在社会实践课堂解锁三维设计技能，让属于包头九十五中的标志落地成型，这份亲手做出来的作品，就是最好的实践纪念。',role:'三维建模 / 3D 打印 / 实践记录',model:P_BASE+'school-badge.glb'},
+  {id:'badge',index:'03',title:'包九十五中校徽 · 3D 打印实践',client:'包头九十五中 · 社会实践',category:'数字体验',year:'2026',creator:'黄锦铭 刘易轩',cover:P_BASE+'school-badge-preview.jpg',tags:['3D 建模','3D 打印','校徽设计'],desc:'数字建模勾勒校徽轮廓，3D 打印赋予它实体温度。与同伴一同抠图、建模型、调试打印，在社会实践课堂解锁三维设计技能，让属于包头九十五中的标志落地成型，这份亲手做出来的作品，就是最好的实践纪念。',role:'三维建模 / 3D 打印 / 实践记录',model:P_BASE+'school-badge.glb',modelPals:true,gallery:[{src:P_BASE+'school-badge-preview.jpg',label:'成品预览'},{src:P_BASE+'badge-sketchup.jpg',label:'SketchUp 建模过程'}]},
   {id:'duofangge',index:'04',title:'躲方格 2024 · 我的第一个游戏',client:'个人项目 · 初二',category:'数字体验',year:'2024',creator:'刘易轩',cover:P_BASE+'duofangge-cover.png',tags:['网页小游戏','编程猫','童年回忆'],desc:'2024 年读初二时，用编程猫搭出的第一个完整小游戏。当时的积木编程极大地吸引了我，后来把作品导出成 HTML，保留下基本玩法供大家游玩。功能简单，却承载着我满满的回忆。',role:'积木编程 / 游戏设计 / 童年记录',link:'https://303329.xyz/duofangge/dfg2024.html'},
   {id:'xingjie',index:'05',title:'星界审判：自由意志的曙光',client:'个人项目 · 编程猫',category:'数字体验',year:'2024',creator:'一抹晨曦',cover:IMG.xingjie,tags:['剧情冒险','战斗系统','多结局'],desc:'一款用编程猫开发的剧情冒险游戏。在审判者与玩家的博弈中，探索神秘森林、穿越梦幻星空，每一次对话与选择都在推动剧情、改写属于自己的结局。',role:'剧情设计 / 游戏开发 / 美术整合',link:'https://303329.xyz/xingjie/index.html',
    gallery:[
      {src:XJ_IMG[0],label:'审判者 · 红色竞技场'},
      {src:XJ_IMG[1],label:'神秘森林 · 自由意志之旅'},
      {src:XJ_IMG[2],label:'星界审判 · 命运抉择'}
-   ]}
+   ]},
+  {id:'crab',index:'06',title:'宝可梦巨钳蟹笔架 · 3D 打印',client:'高二 · 社会实践',category:'3D打印',year:'2026',creator:'刘易轩',cover:P_BASE+'crab-cover.jpg',tags:['3D 打印','创意摆件','实践记录'],desc:'高二上学期期中考试后，我们开展了本学年第二次社会实践。受时长限制，本次模型由他人完成，我负责 3D 打印制作。这件螃蟹造型的笔托，兼具趣味与实用性，可收纳笔具，在实操中熟悉打印流程，体会数字造物的乐趣。',role:'3D 打印制作 / 流程实践',model:P_BASE+'crab-penholder.glb',
+   gallery:[
+     {src:P_BASE+'crab-cover.jpg',label:'成品 · 巨钳蟹笔架'},
+     {src:P_BASE+'crab-product.jpg',label:'实拍 · 棕色打印成品'}
+   ],
+   process:{title:'实践过程',note:'继续向下滚动，看看它是如何在机器里逐层成型的',items:[
+     {src:P_BASE+'crab-print1.jpg',caption:'与拓竹 P2S 合影。看着螃蟹笔托在机器里逐层成型，不禁感叹 3D 打印的神奇'},
+     {src:P_BASE+'crab-print2.jpg',caption:'与拓竹 P2S 合影。看着螃蟹笔托在机器里逐层成型，不禁感叹 3D 打印的神奇'}
+   ]}}
 ];
-var FILTERS = ['全部','数字体验'];
+var FILTERS = ['全部','数字体验','3D打印'];
 var SERVICES = [
   {no:'01',title:'创意工具开发',desc:'把脑海里的点子做成真正能用起来的网页工具，从想法、原型到上线一站式完成。',deliverables:['需求分析','原型开发','上线部署']},
   {no:'02',title:'网页小游戏',desc:'轻量、好玩、打开即玩的小游戏——合成、闯关、答题，适配手机与电脑多种屏幕。',deliverables:['玩法设计','游戏开发','排行榜与存档']},
@@ -801,6 +826,16 @@ function openDialog(p){
   document.getElementById('dRole').textContent=p.role;
   document.getElementById('dCreator').textContent=p.creator||'—';
   document.getElementById('dTags').innerHTML=p.tags.map(function(t){return '<span>'+esc(t)+'</span>';}).join('');
+  // 实践过程区：仅当项目带 process 时显示
+  var dp=document.getElementById('dProcess');
+  if(p.process){
+    document.getElementById('dpTitle').textContent=p.process.title||'实践过程';
+    document.getElementById('dpNote').textContent=p.process.note||'';
+    document.getElementById('dpGrid').innerHTML=(p.process.items||[]).map(function(it){
+      return '<div class="dp-item"><img src="'+it.src+'" alt="'+esc(it.caption||'实践过程')+'" loading="lazy"/><div class="dp-cap">'+esc(it.caption||'')+'</div></div>';
+    }).join('');
+    dp.hidden=false;
+  }else{dp.hidden=true;}
   // 有 link 的项目：按钮变「直接跳转」，点击在新标签打开对应页面；否则恢复默认
   var cta=document.getElementById('dCta'),ctaText=document.getElementById('dCtaText');
   if(p.model){ctaText.textContent='预览';cta.href='#model';cta.target='';cta.rel='';}
@@ -839,9 +874,16 @@ Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),
 function openModelViewer(p){
   if(!p||!p.model)return;
   document.getElementById('mvTitle').textContent=p.title;
-  mvPal=0;
-  Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===0);});
-  mvViewer.setAttribute('src','/assets/'+MV_PALS[0]);   /* 默认珠光白 */
+  var palette=document.getElementById('mvPalette');
+  if(p.modelPals){   /* 校徽：3 套配色切换 */
+    mvPal=0;
+    palette.style.display='';
+    Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===0);});
+    mvViewer.setAttribute('src','/assets/'+MV_PALS[0]);
+  }else{             /* 其它：单一模型，隐藏配色栏 */
+    palette.style.display='none';
+    mvViewer.setAttribute('src',p.model);
+  }
   mvViewer.alt=p.title+' 3D 模型';
   modelDialog.classList.add('open');
   document.body.style.overflow='hidden';
