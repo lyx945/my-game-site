@@ -33,6 +33,9 @@
   #configWarning code{background:#ffedcc;padding:1px 5px;border-radius:4px}
   #toast{position:fixed;z-index:120;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2434;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:var(--shadow)}
   #toast.show{opacity:1}
+  .attach-menu{position:fixed;z-index:130;display:flex;flex-direction:column;min-width:180px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;padding:6px}
+  .attach-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);font-size:13px;font-weight:500;padding:10px 12px;border-radius:8px;cursor:pointer}
+  .attach-menu button:hover{background:var(--brand-soft);color:var(--brand)}
   .push-nudge{position:fixed;z-index:119;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(92vw,560px);background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);font-size:12px;color:var(--text)}
   .push-nudge .pn-txt{flex:1;line-height:1.5}
   .push-nudge .pn-ok{flex:0 0 auto;border:0;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:11px;font-weight:600;padding:7px 12px;cursor:pointer}
@@ -509,8 +512,9 @@
       <div class="composer">
         <button class="icon-btn" id="emojiBtn" title="表情" disabled>😊</button>
         <button class="icon-btn" id="voiceBtn" title="发送语音" disabled>🎤</button>
-        <button class="icon-btn" id="attachBtn" title="发送文件" disabled>📎</button>
-        <input type="file" id="fileInput" hidden>
+        <button class="icon-btn" id="attachBtn" title="发送文件（支持多选/拖拽/粘贴/整个文件夹）" disabled>📎</button>
+        <input type="file" id="fileInput" hidden multiple>
+        <input type="file" id="folderInput" hidden webkitdirectory directory multiple>
         <textarea id="msgInput" rows="1" placeholder="登录账号后才能发言" disabled></textarea>
         <button class="send-btn" id="sendBtn" disabled>发送</button>
         <div class="mention-pop" id="mentionPopPrivate"></div>
@@ -604,8 +608,9 @@
       <div class="messages" id="lobbyMessages"></div>
       <div class="composer">
         <button class="icon-btn" id="lobbyEmojiBtn" title="表情">😊</button>
-        <button class="icon-btn" id="lobbyAttachBtn" title="发送文件（最大 5MB，仅登录用户）" disabled>📎</button>
-        <input type="file" id="lobbyFileInput" hidden>
+        <button class="icon-btn" id="lobbyAttachBtn" title="发送文件（支持多选/拖拽/粘贴/整个文件夹，最大 5MB）" disabled>📎</button>
+        <input type="file" id="lobbyFileInput" hidden multiple>
+        <input type="file" id="lobbyFolderInput" hidden webkitdirectory directory multiple>
         <textarea id="lobbyInput" rows="1" placeholder="说点什么"></textarea>
         <button class="send-btn" id="lobbySendBtn">发送</button>
         <div class="mention-pop" id="mentionPopLobby"></div>
@@ -792,6 +797,8 @@
 </div>
 
 <script type="module">
+/* 文件夹打包：fflate 轻量 zip 库（CDN） */
+import { zipSync, strToU8 } from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js';
 /* ========== 1. Supabase 配置 ========== */
 const SUPABASE_URL = 'https://znqiksqldqthcnlbrwzi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
@@ -2649,18 +2656,75 @@ $('lobbyInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){
 // 大厅文件上传：仅已登录账号（普通/管理员），游客禁用；上限 5MB
 $('lobbyAttachBtn').onclick=()=>{
   if(!isLoggedIn){toast('游客不能发文件，请登录账号');return;}
-  $('lobbyFileInput').click();
+  showLobbyAttachMenu();
 };
+/* 大厅附件菜单：多选文件 / 整个文件夹 */
+let lobbyMenuEl=null;
+function closeLobbyMenu(){ if(lobbyMenuEl&&lobbyMenuEl.parentNode)lobbyMenuEl.parentNode.removeChild(lobbyMenuEl); lobbyMenuEl=null; }
+function showLobbyAttachMenu(){
+  if(lobbyMenuEl)return closeLobbyMenu();
+  lobbyMenuEl=document.createElement('div');
+  lobbyMenuEl.className='attach-menu';
+  lobbyMenuEl.innerHTML=
+    '<button type="button" data-act="files">📄 选择文件（可多选）</button>'+
+    '<button type="button" data-act="folder">📁 选择整个文件夹</button>';
+  document.body.appendChild(lobbyMenuEl);
+  const btn=$('lobbyAttachBtn');
+  const r=btn.getBoundingClientRect();
+  lobbyMenuEl.style.left=Math.min(r.left,window.innerWidth-190)+'px';
+  lobbyMenuEl.style.bottom=(window.innerHeight-r.top+8)+'px';
+  lobbyMenuEl.querySelector('[data-act="files"]').onclick=()=>{closeLobbyMenu();$('lobbyFileInput').click();};
+  lobbyMenuEl.querySelector('[data-act="folder"]').onclick=()=>{closeLobbyMenu();$('lobbyFolderInput').click();};
+  setTimeout(()=>document.addEventListener('click',function h(e){if(lobbyMenuEl&&!lobbyMenuEl.contains(e.target)){closeLobbyMenu();document.removeEventListener('click',h);}}),0);
+}
 // 粘贴文件：大厅输入框（仅登录用户生效）
 $('lobbyInput').addEventListener('paste',e=>{
   if(!isLoggedIn)return;
   const files=e.clipboardData&&e.clipboardData.files;
-  if(files&&files.length){e.preventDefault();handleLobbyFile(files[0]);}
+  if(files&&files.length){e.preventDefault();sendLobbyFiles(Array.from(files));}
 });
 $('lobbyFileInput').addEventListener('change',e=>{
-  const file=e.target.files&&e.target.files[0];e.target.value='';
-  if(file)handleLobbyFile(file);
+  const files=e.target.files;e.target.value='';
+  if(files&&files.length)sendLobbyFiles(Array.from(files));
 });
+$('lobbyFolderInput').addEventListener('change',e=>{
+  const files=e.target.files;e.target.value='';
+  if(files&&files.length)sendLobbyFolder(Array.from(files));
+});
+/* 大厅批量发送 */
+function sendLobbyFiles(files){
+  if(!files||!files.length)return;
+  const ok=[],badSize=[],dangerous=[];
+  files.forEach(f=>{
+    if(isDangerousFile(f.name)){dangerous.push(f.name);return;}
+    if(f.size>LIMIT_USER){badSize.push(f.name+'('+fmtSize(f.size)+')');return;}
+    ok.push(f);
+  });
+  if(dangerous.length)toast('已跳过不安全类型：'+dangerous.slice(0,3).map(safeExt).join('、')+(dangerous.length>3?' 等'+dangerous.length+'个':''));
+  if(badSize.length)toast('已跳过超限文件：'+badSize.slice(0,2).join('、')+(badSize.length>2?' 等'+badSize.length+'个':''));
+  if(!ok.length)return;
+  toast(`开始发送 ${ok.length} 个文件…`);
+  ok.forEach(f=>handleLobbyFile(f));
+}
+async function sendLobbyFolder(files){
+  if(!files||!files.length)return;
+  const zipName=guessFolderName(files)||'文件夹';
+  $('lobbyAttachBtn').disabled=true;$('lobbySendBtn').disabled=true;
+  toast('正在打包文件夹…');
+  try{
+    const entries={};
+    files.forEach(f=>{entries[f.webkitRelativePath||f.name]=new Uint8Array(f);});
+    const zipped=zipSync(entries,{level:6});
+    const blob=new Blob([zipped],{type:'application/zip'});
+    const file=new File([blob],zipName+'.zip',{type:'application/zip'});
+    if(file.size>LIMIT_USER){toast(`打包后 ${fmtSize(file.size)}，超过上限 5MB`);return;}
+    await handleLobbyFile(file);
+  }catch(err){
+    console.error('[lobbyFolder]',err);toast('文件夹打包失败：'+(err.message||'请检查文件夹内容'));
+  }finally{
+    $('lobbyAttachBtn').disabled=!isLoggedIn;$('lobbySendBtn').disabled=false;
+  }
+}
 async function handleLobbyFile(file){
   if(!file||!isLoggedIn)return;
   if(isDangerousFile(file.name)){toast('出于安全考虑，不支持上传该类型文件（'+safeExt(file.name)+'）');return;}
@@ -3579,22 +3643,103 @@ document.addEventListener('click',e=>{
 });
 $('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(sysView)sendSysChat();else sendMessage();}});
 
-$('attachBtn').onclick=()=>{if(canSendPrivate)$('fileInput').click();else toast('游客只读，请先登录账号');};
+/* 附件入口：点一下弹「文件 / 文件夹」选择菜单 */
+$('attachBtn').onclick=()=>{
+  if(!canSendPrivate){toast('游客只读，请先登录账号');return;}
+  showAttachMenu();
+};
 // 语音：点一下开始录音，再点一下发送（也可用录音条上的按钮）
 $('voiceBtn').onclick=()=>{ if(rec) stopVoice(true); else startVoice(); };
 $('recCancel').onclick=()=>stopVoice(false);
 $('recSend').onclick=()=>stopVoice(true);
 $('quoteCancel').onclick=clearQuote;
+
+/* ===== 附件菜单：多选文件 / 整个文件夹 ===== */
+let attachMenuEl=null;
+function closeAttachMenu(){ if(attachMenuEl&&attachMenuEl.parentNode)attachMenuEl.parentNode.removeChild(attachMenuEl); attachMenuEl=null; }
+function showAttachMenu(){
+  if(attachMenuEl)return closeAttachMenu();
+  attachMenuEl=document.createElement('div');
+  attachMenuEl.className='attach-menu';
+  attachMenuEl.innerHTML=
+    '<button type="button" data-act="files">📄 选择文件（可多选）</button>'+
+    '<button type="button" data-act="folder">📁 选择整个文件夹</button>';
+  document.body.appendChild(attachMenuEl);
+  const btn=$('attachBtn');
+  const r=btn.getBoundingClientRect();
+  attachMenuEl.style.left=Math.min(r.left,window.innerWidth-190)+'px';
+  attachMenuEl.style.bottom=(window.innerHeight-r.top+8)+'px';
+  attachMenuEl.querySelector('[data-act="files"]').onclick=()=>{closeAttachMenu();$('fileInput').click();};
+  attachMenuEl.querySelector('[data-act="folder"]').onclick=()=>{closeAttachMenu();$('folderInput').click();};
+  setTimeout(()=>document.addEventListener('click',function h(e){if(attachMenuEl&&!attachMenuEl.contains(e.target)){closeAttachMenu();document.removeEventListener('click',h);}}),0);
+}
+
 // 粘贴文件：私聊输入框（仅上传按钮可用时生效）
 $('msgInput').addEventListener('paste',e=>{
   if(!canSendPrivate||sysView)return;
   const files=e.clipboardData&&e.clipboardData.files;
-  if(files&&files.length){e.preventDefault();handlePrivateFile(files[0]);}
+  if(files&&files.length){e.preventDefault();sendPrivateFiles(Array.from(files));}
 });
 $('fileInput').addEventListener('change',e=>{
-  const file=e.target.files&&e.target.files[0];e.target.value='';
-  if(file)handlePrivateFile(file);
+  const files=e.target.files;e.target.value='';
+  if(files&&files.length)sendPrivateFiles(Array.from(files));
 });
+$('folderInput').addEventListener('change',e=>{
+  const files=e.target.files;e.target.value='';
+  if(files&&files.length)sendPrivateFolder(Array.from(files));
+});
+/* ===== 批量/文件夹发送（私聊/群聊） ===== */
+function sendPrivateFiles(files){
+  if(!files||!files.length)return;
+  if(!groupView&&(!currentPeer||!canSendPrivate)){toast('游客只读，请先登录账号');return;}
+  if(groupView&&!currentGroup){toast('请先打开一个群聊');return;}
+  const ok=[],badSize=[],dangerous=[];
+  files.forEach(f=>{
+    if(isDangerousFile(f.name)){dangerous.push(f.name);return;}
+    if(f.size>maxFileSize){badSize.push(f.name+'('+fmtSize(f.size)+')');return;}
+    ok.push(f);
+  });
+  if(dangerous.length)toast('已跳过不安全类型：'+dangerous.slice(0,3).map(safeExt).join('、')+(dangerous.length>3?' 等'+dangerous.length+'个':''));
+  if(badSize.length)toast('已跳过超限文件：'+badSize.slice(0,2).join('、')+(badSize.length>2?' 等'+badSize.length+'个':''));
+  if(!ok.length)return;
+  toast(`开始发送 ${ok.length} 个文件…`);
+  ok.forEach(f=>handlePrivateFile(f));
+}
+/* 整个文件夹 → 打包成 zip 后作为单个文件发送 */
+async function sendPrivateFolder(files){
+  if(!files||!files.length)return;
+  if(!groupView&&(!currentPeer||!canSendPrivate)){toast('游客只读，请先登录账号');return;}
+  if(groupView&&!currentGroup){toast('请先打开一个群聊');return;}
+  const zipName=guessFolderName(files)||'文件夹';
+  $('uploadBar').classList.add('show');$('uploadText').textContent='正在打包文件夹…';
+  try{
+    const entries={};
+    files.forEach(f=>{
+      // webkitRelativePath 保留目录结构；无则用文件名
+      const rel=f.webkitRelativePath||f.name;
+      entries[rel]=new Uint8Array(f);
+    });
+    const zipped=zipSync(entries,{level:6});
+    const blob=new Blob([zipped],{type:'application/zip'});
+    const file=new File([blob],zipName+'.zip',{type:'application/zip'});
+    if(file.size>maxFileSize){toast(`打包后 ${fmtSize(file.size)}，超过上限 ${fmtSize(maxFileSize)}`);return;}
+    $('uploadText').textContent='打包完成，正在发送 '+file.name+' …';
+    await handlePrivateFile(file);
+  }catch(err){
+    console.error('[folder]',err);toast('文件夹打包失败：'+(err.message||'请检查文件夹内容'));
+  }finally{
+    $('uploadBar').classList.remove('show');
+  }
+}
+/* 从文件列表猜测文件夹名（取首个文件的 webkitRelativePath 顶层目录） */
+function guessFolderName(files){
+  for(const f of files){
+    const rel=f.webkitRelativePath;
+    if(rel){const parts=rel.split('/');return parts.length>1?parts[0]:null;}
+  }
+  return null;
+}
+
 async function handlePrivateFile(file){
   if(!file||!sb)return;
   if(!groupView&&(!currentPeer||!canSendPrivate))return;
@@ -3644,13 +3789,18 @@ async function handlePrivateFile(file){
 /* ===== 文件快捷发送：按当前上下文分发（拖拽 / 全局粘贴共用） ===== */
 function sendFileByContext(file){
   if(!file)return;
+  sendFilesByContext([file]);
+}
+function sendFilesByContext(files){
+  if(!files||!files.length)return;
+  const first=files[0];
   if(view==='lobby'){
     if(!isLoggedIn){toast('游客不能发文件，请登录账号');return;}
-    handleLobbyFile(file);return;
+    sendLobbyFiles(files);return;
   }
   if(sysView){toast('系统消息不支持发送文件');return;}
-  if(groupView&&currentGroup){handlePrivateFile(file);return;}
-  if(currentPeer){if(canSendPrivate)handlePrivateFile(file);else toast('游客只读，请先登录账号');return;}
+  if(groupView&&currentGroup){sendPrivateFiles(files);return;}
+  if(currentPeer){if(canSendPrivate)sendPrivateFiles(files);else toast('游客只读，请先登录账号');return;}
   toast('请先打开一个会话再发送文件');
 }
 // 拖拽发送：大厅 + 私聊/群聊消息区
@@ -3674,7 +3824,7 @@ function bindDropZone(el){
     if(!e.dataTransfer)return;
     e.preventDefault();
     const files=e.dataTransfer.files;
-    if(files&&files.length)sendFileByContext(files[0]);
+    if(files&&files.length)sendFilesByContext(Array.from(files));
   });
 }
 bindDropZone($('messages'));
@@ -3685,7 +3835,7 @@ document.addEventListener('paste',e=>{
   const t=e.target&&e.target.tagName;
   if(t==='TEXTAREA'||t==='INPUT')return; // 输入框内粘贴由各自监听处理
   const files=e.clipboardData&&e.clipboardData.files;
-  if(files&&files.length){e.preventDefault();sendFileByContext(files[0]);}
+  if(files&&files.length){e.preventDefault();sendFilesByContext(Array.from(files));}
 });
 
 /* ========== 11b. 导出聊天记录为 PDF（微信气泡排版） ========== */
