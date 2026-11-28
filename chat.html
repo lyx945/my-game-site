@@ -3160,7 +3160,13 @@ async function joinRoom(peerId){
   const rid=roomIdOf(myId,peerId);
   roomCh=trackCh(sb.channel('room-'+rid));
   roomCh.on('broadcast',{event:'typing'},({payload})=>{if(payload.from===peerId)setTyping(!!payload.typing);});
-  await new Promise(r=>roomCh.subscribe(r));
+  // 订阅可能因网络慢而迟迟不回调，不能让历史消息一直等它（否则点开会话是空白）
+  await new Promise(r=>{
+    let done=false;
+    const fin=()=>{if(!done){done=true;r();}};
+    roomCh.subscribe(fin);
+    setTimeout(fin,1500);
+  });
 }
 function setTyping(on){const s=$('peerSub');s.textContent=on?'对方正在输入…':'一对一私聊';s.classList.toggle('typing',on);}
 function notifyTyping(){
