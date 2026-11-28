@@ -241,6 +241,36 @@
   .pf-live{background:rgba(229,72,77,.14);border:1px solid rgba(229,72,77,.45);color:#ff8b8e;
     border-radius:9px;padding:9px;font-size:12px;text-align:center;margin-bottom:4px}
 
+  /* 弹幕设置面板 */
+  .dm-panel{position:absolute;right:10px;top:52px;z-index:9;width:250px;background:rgba(20,17,14,.96);
+    border:1px solid var(--line);border-radius:11px;padding:12px;backdrop-filter:blur(8px);
+    box-shadow:0 14px 36px rgba(0,0,0,.55);display:none}
+  .dm-panel.open{display:block}
+  .dm-panel .row{margin-bottom:11px}
+  .dm-panel .row:last-child{margin-bottom:0}
+  .dm-panel .lbl{font-size:10.5px;letter-spacing:.14em;color:var(--muted);margin-bottom:6px}
+  .dm-seg{display:flex;gap:5px;flex-wrap:wrap}
+  .dm-seg button{flex:1;min-width:52px;border:1px solid var(--line);background:transparent;color:var(--fg);
+    border-radius:7px;padding:6px 4px;font-size:11.5px}
+  .dm-seg button.on{border-color:var(--gold);color:var(--gold);background:rgba(201,169,97,.12)}
+  .dm-note{font-size:10.5px;color:#8a8377;line-height:1.6;margin-top:8px}
+
+  /* 分享弹窗 */
+  .share-list{max-height:280px;overflow-y:auto;margin-bottom:10px}
+  .share-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line);
+    border-radius:9px;margin-bottom:6px;cursor:pointer}
+  .share-item:hover{border-color:rgba(201,169,97,.5)}
+  .share-item.on{border-color:var(--gold);background:rgba(201,169,97,.1)}
+  .share-item .av{width:26px;height:26px;border-radius:50%;background:var(--gold-dim);color:#1a150e;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:0 0 26px;overflow:hidden}
+  .share-item .av img{width:100%;height:100%;object-fit:cover}
+  .share-item .nm{flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .share-item .ck{width:16px;height:16px;accent-color:var(--gold)}
+
+  .rec-dot{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#ff8b8e;
+    border:1px solid rgba(229,72,77,.45);border-radius:999px;padding:3px 9px}
+  .rec-dot i{width:6px;height:6px;border-radius:50%;background:#e5484d;animation:blink 1.2s infinite}
+
   .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(14px);
     background:rgba(30,26,22,.97);border:1px solid var(--gold);color:var(--gold);border-radius:999px;
     padding:10px 20px;font-size:12.5px;z-index:120;opacity:0;pointer-events:none;
@@ -382,7 +412,30 @@
 
         <div class="top-tools">
           <button class="tool-btn" id="dmToggle" title="弹幕开关">弹</button>
+          <button class="tool-btn" id="dmSettingsBtn" title="弹幕设置">⚙</button>
           <button class="tool-btn" id="fsBtn" title="全屏">⛶</button>
+        </div>
+
+        <div class="dm-panel" id="dmPanel">
+          <div class="row">
+            <div class="lbl">字体大小</div>
+            <div class="dm-seg" id="dmSizeSeg">
+              <button data-size="14">小</button>
+              <button data-size="16">中</button>
+              <button data-size="19">大</button>
+              <button data-size="23">特大</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="lbl">显示位置</div>
+            <div class="dm-seg" id="dmPosSeg">
+              <button data-pos="top">顶部</button>
+              <button data-pos="middle">中间</button>
+              <button data-pos="bottom">底部</button>
+              <button data-pos="full">满屏</button>
+            </div>
+          </div>
+          <div class="dm-note">默认显示在画面中间，避免被顶部按钮遮挡。设置只影响你自己的观看端。</div>
         </div>
 
         <div class="pip hidden" id="pip">
@@ -413,6 +466,7 @@
           <div class="dev-pop" id="camPop"></div>
         </div>
         <button class="btn btn-sm" id="btnSrc">🔀 画面来源</button>
+        <button class="btn btn-sm" id="dmPipBtn">🪟 弹幕浮窗</button>
         <button class="btn btn-sm btn-danger" id="endLive">结束直播</button>
       </div>
 
@@ -429,6 +483,10 @@
     <div class="share-row">
       <input id="shareLink" readonly>
       <button class="btn btn-sm" id="copyLink">复制链接</button>
+      <button class="btn btn-sm" id="shareChatBtn">💬 分享给好友</button>
+    </div>
+    <div class="controls" style="margin-top:8px">
+      <span class="rec-dot hidden" id="recDot"><i></i>正在录制回放</span>
     </div>
   </section>
 
@@ -465,6 +523,22 @@
     <p style="font-size:11.5px;color:var(--muted);line-height:1.7;margin:12px 0 0">
       选择共享屏幕后，浏览器会弹出选择框，可挑整个屏幕、某个窗口或某个标签页。
     </p>
+  </div>
+</div>
+
+<!-- 分享到悄悄话 -->
+<div class="modal" id="shareModal">
+  <div class="box">
+    <h3>分享直播间到悄悄话</h3>
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin:0 0 12px">
+      选择好友后会发送一张直播卡片，点开卡片即可进入直播间。
+    </p>
+    <div class="share-list" id="shareList"><div style="padding:16px;text-align:center;color:#8a8377;font-size:12px">加载中…</div></div>
+    <div class="err" id="shareErr"></div>
+    <div class="btn-row" style="justify-content:flex-end">
+      <button class="btn btn-sm" id="shareCancel">取消</button>
+      <button class="btn btn-sm btn-gold" id="shareSend">发送卡片</button>
+    </div>
   </div>
 </div>
 
@@ -515,7 +589,9 @@
     danmakuOn:true,laneFree:[],seen:new Set(),
     actx:null,analyser:null,waveTimer:null,
     offerGen:{},lastJoin:0,lastPing:0,curGen:0,
-    hostName:'',hostAvatar:'',banBtnShown:false};
+    hostName:'',hostAvatar:'',banBtnShown:false,
+    dmSize:16,dmPos:'middle',pipWin:null,pipLayer:null,
+    rec:null,recParts:0,recTimer:null};
 
   /* ================= 基础工具 ================= */
   function toast(msg,isErr){
@@ -814,6 +890,7 @@
     enterRoom();
     subscribeAsHost();
     startHeartbeat();
+    startRecording();
     toast('已开播，直播号 '+room.code);
   }
 
@@ -854,7 +931,10 @@
       $('hostNm').textContent=state.room.host_name||'主播';
       setHint('正在连接主播…');
       $('pip').classList.add('hidden');
+      $('viewerBadge').textContent=(state.room.viewer_count||0)+' 人观看';
+      refreshViewerCount();
     }
+    recordParticipant(state.role==='host'?'host':'viewer');
     loadHostProfile();
     loadDanmu();
     watchRoomRow();
@@ -976,11 +1056,21 @@
 
   function updateViewerCount(){
     var n=state.peers.size;
-    var txt=n+' 人观看';
-    $('viewerBadge').textContent=txt;
+    $('viewerBadge').textContent=n+' 人观看';
     if(state.role==='host'&&sb&&state.room){
+      // 广播比写库快，观众端不用等心跳就能看到正确人数
+      try{state.channel&&state.channel.send({type:'broadcast',event:'count',payload:{n:n}});}catch(e){}
       sb.from('live_rooms').update({viewer_count:n}).eq('id',state.room.id).then(function(){},function(){});
     }
+  }
+  async function refreshViewerCount(){
+    if(!sb||!state.room)return;
+    try{
+      var r=await sb.from('live_rooms').select('viewer_count').eq('id',state.room.id).maybeSingle();
+      if(r.data&&typeof r.data.viewer_count==='number'&&state.role==='viewer'){
+        $('viewerBadge').textContent=r.data.viewer_count+' 人观看';
+      }
+    }catch(e){}
   }
 
   function replaceAllTracks(){
@@ -1064,6 +1154,11 @@
     ch.on('broadcast',{event:'notice'},function(payload){
       var d=payload&&payload.payload;
       if(d&&d.text)pushDm(d.text,{sys:true,force:true});
+    });
+
+    ch.on('broadcast',{event:'count'},function(payload){
+      var d=payload&&payload.payload;
+      if(d&&typeof d.n==='number')$('viewerBadge').textContent=d.n+' 人观看';
     });
 
     ch.on('broadcast',{event:'video-idle'},function(){
@@ -1208,14 +1303,26 @@
     $('idleBanner').classList.remove('hidden');
     setHint('你当前没有输出画面（'+reason+'）。直播还在继续，可重新选择画面来源。');
     updateCamUI();
+    restartRecSegment();
     toast(reason+'，直播继续',true);
   }
 
   /* ================= 弹幕 ================= */
-  function laneCount(){
-    var h=$('dmLayer').clientHeight||200;
-    return Math.max(2,Math.floor((h-70)/30));
+  /* 弹幕显示区域：默认居中，避免被顶部按钮遮挡 */
+  function dmArea(){
+    var layer=$('dmLayer');
+    var h=layer.clientHeight||200, w=layer.clientWidth||320;
+    var pos=state.dmPos||'middle';
+    var band;
+    if(pos==='top')band={top:10,height:Math.max(60,h*0.42)};
+    else if(pos==='bottom')band={top:Math.max(10,h*0.56),height:Math.max(60,h-h*0.56-62)};
+    else if(pos==='full')band={top:10,height:Math.max(60,h-62)};
+    else band={top:Math.max(10,h*0.30),height:Math.max(60,Math.min(h*0.40,h-72))};
+    var laneH=(state.dmSize||16)+14;
+    return {top:band.top,height:band.height,laneH:laneH,w:w,
+      lanes:Math.max(1,Math.floor(band.height/laneH))};
   }
+  function laneCount(){return dmArea().lanes;}
   function pickLane(n){
     var now=Date.now();
     for(var i=0;i<n;i++){
@@ -1225,29 +1332,28 @@
     for(var j=1;j<n;j++){if((state.laneFree[j]||0)<(state.laneFree[min]||0))min=j;}
     return min;
   }
-  function pushDm(text,opt){
-    opt=opt||{};
-    if(!text)return;
-    if(!state.danmakuOn&&!opt.force)return;
-    var layer=$('dmLayer');
+  function flyIn(layer,text,opt,area){
     if(!layer)return;
-    var W=layer.clientWidth;
+    var W=area.w||layer.clientWidth;
     if(!W)return;
     var el=document.createElement('div');
     el.className='dm-item'+(opt.sys?' sys':'')+(opt.self?' self':'');
+    el.style.fontSize=(state.dmSize||16)+'px';
     el.textContent=text;
     if(opt.color&&!opt.sys)el.style.color=opt.color;
-    el.dataset.who=opt.who||'';
-    el.dataset.time=opt.time||new Date().toISOString();
-    el.dataset.text=text;
-    el.addEventListener('click',function(){
-      showDmDetail(el.dataset.who,el.dataset.time,el.dataset.text);
-    });
+    if(!opt.pip){
+      el.dataset.who=opt.who||'';
+      el.dataset.time=opt.time||new Date().toISOString();
+      el.dataset.text=text;
+      el.addEventListener('click',function(){
+        showDmDetail(el.dataset.who,el.dataset.time,el.dataset.text);
+      });
+    }
     layer.appendChild(el);
-    var n=laneCount();
+    var n=area.lanes;
     var lane=pickLane(n);
-    el.style.top=(6+lane*30)+'px';
-    var ew=el.offsetWidth||text.length*16;
+    el.style.top=(area.top+lane*area.laneH)+'px';
+    var ew=el.offsetWidth||text.length*(state.dmSize||16);
     var dur=Math.max(7000,Math.round((W+ew)/110*1000));
     var anim=el.animate(
       [{transform:'translateX('+W+'px)'},{transform:'translateX(-'+ew+'px)'}],
@@ -1255,6 +1361,18 @@
     );
     anim.onfinish=function(){if(el.parentNode)el.parentNode.removeChild(el);};
     state.laneFree[lane]=Date.now()+Math.min(2600,Math.round(ew/110*1000*0.5));
+  }
+  function pushDm(text,opt){
+    opt=opt||{};
+    if(!text)return;
+    if(!state.danmakuOn&&!opt.force)return;
+    var area=dmArea();
+    flyIn($('dmLayer'),text,opt,area);
+    // 主播开着「弹幕浮窗」时，同一句也飞进那个置顶小窗
+    if(state.pipLayer&&state.pipWin&&!state.pipWin.closed){
+      flyIn(state.pipLayer,text,Object.assign({},opt,{pip:true}),
+        {w:state.pipWin.innerWidth||360,top:4,lanes:Math.max(1,Math.floor(((state.pipWin.innerHeight||160)-8)/30)),laneH:30});
+    }
   }
   function showDmDetail(who,time,text){
     $('dmWho').textContent=who||'匿名观众';
@@ -1321,6 +1439,7 @@
   async function endLive(){
     if(state.role!=='host'||!state.room)return;
     if(!confirm('确认结束这场直播？观众会立即断开。'))return;
+    stopRecording();
     try{
       if(state.channel)state.channel.send({type:'broadcast',event:'ended',payload:{}});
       await sb.from('live_rooms').update({status:'ended',ended_at:new Date().toISOString()})
@@ -1340,6 +1459,7 @@
     show('landing');
   }
   function cleanup(){
+    stopRecording();
     stopHeartbeat();stopWatch();stopWatchdog();stopWaveform();
     if(state.chatCh){try{sb.removeChannel(state.chatCh);}catch(e){}state.chatCh=null;}
     if(state.channel){try{sb.removeChannel(state.channel);}catch(e){}state.channel=null;}
@@ -1528,6 +1648,7 @@
       updateCamUI();
       try{state.channel&&state.channel.send({type:'broadcast',event:'video-resume',payload:{}});}catch(e){}
       refreshDevicePops();
+      restartRecSegment();
       toast('已切换摄像头');
     }catch(e){toast('切换摄像头失败：'+(e.message||e.name),true);}
   }
@@ -1540,6 +1661,199 @@
     var b=$('btnCam');
     if(state.videoOn){b.classList.remove('muted');$('camTxt').textContent='摄像头开';}
     else{b.classList.add('muted');$('camTxt').textContent='摄像头关';}
+  }
+
+  /* ================= 弹幕偏好 / 设置面板 ================= */
+  function loadDmPrefs(){
+    try{
+      var v=JSON.parse(localStorage.getItem('qh_dm_pref')||'null');
+      if(v&&v.size)state.dmSize=Number(v.size)||16;
+      if(v&&v.pos)state.dmPos=v.pos;
+    }catch(e){}
+    syncDmUI();
+  }
+  function saveDmPrefs(){
+    try{localStorage.setItem('qh_dm_pref',JSON.stringify({size:state.dmSize,pos:state.dmPos}));}catch(e){}
+  }
+  function syncDmUI(){
+    Array.prototype.forEach.call(document.querySelectorAll('#dmSizeSeg button'),function(b){
+      b.classList.toggle('on',Number(b.dataset.size)===state.dmSize);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#dmPosSeg button'),function(b){
+      b.classList.toggle('on',b.dataset.pos===state.dmPos);
+    });
+  }
+  function setDmSize(px){
+    state.dmSize=px;state.laneFree=[];saveDmPrefs();syncDmUI();
+  }
+  function setDmPos(pos){
+    state.dmPos=pos;state.laneFree=[];saveDmPrefs();syncDmUI();
+  }
+
+  /* ================= 弹幕浮窗（主播投屏时也能看到弹幕） ================= */
+  async function toggleDmPip(){
+    if(state.pipWin&&!state.pipWin.closed){try{state.pipWin.close();}catch(e){}return;}
+    if(!('documentPictureInPicture' in window)){
+      toast('当前浏览器不支持弹幕浮窗，需 Chrome / Edge 116 以上',true);return;
+    }
+    try{
+      var w=await documentPictureInPicture.requestWindow({width:440,height:190});
+      var st=w.document.createElement('style');
+      st.textContent='html,body{margin:0;background:rgba(8,7,6,.62);overflow:hidden}'+
+        '.pip-wrap{position:relative;width:100%;height:100vh;overflow:hidden}'+
+        '.dm-item{position:absolute;left:0;white-space:nowrap;font-weight:600;color:#fff;'+
+        'text-shadow:0 1px 3px rgba(0,0,0,.95);will-change:transform}'+
+        '.dm-item.sys{color:#ffd98a}';
+      w.document.head.appendChild(st);
+      var wrap=w.document.createElement('div');wrap.className='pip-wrap';
+      w.document.body.appendChild(wrap);
+      state.pipWin=w;state.pipLayer=wrap;
+      try{w.document.title='直播弹幕';}catch(e){}
+      w.addEventListener('pagehide',function(){state.pipWin=null;state.pipLayer=null;});
+      toast('弹幕浮窗已打开，它会一直浮在最上层');
+    }catch(e){
+      toast('打开浮窗失败：'+(e.message||e.name),true);
+    }
+  }
+
+  /* ================= 分享到悄悄话 ================= */
+  function roomIdOf(a,b){return [a,b].sort().join('__');}
+  async function openShareModal(){
+    if(!state.room)return;
+    $('shareErr').textContent='';
+    $('shareModal').classList.add('open');
+    var box=$('shareList');
+    box.innerHTML='<div style="padding:16px;text-align:center;color:#8a8377;font-size:12px">加载中…</div>';
+    if(!sb){box.textContent='连接服务失败';return;}
+    var r=await sb.from('accounts').select('id,username,avatar_url,role').neq('role','ai').neq('id',myId).order('username');
+    if(r.error){box.innerHTML='<div style="padding:16px;text-align:center;color:#ff9b9e;font-size:12px">加载失败：'+esc(r.error.message)+'</div>';return;}
+    var list=r.data||[];
+    if(!list.length){box.innerHTML='<div style="padding:16px;text-align:center;color:#8a8377;font-size:12px">还没有其他已注册账号</div>';return;}
+    box.innerHTML='';
+    list.forEach(function(a){
+      var it=document.createElement('div');it.className='share-item';
+      var av=document.createElement('div');av.className='av';
+      if(a.avatar_url)av.innerHTML='<img src="'+esc(a.avatar_url)+'" alt="">';
+      else av.textContent=(a.username||'?').charAt(0).toUpperCase();
+      var nm=document.createElement('div');nm.className='nm';
+      nm.textContent=a.username+(a.role==='admin'?' 👑':'');
+      var cb=document.createElement('input');cb.type='checkbox';cb.className='ck';
+      cb.dataset.uid=a.id;cb.dataset.name=a.username;
+      cb.onchange=function(){it.classList.toggle('on',cb.checked);};
+      it.onclick=function(e){if(e.target!==cb){cb.checked=!cb.checked;it.classList.toggle('on',cb.checked);}};
+      it.append(av,nm,cb);box.appendChild(it);
+    });
+  }
+  async function sendShare(){
+    var picked=Array.prototype.map.call(
+      document.querySelectorAll('#shareList input.ck:checked'),
+      function(cb){return {id:cb.dataset.uid,name:cb.dataset.name};});
+    if(!picked.length){$('shareErr').textContent='请至少选择一位好友';return;}
+    if(!state.room||!sb)return;
+    $('shareSend').disabled=true;
+    try{
+      var rows=picked.map(function(p){
+        return {
+          room_id:roomIdOf(myId,p.id),sender_id:myId,sender_nickname:myNick,receiver_id:p.id,
+          content:'邀请你进入直播「'+state.room.title+'」（直播号 '+state.room.code+'）',
+          msg_type:'live_invite',invite_live_code:state.room.code,
+          invite_live_id:state.room.id,invite_status:'pending'
+        };
+      });
+      var r=await sb.from('messages').insert(rows);
+      if(r.error){$('shareErr').textContent='发送失败：'+r.error.message;return;}
+      $('shareModal').classList.remove('open');
+      toast('已向 '+picked.length+' 位好友发送直播卡片');
+    }catch(e){
+      $('shareErr').textContent='发送失败：'+(e.message||'网络异常');
+    }finally{$('shareSend').disabled=false;}
+  }
+
+  /* ================= 回放录制（分段上传，单段 < 50MB） ================= */
+  var recState={on:false,mr:null,part:0,segTimer:null,hardTimer:null};
+  function recPickMime(){
+    var list=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+    for(var i=0;i<list.length;i++){
+      try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(list[i]))return list[i];}catch(e){}
+    }
+    return '';
+  }
+  function startRecording(){
+    if(!window.MediaRecorder)return;
+    if(!state.room||state.role!=='host')return;
+    recState.on=true;recState.part=0;
+    $('recDot').classList.remove('hidden');
+    recSegment();
+    recState.hardTimer=setTimeout(function(){
+      if(recState.on){toast('单场录制已达 60 分钟上限，回放录制停止',true);stopRecording();}
+    },3600000);
+  }
+  function recSegment(){
+    if(!recState.on||!state.room)return;
+    var roomSnap=state.room;
+    var stream=new MediaStream();
+    var v=currentVideoTrack(),a=currentAudioTrack();
+    if(v)stream.addTrack(v);
+    if(a)stream.addTrack(a);
+    if(!v&&!a)return;
+    var mime=recPickMime();
+    var opts={videoBitsPerSecond:900000,audioBitsPerSecond:64000};
+    if(mime)opts.mimeType=mime;
+    var mr;
+    try{mr=new MediaRecorder(stream,opts);}catch(e){console.warn('[rec]',e);return;}
+    var chunks=[],started=Date.now(),part=++recState.part;
+    mr.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data);};
+    mr.onstop=function(){
+      var dur=Math.max(1,Math.round((Date.now()-started)/1000));
+      var blob=new Blob(chunks,{type:mime||'video/webm'});
+      if(blob.size>2000)uploadReplayPart(blob,dur,part,roomSnap);
+      if(recState.on)setTimeout(recSegment,150);
+    };
+    recState.mr=mr;
+    try{mr.start(2000);}catch(e){console.warn('[rec start]',e);return;}
+    recState.segTimer=setTimeout(function(){
+      if(recState.mr===mr){try{mr.stop();}catch(e){}}
+    },240000);
+  }
+  function restartRecSegment(){
+    if(!recState.on||!recState.mr)return;
+    if(recState.mr.state!=='inactive'){try{recState.mr.stop();}catch(e){}}
+  }
+  function stopRecording(){
+    if(!recState.on)return;
+    recState.on=false;
+    clearTimeout(recState.segTimer);clearTimeout(recState.hardTimer);
+    $('recDot').classList.add('hidden');
+    if(recState.mr&&recState.mr.state!=='inactive'){try{recState.mr.stop();}catch(e){}}
+    recState.mr=null;
+  }
+  async function uploadReplayPart(blob,dur,part,room){
+    if(!sb||!room)return;
+    var ext=(blob.type.indexOf('mp4')>=0)?'mp4':'webm';
+    var path=room.id+'/part-'+part+'-'+Date.now()+'.'+ext;
+    try{
+      toast('正在上传回放片段 '+part+'…');
+      var up=await sb.storage.from('live-replays').upload(path,blob,{contentType:blob.type||'video/webm'});
+      if(up.error){toast('回放上传失败：'+up.error.message,true);return;}
+      var url=sb.storage.from('live-replays').getPublicUrl(path).data.publicUrl;
+      var ins=await sb.from('live_replays').insert({
+        room_id:room.id,code:room.code,title:room.title,host_id:room.host_id,
+        host_name:room.host_name,part:part,duration_sec:dur,size_bytes:blob.size,file_url:url
+      });
+      if(ins.error)console.warn('[replay row]',ins.error);
+      else toast('回放片段 '+part+' 已保存');
+    }catch(e){console.warn('[replay upload]',e);toast('回放上传异常：'+(e.message||''),true);}
+  }
+
+  /* ================= 参与者记录（决定谁能看回放） ================= */
+  async function recordParticipant(role){
+    if(!sb||!state.room||!isLoggedIn||!myId)return;
+    try{
+      await sb.from('live_participants').upsert({
+        room_id:state.room.id,user_id:myId,role:role,
+        title:state.room.title,host_name:state.room.host_name,code:state.room.code
+      },{onConflict:'room_id,user_id'});
+    }catch(e){console.warn('[participant]',e);}
   }
 
   /* ================= 事件绑定 ================= */
@@ -1682,6 +1996,7 @@
       $('idleBanner').classList.add('hidden');
       setHint('');
       updateCamUI();
+      restartRecSegment();
       try{state.channel&&state.channel.send({type:'broadcast',event:'video-resume',payload:{}});}catch(e){}
       toast('已切到摄像头');
     }catch(e){toast('切换失败：'+(e.message||e.name),true);}
@@ -1698,6 +2013,7 @@
       $('idleBanner').classList.add('hidden');
       setHint('');
       updateCamUI();
+      restartRecSegment();
       try{state.channel&&state.channel.send({type:'broadcast',event:'video-resume',payload:{}});}catch(e){}
       toast('已开始共享画面');
     }catch(e){
@@ -1709,6 +2025,28 @@
   $('dmClose').addEventListener('click',function(){$('dmModal').classList.remove('open');});
   $('dmModal').addEventListener('click',function(e){if(e.target===$('dmModal'))$('dmModal').classList.remove('open');});
   $('pfModal').addEventListener('click',function(e){if(e.target===$('pfModal'))$('pfModal').classList.remove('open');});
+
+  $('dmSettingsBtn').addEventListener('click',function(e){
+    e.stopPropagation();
+    $('dmPanel').classList.toggle('open');
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('#dmPanel')&&!e.target.closest('#dmSettingsBtn'))
+      $('dmPanel').classList.remove('open');
+  });
+  $('dmSizeSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    setDmSize(Number(b.dataset.size));
+  });
+  $('dmPosSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    setDmPos(b.dataset.pos);
+  });
+  $('dmPipBtn').addEventListener('click',toggleDmPip);
+  $('shareChatBtn').addEventListener('click',openShareModal);
+  $('shareCancel').addEventListener('click',function(){$('shareModal').classList.remove('open');});
+  $('shareModal').addEventListener('click',function(e){if(e.target===$('shareModal'))$('shareModal').classList.remove('open');});
+  $('shareSend').addEventListener('click',sendShare);
 
   $('copyLink').addEventListener('click',function(){
     var v=$('shareLink').value;
@@ -1751,6 +2089,7 @@
       else mav.textContent=(myNick||'?').charAt(0).toUpperCase();
     },function(){mav.textContent=(myNick||'?').charAt(0).toUpperCase();});
 
+    loadDmPrefs();
     show('landing');
     var c=cap(),msgs=[];
     if(!c.secure)msgs.push('<b>当前不是 HTTPS 环境</b>，浏览器会拒绝访问摄像头/麦克风。');

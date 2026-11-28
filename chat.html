@@ -146,6 +146,10 @@
   .invite-pick .item .nm{flex:1;font-weight:600}
   .invite-pick .item .ck{width:17px;height:17px;accent-color:var(--brand)}
   .invite-card{border:1px solid var(--brand-2);border-radius:12px;background:var(--brand-soft);padding:11px 13px;min-width:200px;max-width:280px}
+  .invite-card.live{border-color:#e5484d;background:rgba(229,72,77,.06)}
+  .invite-card.live .ic-live{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;
+    color:#fff;background:#e5484d;border-radius:4px;padding:2px 5px;letter-spacing:.06em;margin-left:5px;vertical-align:1px}
+  .invite-card.live .ic-btn{background:#e5484d}
   .invite-card .ic-title{font-weight:700;font-size:13px;margin-bottom:5px}
   .invite-card .ic-group{font-size:12px;margin-bottom:4px}
   .invite-card .ic-no{font-family:monospace;letter-spacing:1px;color:var(--brand-2);font-weight:700}
@@ -303,6 +307,16 @@
   .emoji-grid button{border:0;background:transparent;border-radius:7px;font-size:21px;padding:5px 0}
   .emoji-grid button:hover{background:var(--brand-soft)}
 
+  .replay-item{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid var(--line);
+    border-radius:12px;margin-bottom:8px;cursor:pointer;transition:border-color .18s,background .18s}
+  .replay-item:hover{border-color:var(--brand-2);background:var(--brand-soft)}
+  .replay-item .ri-ico{width:34px;height:34px;border-radius:9px;background:rgba(229,72,77,.1);
+    color:#e5484d;display:grid;place-items:center;font-size:15px;flex:0 0 34px}
+  .replay-item .ri-main{flex:1;min-width:0}
+  .replay-item .ri-t{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .replay-item .ri-m{font-size:11px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .replay-item .ri-go{font-size:11px;color:var(--brand);border:1px solid var(--brand-2);
+    border-radius:8px;padding:5px 9px;background:#fff;flex:0 0 auto}
   .modal{position:fixed;inset:0;background:rgba(24,28,45,.42);z-index:110;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
   .modal.show{display:flex}
   .modal-card{background:#fff;border-radius:20px;padding:24px;width:min(400px,100%);box-shadow:0 20px 60px rgba(24,28,45,.2);max-height:86vh;overflow-y:auto}
@@ -623,6 +637,16 @@
             </div>
           </div>
         </div>
+
+        <div class="set-section">
+          <div class="set-section-title"><span class="num">3</span>我的直播回放 <span class="sub">我发起的 / 我看过的</span></div>
+          <div class="set-card" style="text-align:left">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+              只有主播本人和参与过该场直播的账号能看到回放，其他人看不到这份列表。
+            </div>
+            <div id="replayList"><div class="list-empty">加载中…</div></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -650,6 +674,17 @@
       </div>
     </div>
   </main>
+</div>
+
+<div class="modal" id="replayModal">
+  <div class="modal-card" style="width:min(720px,100%)">
+    <h2 id="rpTitle">直播回放</h2>
+    <p id="rpMeta" style="margin-bottom:12px">—</p>
+    <video id="rpVideo" controls playsinline preload="metadata"
+      style="width:100%;border-radius:12px;background:#000;aspect-ratio:16/9"></video>
+    <div id="rpHint" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6"></div>
+    <div class="modal-actions"><button id="rpClose">关闭</button></div>
+  </div>
 </div>
 
 <div class="emoji-panel" id="emojiPanel"><div class="emoji-grid" id="emojiGrid"></div></div>
@@ -1299,6 +1334,7 @@ function msgSummary(m){
     return '[文件] ' + (m.file_name || '');
   }
   if(m.msg_type === 'group_invite') return '[群聊邀请]';
+  if(m.msg_type === 'live_invite') return '[直播邀请]';
   return String(m.content || '').slice(0, 120);
 }
 function isMineMsg(m){ return !!m && m.sender_id === myId; }
@@ -3453,7 +3489,98 @@ function openSettings(){
   $('setWechat').value=acct.wechat||'';$('setQq').value=acct.qq||'';
   $('setErr').textContent='';
   if(!isLoggedIn){$('setErr').textContent='请先登录账号';}
+  loadMyReplays();
 }
+/* ===== 我的直播回放 ===== */
+let replayQueue=[],replayPlaying=false;
+async function loadMyReplays(){
+  const box=$('replayList');
+  if(!box)return;
+  if(!isLoggedIn){box.innerHTML='<div class="list-empty">登录后可以查看自己的直播回放</div>';return;}
+  if(!sb){box.innerHTML='<div class="list-empty">网络未连接</div>';return;}
+  box.innerHTML='<div class="list-empty">加载中…</div>';
+  try{
+    const [own,part] = await Promise.all([
+      sb.from('live_replays').select('*').eq('host_id',myId).order('created_at',{ascending:false}).limit(200),
+      sb.from('live_participants').select('room_id').eq('user_id',myId).limit(200)
+    ]);
+    let joined=[];
+    const ids=[...new Set((part.data||[]).map(x=>x.room_id))];
+    if(ids.length){
+      const r=await sb.from('live_replays').select('*').in('room_id',ids).order('created_at',{ascending:false}).limit(200);
+      joined=r.data||[];
+    }
+    const all=[...(own.data||[]),...joined];
+    if(!all.length){box.innerHTML='<div class="list-empty">还没有回放。开一场直播，结束后这里就会出现。</div>';return;}
+    // 按 room_id 合并分段
+    const groups=new Map();
+    all.forEach(r=>{
+      if(!groups.has(r.room_id)){
+        groups.set(r.room_id,{room_id:r.room_id,title:r.title,host_id:r.host_id,host_name:r.host_name,
+          code:r.code,created_at:r.created_at,parts:[],dur:0,size:0,isHost:r.host_id===myId});
+      }
+      const g=groups.get(r.room_id);
+      g.parts.push(r);g.dur+=r.duration_sec||0;g.size+=r.size_bytes||0;
+      if(new Date(r.created_at)<new Date(g.created_at))g.created_at=r.created_at;
+    });
+    const list=[...groups.values()].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    box.innerHTML='';
+    list.forEach(g=>{
+      g.parts.sort((a,b)=>a.part-b.part);
+      const it=document.createElement('div');it.className='replay-item';
+      const ico=document.createElement('div');ico.className='ri-ico';ico.textContent='▶';
+      const main=document.createElement('div');main.className='ri-main';
+      const t=document.createElement('div');t.className='ri-t';t.textContent=g.title||'未命名直播';
+      const m=document.createElement('div');m.className='ri-m';
+      m.textContent=(g.isHost?'我发起的':'我参与的')+' · '+(g.host_name||'—')+' · '+
+        fmtDate(g.created_at)+' · '+fmtDurCn(g.dur)+' · '+g.parts.length+' 段';
+      main.append(t,m);
+      const go=document.createElement('div');go.className='ri-go';go.textContent='播放';
+      it.append(ico,main,go);
+      it.onclick=()=>playReplay(g);
+      box.appendChild(it);
+    });
+  }catch(e){
+    box.innerHTML='<div class="list-empty">加载失败：'+esc(e.message||'网络异常')+'</div>';
+  }
+}
+function fmtDate(iso){
+  const d=new Date(iso);if(isNaN(d))return '—';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fmtDurCn(sec){
+  sec=Math.max(0,Math.round(sec||0));
+  const m=Math.floor(sec/60),s=sec%60;
+  return m?m+' 分'+(s?(' '+s+' 秒'):''):s+' 秒';
+}
+function playReplay(g){
+  replayQueue=g.parts.slice();
+  replayPlaying=true;
+  $('rpTitle').textContent=g.title||'直播回放';
+  $('rpMeta').textContent=(g.isHost?'我发起的直播':'我参与过的直播')+' · 主播 '+(g.host_name||'—')+' · '+fmtDate(g.created_at);
+  $('replayModal').classList.add('show');
+  playNextPart();
+}
+function playNextPart(){
+  const v=$('rpVideo');
+  if(!replayQueue.length){
+    replayPlaying=false;
+    $('rpHint').textContent='回放播放完毕';
+    return;
+  }
+  const seg=replayQueue.shift();
+  v.src=seg.file_url;
+  v.play().catch(()=>{});
+  $('rpHint').textContent='第 '+seg.part+' 段'+(replayQueue.length?('，之后还有 '+replayQueue.length+' 段'):'（最后一段）');
+}
+$('rpVideo').addEventListener('ended',()=>{if(replayPlaying)playNextPart();});
+$('rpClose').onclick=()=>{
+  $('replayModal').classList.remove('show');
+  replayPlaying=false;replayQueue=[];
+  const v=$('rpVideo');v.pause();v.removeAttribute('src');v.load();
+};
+$('replayModal').addEventListener('click',e=>{if(e.target===$('replayModal'))$('rpClose').click();});
+
 $('settingsBackBtn').onclick=restoreFromProfile;
 $('settingsBtn').onclick=openSettings; // 侧栏「设置」入口
 $('setLogoutBtn').onclick=()=>{
@@ -3616,6 +3743,25 @@ function buildInviteCard(m){
   }
   return card;
 }
+function buildLiveInviteCard(m){
+  const card=document.createElement('div');card.className='invite-card live';
+  const title=document.createElement('div');title.className='ic-title';
+  title.innerHTML='🔴 直播邀请<span class="ic-live">LIVE</span>';
+  const t=document.createElement('div');t.className='ic-group';
+  // 从卡片内容里取直播标题，拿不到就兜底
+  const raw=(m.content||'').match(/「(.+?)」/);
+  t.textContent='直播：'+(raw?raw[1]:'一场直播');
+  const no=document.createElement('div');no.className='ic-no';no.textContent='直播号 '+(m.invite_live_code||'——');
+  card.append(title,t,no);
+  const btn=document.createElement('button');btn.className='ic-btn';btn.textContent='进入直播间';
+  btn.onclick=()=>{location.href='/live.html?code='+encodeURIComponent(m.invite_live_code||'');};
+  if(!m.invite_live_code){btn.disabled=true;btn.textContent='直播号缺失';}
+  card.appendChild(btn);
+  const hint=document.createElement('div');hint.className='ic-hint';
+  hint.textContent=m.sender_id===myId?'已发送邀请，等待对方加入':'若直播已结束，点进去会提示不存在';
+  card.appendChild(hint);
+  return card;
+}
 function renderMessage(m){
   const box=$('messages');const ph=box.querySelector('.empty-chat');if(ph)ph.remove();
   const mine=m.sender_id===myId;
@@ -3629,6 +3775,8 @@ function renderMessage(m){
   const qb=buildQuoteBlock(m,'p');if(qb)bubble.appendChild(qb);
   if(m.msg_type==='group_invite'){
     bubble.appendChild(buildInviteCard(m));
+  }else if(m.msg_type==='live_invite'){
+    bubble.appendChild(buildLiveInviteCard(m));
   }else if(isVoiceMsg(m)){
     bubble.appendChild(buildVoiceNode(m));
   }else if(m.msg_type==='file'&&m.file_url){
