@@ -467,7 +467,6 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
     <a class="logo" href="#top">LYX<em>STUDIO</em></a>
     <nav class="nav-links" aria-label="主导航">
       <a class="story-link" href="#work">作品</a>
-      <a class="story-link" href="#about">关于</a>
       <a class="story-link" href="#about-site">关于该网站</a>
     </nav>
     <div style="display:flex;align-items:center;gap:.5rem">
@@ -483,8 +482,7 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
 <div id="mobileMenu">
   <nav aria-label="移动端导航">
     <a href="#work" style="animation-delay:.12s"><span class="no">01</span><span class="label">作品</span></a>
-    <a href="#about" style="animation-delay:.21s"><span class="no">02</span><span class="label">关于</span></a>
-    <a href="#about-site" style="animation-delay:.3s"><span class="no">03</span><span class="label">关于该网站</span></a>
+    <a href="#about-site" style="animation-delay:.3s"><span class="no">02</span><span class="label">关于该网站</span></a>
   </nav>
   <div class="menu-foot">
     <a class="nav-cta" style="display:inline-flex" href="#about-site">开始合作</a>
@@ -539,26 +537,6 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
     </div>
   </section>
 
-  <!-- 关于 -->
-  <section id="about" class="block">
-    <div class="container about-grid">
-      <div class="about-copy">
-        <p class="eyebrow reveal">关于工作室</p>
-        <h2 class="h2 reveal" style="--rd:80ms">克制，<br/>是一种力量。</h2>
-        <p class="reveal" style="--rd:120ms">LYX STUDIO 由设计师 LYX 于 2026 年创立。我们相信好的设计不喧哗——它删去多余的装饰，留下恰到好处的比例、材质与节奏，让品牌以最安静的姿态被记住。</p>
-        <p class="reveal" style="--rd:200ms">六年来，我们与护肤、文化、科技领域的伙伴一起，把抽象的概念打磨成可触摸的作品：一套识别、一个界面、一场展览。每一次交付，都是对「少即是多」的再次验证。</p>
-        <p class="signature reveal" style="--rd:280ms">— LYX</p>
-      </div>
-      <div>
-        <div class="stats" id="stats"></div>
-        <div class="process">
-          <h3 class="reveal">工作方式</h3>
-          <ul id="process"></ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- 关于该网站（原服务位置 + 原联系内容合并） -->
   <section id="about-site" class="block">
     <div class="glow c"></div>
@@ -591,6 +569,26 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
             <div id="trendBody"><div class="trend-empty">首次访问将记录本周快照，之后每周自动累积。</div></div>
           </div>
           <div class="dash-foot">数据实时读取自 Supabase；访问量等无后端统计的指标未列入。</div>
+        </div>
+        <div class="dash-card">
+          <h3>社区与内容规模</h3>
+          <div class="dash-grid">
+            <div><div class="dash-num" id="dGroups">—</div><div class="dash-lbl">群组</div><div class="dash-bar"><i data-bar="groups"></i></div></div>
+            <div><div class="dash-num" id="dNotices">—</div><div class="dash-lbl">系统公告</div><div class="dash-bar"><i data-bar="notices"></i></div></div>
+            <div><div class="dash-num" id="dSysmsg">—</div><div class="dash-lbl">系统消息</div><div class="dash-bar"><i data-bar="sysmsg"></i></div></div>
+            <div><div class="dash-num" id="dFollows">—</div><div class="dash-lbl">大厅已读记录</div><div class="dash-bar"><i data-bar="follows"></i></div></div>
+          </div>
+          <div class="dash-foot">群组、公告与站内互动数据。</div>
+        </div>
+        <div class="dash-card">
+          <h3>打印与 AI 足迹</h3>
+          <div class="dash-grid">
+            <div><div class="dash-num" id="dAI">—</div><div class="dash-lbl">AI 调用次数</div><div class="dash-bar"><i data-bar="ai"></i></div></div>
+            <div><div class="dash-num" id="dPush">—</div><div class="dash-lbl">推送订阅</div><div class="dash-bar"><i data-bar="push"></i></div></div>
+            <div><div class="dash-num" id="dScores">—</div><div class="dash-lbl">排行榜记录</div><div class="dash-bar"><i data-bar="scores"></i></div></div>
+            <div><div class="dash-num">6</div><div class="dash-lbl">上线项目</div><div class="dash-bar"><i data-bar="proj"></i></div></div>
+          </div>
+          <div class="dash-foot">AI 助手由 DeepSeek 提供支持。</div>
         </div>
         <div class="dash-card">
           <h3>运行时间与功能覆盖</h3>
@@ -658,7 +656,7 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
   <div class="container foot-inner">
     <div class="foot-brand"><span class="n">LYX STUDIO</span><span class="c">© 2026 保留所有权利</span></div>
     <nav class="foot-nav" aria-label="页脚导航">
-      <a class="story-link" href="#work">作品</a><a class="story-link" href="#about">关于</a>
+      <a class="story-link" href="#work">作品</a>
       <a class="story-link" href="#about-site">关于该网站</a>
     </nav>
     <button class="top-btn" id="topBtn" aria-label="回到顶部">
@@ -1113,9 +1111,10 @@ document.getElementById('mvReset').addEventListener('click',function(){
   mvViewer.resetTurntableRotation&&mvViewer.resetTurntableRotation();
 });
 
-/* 统计 + 流程 */
+/* 统计 + 流程：原「关于工作室」板块已移除，保留数据但不渲染 */
 (function(){
   var s=document.getElementById('stats');
+  if(!s||!document.getElementById('process'))return;
   STATS.forEach(function(st,i){
     var d=document.createElement('div');d.className='stat reveal';d.style.setProperty('--rd',i*100+'ms');
     d.innerHTML='<div class="v">'+st.v+'</div><div class="l">'+esc(st.l)+'</div>';
@@ -1136,8 +1135,8 @@ document.getElementById('mvReset').addEventListener('click',function(){
   var SB_KEY='sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
   var H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'count=exact'};
   var $=function(id){return document.getElementById(id);};
-  function count(table){
-    return fetch(SB_URL+'/rest/v1/'+table+'?select=id&limit=1',{headers:H})
+  function count(table,col){
+    return fetch(SB_URL+'/rest/v1/'+table+'?select='+(col||'id')+'&limit=1',{headers:H})
       .then(function(r){if(!r.ok)throw new Error(table);var c=r.headers.get('Content-Range')||'';
         var n=parseInt(c.split('/').pop(),10);return isNaN(n)?0:n;}).catch(function(){return null;});
   }
@@ -1153,13 +1152,24 @@ document.getElementById('mvReset').addEventListener('click',function(){
   var dashDone=false;
   function loadDash(){
     if(dashDone)return;dashDone=true;
-    Promise.all([count('messages'),count('public_messages'),count('group_messages')]).then(function(a){
+    Promise.all([count('messages'),count('public_messages'),count('group_messages'),
+      count('groups'),count('announcements'),count('system_notices'),count('follows'),
+      count('ai_usage_log'),count('push_subscriptions'),count('class12_scores'),count('lobby_reads','target_id')]).then(function(a){
       var msg=a[0],lobby=a[1],grp=a[2];
       animNum($('dMsg'),msg);animNum($('dLobby'),lobby);animNum($('dGroup'),grp);
       if(msg==null&&lobby==null&&grp==null){['dMsg','dLobby','dGroup'].forEach(function(id){$(id).textContent='—';});return;}
       var max=Math.max(msg||0,lobby||0,grp||0,1);
       setBar('msg',(msg||0)/max*100);setBar('lobby',(lobby||0)/max*100);setBar('group',(grp||0)/max*100);
       setBar('proj',6/10*100);
+      // 社区与内容 / AI 足迹
+      var more=[['dGroups','groups',a[3]],['dNotices','notices',a[4]],['dSysmsg','sysmsg',a[5]],
+                ['dFollows','follows',a[10]],['dAI','ai',a[7]],['dPush','push',a[8]],['dScores','scores',a[9]]];
+      var big=1;more.forEach(function(x){big=Math.max(big,x[2]||0);});
+      more.forEach(function(x){
+        animNum($(x[0]),x[2]);
+        var b=document.querySelector('[data-bar="'+x[1]+'"]');
+        if(b)b.style.width=Math.min(100,((x[2]||0)/big)*100)+'%';
+      });
     });
     // 运行时长：从第一条聊天代码 2026-11-18 起算
     var days=Math.max(1,Math.floor((Date.now()-new Date('2026-11-18T00:00:00+08:00'))/86400000)+1);
@@ -1180,12 +1190,18 @@ document.getElementById('mvReset').addEventListener('click',function(){
   function renderTrend(rows){
     var body=$('trendBody');
     if(!rows.length){body.innerHTML='<div class="trend-empty">首次访问将记录本周快照，之后每周自动累积。</div>';return;}
-    rows=rows.slice(-12);
-    var vals=rows.map(function(r){return r.messages+r.lobby_msgs+r.group_msgs;});
+    // 只取最近 30 天，X 轴按真实日期定位（跨度拉大）
+    var now=Date.now(),from=now-30*86400000;
+    rows=rows.filter(function(r){return new Date((typeof r.week_start==='string'?r.week_start+'T00:00:00':r.week_start)).getTime()>=from;});
+    if(!rows.length){body.innerHTML='<div class="trend-empty">近 30 天暂无快照数据。</div>';$('trendRange').textContent='最近 30 天';return;}
+    var vals=rows.map(function(r){return (r.messages||0)+(r.lobby_msgs||0)+(r.group_msgs||0);});
     var max=Math.max.apply(null,vals),min=Math.min.apply(null,vals),span=Math.max(1,max-min);
     var W=300,H=54,pad=4;
+    var t0=new Date((typeof rows[0].week_start==='string'?rows[0].week_start+'T00:00:00':rows[0].week_start)).getTime();
+    var t1=now;
     var pts=vals.map(function(v,i){
-      var x=rows.length===1?W/2:pad+i*(W-pad*2)/(rows.length-1);
+      var t=new Date((typeof rows[i].week_start==='string'?rows[i].week_start+'T00:00:00':rows[i].week_start)).getTime();
+      var x=pad+((t-t0)/Math.max(1,t1-t0))*(W-pad*2);
       var y=H-pad-((v-min)/span)*(H-pad*2);
       return [x,y];
     });
@@ -1195,8 +1211,8 @@ document.getElementById('mvReset').addEventListener('click',function(){
     body.innerHTML='<svg class="trend-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+
       '<path class="ar" d="'+area+'"/><polyline class="ln" points="'+poly+'"/>'+dots+'</svg>';
     var d0=rows[0].week_start,d1=rows[rows.length-1].week_start;
-    $('trendRange').textContent=(typeof d0==='string'?d0:isoDate(d0))+' → '+(typeof d1==='string'?d1:isoDate(d1))+
-      ' · '+(vals[vals.length-1]-vals[0]>=0?'+':'')+(vals[vals.length-1]-vals[0]);
+    $('trendRange').textContent='最近 30 天 · '+(typeof d0==='string'?d0:isoDate(d0))+' 起 · '+
+      (vals[vals.length-1]-vals[0]>=0?'+':'')+(vals[vals.length-1]-vals[0]);
   }
   function loadTrend(){
     var wk=isoDate(mondayOf(new Date()));
