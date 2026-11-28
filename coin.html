@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
+<script src="/assets/qh-log.js" data-page="coin" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 <title>3D 硬币物理模拟器</title>
 <style>
@@ -207,6 +209,7 @@ function loadCoinTextures(){
         applyTextures();
       };
       img.src=COIN_IMG[type][face];
+      img.onerror=function(){qhAct('coin_tex_fail',{file:COIN_IMG[type][face]});};
     });
   });
 }
@@ -905,14 +908,17 @@ function enableGyro() {
       typeof DeviceOrientationEvent.requestPermission === 'function') {
     DeviceOrientationEvent.requestPermission()
       .then(response => {
+        qhAct('gyro_permission',{result:response});
         if (response === 'granted') {
           startGyro();
         }
       })
-      .catch(() => {
+      .catch((e) => {
+        qhAct('gyro_permission',{result:'error',msg:(e&&e.message)||''});
         alert('无法获取陀螺仪权限');
       });
   } else {
+    qhAct('gyro_permission',{result:'no_api'});
     startGyro();
   }
 }

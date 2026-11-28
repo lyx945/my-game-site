@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/qh-log.js" data-page="404" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>404 · 页面走丢了</title>
 <style>
@@ -188,6 +190,7 @@
     ta.remove();
   }
   btn.addEventListener('click',function(){
+    qhAct('feedback_click',{path:(location.pathname||'')+(location.search||'').slice(0,120)});
     if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(EMAIL).then(function(){show('邮箱已复制：'+EMAIL);},fallback);
     }else{fallback();}

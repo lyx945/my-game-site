@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
+<script src="/assets/qh-log.js" data-page="index" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LYX STUDIO — 独立设计工作室</title>
 <meta name="description" content="LYX STUDIO — 专注品牌识别、数字体验与视觉叙事的独立设计工作室。" />
@@ -1007,6 +1009,7 @@ dcCover.addEventListener('touchend',function(e){
 },{passive:true});
 
 function openDialog(p){
+  qhAct('work_open',{id:p.id,title:p.title,category:p.category});
   renderCarousel(p);
   startTimer();
   document.getElementById('dIdx').textContent=p.index;
@@ -1100,6 +1103,7 @@ function mvPackCrab(color){
   mvBlobUrls.push(url);return url;
 }
 function mvApplyPalette(i){
+  qhAct('model_palette',{index:i});
   mvPal=i;
   Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),function(b,k){b.classList.toggle('on',k===i);});
   if(mvCrabBase){
@@ -1118,6 +1122,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#mvPalette .mv-swatch'),
 });
 function openModelViewer(p){
   if(!p||!p.model)return;
+  qhAct('model_open',{id:p.id,model:p.model,pals:p.modelPals?'badge':(p.crabPals?'crab':'none')});
   document.getElementById('mvTitle').textContent=p.title;
   var palette=document.getElementById('mvPalette');
   var pals=p.modelPals?MV_PALS:(p.crabPals?CRAB_COLORS:null);
@@ -1139,7 +1144,7 @@ function openModelViewer(p){
           if(mvCrabPending!=null){
             var want=mvCrabPending;mvCrabPending=null;mvApplyPalette(want);
           }
-        }).catch(function(){mvCrabPreparing=false;mvCrabPending=null;toast('模型加载失败，请重试');});
+        }).catch(function(e){mvCrabPreparing=false;mvCrabPending=null;qhAct('model_load_fail',{file:'crab-penholder.glb',msg:(e&&e.message)||''});toast('模型加载失败，请重试');});
       }
     }else{
       mvViewer.setAttribute('src','/assets/'+pals[0]);
@@ -1225,7 +1230,7 @@ document.getElementById('mvReset').addEventListener('click',function(){
         var b=document.querySelector('[data-bar="'+x[1]+'"]');
         if(b)b.style.width=Math.min(100,((x[2]||0)/big)*100)+'%';
       });
-    });
+    }).catch(function(e){qhAct('dash_fail',{msg:(e&&e.message)||'看板数据加载失败'});});
     // 运行时长：从第一条聊天代码 2026-11-18 起算
     var days=Math.max(1,Math.floor((Date.now()-new Date('2026-11-18T00:00:00+08:00'))/86400000)+1);
     $('runDays').textContent=days;$('runDaysText').textContent=days;
@@ -1256,6 +1261,7 @@ document.getElementById('mvReset').addEventListener('click',function(){
       if(Date.now()-last<30*60*1000)return;   // 同一次浏览只记一次
       sessionStorage.setItem('qh_visit_ts',String(Date.now()));
     }catch(e){}
+    qhAct('visit_report',{path:location.pathname||'/'});
     var head={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
     // ip 存完整地址（仅入库做安全审计，页面不展示）；ip_prefix 只用于地区与独立 IP 统计
     var payload={path:location.pathname||'/',device:devInfo(),ip_prefix:null,region:null,ip:null};
@@ -1263,7 +1269,7 @@ document.getElementById('mvReset').addEventListener('click',function(){
       return fetch(SB_URL+'/rest/v1/site_visits',{
         method:'POST',headers:Object.assign({},head,{'Prefer':'return=minimal'}),
         body:JSON.stringify(payload),keepalive:true
-      }).catch(function(){});
+      }).catch(function(e){qhAct('visit_post_fail',{msg:(e&&e.message)||'网络异常'});});
     };
     fetch(SB_URL+'/functions/v1/get-ip',{method:'POST',headers:head,body:'{}'})
       .then(function(r){return r.ok?r.json():null;})
@@ -1275,7 +1281,7 @@ document.getElementById('mvReset').addEventListener('click',function(){
         }
         return post();
       })
-      .catch(function(){return post();})
+      .catch(function(e){qhAct('visit_ip_fail',{msg:(e&&e.message)||'IP 解析失败'});return post();})
       .then(function(){setTimeout(loadVisitStats,350);});
   }
   function vsBars(rows,unit){
@@ -1393,9 +1399,9 @@ document.getElementById('mvReset').addEventListener('click',function(){
               var exists=rows.some(function(x){return x.week_start===wk;});
               if(!exists){rows.push({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0});
                 rows.sort(function(x,y){return x.week_start<y.week_start?-1:1;});renderTrend(rows);}
-            }).catch(function(){});
-        }).catch(function(){});
-      }).catch(function(){renderTrend([]);});
+            }).catch(function(e){qhAct('snapshot_write_fail',{msg:(e&&e.message)||''});});
+        }).catch(function(e){qhAct('trend_count_fail',{msg:(e&&e.message)||''});});
+      }).catch(function(e){qhAct('trend_fail',{msg:(e&&e.message)||'趋势数据加载失败'});renderTrend([]);});
   }
   setTimeout(loadTrend,400);
 
@@ -1411,7 +1417,7 @@ document.getElementById('mvReset').addEventListener('click',function(){
       var ws=sdkWaiters.slice();sdkWaiters=[];
       ws.forEach(function(f){f(!!createClient);});
     };
-    t.onerror=function(){var ws=sdkWaiters.slice();sdkWaiters=[];ws.forEach(function(f){f(false);});};
+    t.onerror=function(){qhAct('sdk_fail',{src:'/assets/supabase.umd.js'});var ws=sdkWaiters.slice();sdkWaiters=[];ws.forEach(function(f){f(false);});};
     document.head.appendChild(t);
   }
   function startPresence(){
@@ -1475,6 +1481,7 @@ document.getElementById('mvReset').addEventListener('click',function(){
   var box=document.getElementById('imgLightbox'),img=document.getElementById('lbImg');
   function openLb(src){
     if(!src)return;
+    qhAct('image_zoom',{src:String(src).slice(0,120)});
     img.src=src;box.classList.add('open');document.body.style.overflow='hidden';
   }
   function closeLb(){
@@ -1523,6 +1530,7 @@ document.getElementById('topBtn').addEventListener('click',function(){window.scr
 
 /* 复制邮箱（含 file:// 降级） */
 document.getElementById('copyBtn').addEventListener('click',function(){
+  qhAct('copy_email',{});
   function done(){
     document.getElementById('icoCopy').style.display='none';
     document.getElementById('icoCheck').style.display='block';
@@ -1560,9 +1568,12 @@ function notifyOwner(name,email,type,msg){
     fd.append('Source Page','来源：303329.xyz 主页联系表单');
     fetch('https://api.web3forms.com/submit',{method:'POST',body:fd})
       .then(function(r){return r.json();})
-      .then(function(d){if(!d||!d.success)console.warn('[notifyOwner]',d);})
-      .catch(function(err){console.warn('[notifyOwner]',err);});
-  }catch(err){console.warn('[notifyOwner]',err);}
+      .then(function(d){
+        if(!d||!d.success){console.warn('[notifyOwner]',d);qhAct('mail_fail',{step:'resp',ok:!!(d&&d.success)});}
+        else{qhAct('mail_ok',{type:type});}
+      })
+      .catch(function(err){console.warn('[notifyOwner]',err);qhAct('mail_fail',{step:'net',msg:(err&&err.message)||''});});
+  }catch(err){console.warn('[notifyOwner]',err);qhAct('mail_fail',{step:'build',msg:(err&&err.message)||''});}
 }
 document.getElementById('contactForm').addEventListener('submit',async function(e){
   e.preventDefault();
@@ -1577,6 +1588,7 @@ document.getElementById('contactForm').addEventListener('submit',async function(
   formBusy=true;
   var btn=this.querySelector('button[type="submit"]');var old=btn.innerHTML;
   btn.disabled=true;btn.textContent='提交中…';
+  qhAct('contact_submit',{type:type,len:msg.length,nameLen:name.length});
   try{
     var res=await fetch(SB_URL+'/rest/v1/contact_submissions',{
       method:'POST',
@@ -1586,9 +1598,11 @@ document.getElementById('contactForm').addEventListener('submit',async function(
     if(!res.ok)throw new Error('HTTP '+res.status);
     notifyOwner(name,email,type,msg);   /* 旁路邮件通知，失败不影响提交结果 */
     e.target.reset();
+    qhAct('contact_ok',{type:type});
     toast('已收到你的项目简报，我会尽快回复！');
   }catch(err){
     console.error('[contact submit]',err);
+    qhAct('contact_fail',{type:type,msg:(err&&err.message)||'提交失败'});
     toast('提交失败，请稍后重试或直接发邮件到 '+EMAIL,true);
   }finally{
     formBusy=false;btn.disabled=false;btn.innerHTML=old;

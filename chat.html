@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/qh-log.js" data-page="chat" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1025,6 +1027,7 @@ if(!createClient){
   }
 }
 if (!createClient && CONFIGURED) {
+  qhAct('sdk_all_fail',{errs:sdkErr.join(' | ').slice(0,300)});
   warnBox.hidden=false;warnBox.style.display='block';
   warnBox.innerHTML='⚠️ 网络连接失败，无法加载聊天组件。<br>请检查网络；<b>微信内打开请点右上角「···」→「在浏览器中打开」</b>。<br><small style="opacity:.7">'+sdkErr.join('；')+'</small>';
   if(window.__QH_BOOT)window.__QH_BOOT.fail('组件加载失败');
@@ -1505,7 +1508,8 @@ async function recallMessage(m, scope){
     file_url: null, file_name: null, reply_to: null, reply_preview: null
   };
   const { error } = await sb.from(table).update(patch).eq('id', m.id);
-  if(error){ toast('撤回失败：' + error.message); return; }
+  if(error){ qhAct('recall_fail',{scope:scope,err:error.message}); toast('撤回失败：' + error.message); return; }
+  qhAct('recall_ok',{scope:scope});
   Object.assign(m, patch);
   const row = document.querySelector('.msg-row[data-id="' + m.id + '"][data-scope="' + scope + '"]');
   if(voiceEl && row && row.contains(voiceEl)){ try{ voiceAudio.pause(); }catch(_){} resetVoiceUI(); }
@@ -1630,6 +1634,7 @@ async function uploadVoice(blob, dur, mime){
   const ext = /mp4|m4a/i.test(mime) ? '.m4a' : (/ogg/i.test(mime) ? '.ogg' : '.webm');
   const rid = (groupView && currentGroup) ? currentGroup.id : roomIdOf(myId, currentPeer.id);
   const path = `${rid}/${myId}/${crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)}${ext}`;
+  qhAct('voice_send',{dur:dur,size:blob.size,scope:groupView?'group':'private'});
   $('uploadBar').classList.add('show');
   $('uploadText').textContent = '正在发送语音…';
   $('voiceBtn').disabled = true;
@@ -1669,6 +1674,7 @@ async function uploadVoice(blob, dur, mime){
       pushNotify([currentPeer.id],myNick,'[语音] '+dur+'″','/chat.html?push_peer='+encodeURIComponent(currentPeer.id)+'&name='+encodeURIComponent(currentPeer.name||''));
     }
   }catch(e){
+    qhAct('voice_fail',{dur:dur,size:blob.size,msg:(e&&e.message)||''});
     console.error('[voice]', e);
     toast('语音发送失败：' + (e.message || '网络异常'));
   }finally{
@@ -1716,6 +1722,7 @@ function clearMuteState(){
   $('muteCountdown').classList.remove('show');
 }
 async function openGroup(g){
+  qhAct('group_open',{gidTail:String(g&&g.id||'').slice(-4),member:!!(g&&g.member_count)});
   clearMuteState();
   closeMsgMenu();clearQuote();
   if(rec)stopVoice(false);
@@ -1739,7 +1746,7 @@ async function openGroup(g){
 }
 async function loadGroupMembers(gid){
   const {data,error}=await sb.from('group_members').select('user_id, role, muted_until, joined_at').eq('group_id',gid);
-  if(error){console.error('[loadGroupMembers]',error.message);return;}
+  if(error){qhAct('group_members_fail',{err:error.message});console.error('[loadGroupMembers]',error.message);return;}
   groupMembers=data||[];
 }
 function renderGroupPanel(){
@@ -1782,7 +1789,7 @@ function renderGroupPanel(){
 }
 async function loadGroupHistory(gid){
   const {data,error}=await sb.from('group_messages').select('*').eq('group_id',gid).order('created_at',{ascending:true}).limit(300);
-  if(error){console.error('[loadGroupHistory]',error.message);return;}
+  if(error){qhAct('group_history_fail',{err:error.message});console.error('[loadGroupHistory]',error.message);return;}
   const box=$('messages');box.innerHTML='';groupSeenIds.clear();
   if(!(data||[]).length){box.innerHTML='<div class="empty-chat"><div class="big">👥</div><div>群里还没有消息，说点什么吧</div></div>';return;}
   (data||[]).forEach(m=>{groupSeenIds.add(m.id);renderGroupMessage(m);});
@@ -2267,8 +2274,9 @@ async function pauseRealtime(){
   bgPaused=true;
   try{
     var arr=Array.from(allChannels);allChannels.clear();
+    qhAct('realtime_pause',{n:arr.length});
     for(var i=0;i<arr.length;i++){ try{await sb.removeChannel(arr[i]);}catch(e){} }
-  }catch(e){}
+  }catch(e){qhAct('realtime_pause_fail',{msg:(e&&e.message)||''});}
   presenceCh=null;msgCh=null;roomCh=null;lobbyCh=null;
   groupMsgCh=null;groupMemberCh=null;
   extraChs.mention=null;extraChs.sys=null;extraChs.ai=null;extraChs.live=null;
@@ -2277,6 +2285,7 @@ async function pauseRealtime(){
 function resumeRealtime(){
   if(!bgPaused||!sb)return;
   bgPaused=false;
+  qhAct('realtime_resume',{group:!!(currentGroup&&currentGroup.id),peer:!!(currentPeer&&currentPeer.id)});
   initPresence();initMessageChanges();
   if(currentGroup&&currentGroup.id)subscribeGroup(currentGroup.id);
   if(currentPeer&&currentPeer.id)joinRoom(currentPeer.id);
@@ -2637,10 +2646,12 @@ $('tabLobby').onclick=()=>{
 };
 
 function switchView(v){
+  const changed=view!==v;
   // 修复多屏：切换到主视图时，先关闭个人资料页/设置页（它们用 .show 控制）
   $('profileView').classList.remove('show');
   $('settingsView').classList.remove('show');
   view=v;
+  if(changed)qhAct('view_switch',{to:v});
   $('privateView').classList.toggle('hidden',v==='lobby');
   $('lobbyView').classList.toggle('hidden',v==='private');
   if(v==='lobby'){closeMsgMenu();clearQuote();$('app').classList.add('chat-open');loadLobbyHistory();}
@@ -2650,7 +2661,7 @@ function switchView(v){
 async function loadLobbyHistory(){
   if(!sb)return;
   const {data,error}=await sb.from('public_messages').select('*').order('created_at',{ascending:true}).limit(150);
-  if(error){console.error('[lobbyHistory]',error.message);return;}
+  if(error){qhAct('lobby_history_fail',{err:error.message});console.error('[lobbyHistory]',error.message);return;}
   if(window.__QH_BOOT&&window.__QH_BOOT.saveCache)window.__QH_BOOT.saveCache((data||[]).slice(-60));
   const box=$('lobbyMessages');box.innerHTML='';lobbySeen.clear();
   (data||[]).forEach(m=>{lobbySeen.add(m.id);renderLobbyMsg(m);});
@@ -2872,6 +2883,7 @@ async function sendLobby(){
   if(!isLoggedIn&&!guestNick){openLoginModal('guest');return;}
   if(needNet())return; // 网络未就绪，保留输入内容
   lobbySendBusy=true;
+  qhAct('lobby_send',{len:content.length,logged:isLoggedIn});
   try{
     const {error}=await sb.from('public_messages').insert({
       sender_name:currentLobbyName(),
@@ -2879,14 +2891,15 @@ async function sendLobby(){
       sender_kind:isLoggedIn?(isAdmin?'admin':'account'):'guest',
       content:content.slice(0,2000)
     });
-    if(error){console.error('[lobbySend]',error.message);toast('发送失败：'+error.message);} // 失败保留输入内容
+    if(error){qhAct('lobby_fail',{err:error.message});console.error('[lobbySend]',error.message);toast('发送失败：'+error.message);} // 失败保留输入内容
     else{
+      qhAct('lobby_ok',{len:content.length});
       input.value=''; // 只有成功后才清空
       $('mentionPopLobby').classList.remove('show');
       scrollLobby(true); // 自己发消息后滚到底部
       if(/@DeepSeek/i.test(content))await askAILobby(content);
     }
-  }catch(e){console.error('[lobbySend]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
+  }catch(e){qhAct('lobby_error',{msg:(e&&e.message)||'网络异常'});console.error('[lobbySend]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
   finally{lobbySendBusy=false;}
 }
 // 大厅 @DeepSeek：调 AI 并把回复以 AI 身份写到公共大厅
@@ -3118,6 +3131,7 @@ $('loginOk').onclick=async()=>{
   const u=$('loginUser').value.trim(),p=$('loginPass').value;
   if(!u||!p){err.textContent='请填写账号和密码';return;}
   if(needNet()){err.textContent='网络未连接，请检查后重试（微信内建议右上角···→在浏览器中打开）';return;}
+  qhAct('login_try',{mode:loginMode});
   try{
     const res=await fetch(SUPABASE_URL+'/functions/v1/account-guard',{
       method:'POST',
@@ -3125,11 +3139,12 @@ $('loginOk').onclick=async()=>{
       body:JSON.stringify({action:'login',username:u,password:p,role:(loginMode==='admin'?'admin':undefined)})
     });
     const data=await res.json();
-    if(data.error){err.textContent='登录失败：'+data.error;return;}
-    if(!data.ok){err.textContent=loginMode==='admin'?'账号或密码错误（需管理员账号）':'账号或密码错误';return;}
+    if(data.error){qhAct('login_fail',{reason:data.error});err.textContent='登录失败：'+data.error;return;}
+    if(!data.ok){qhAct('login_fail',{reason:'bad_credentials'});err.textContent=loginMode==='admin'?'账号或密码错误（需管理员账号）':'账号或密码错误';return;}
+    qhAct('login_ok',{role:data.role||'user'});
     localStorage.setItem(LS_SESSION,JSON.stringify({id:data.id,username:data.username,role:data.role}));
     location.reload();
-  }catch(e){console.error('[login]',e);err.textContent='登录失败：'+(e.message||'网络异常')+'，请重试';}
+  }catch(e){qhAct('login_error',{msg:(e&&e.message)||'网络异常'});console.error('[login]',e);err.textContent='登录失败：'+(e.message||'网络异常')+'，请重试';}
 };
 $('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter'&&loginMode!=='guest')$('loginOk').click();});
 $('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter'&&loginMode==='guest')$('loginOk').click();});
@@ -3163,9 +3178,11 @@ async function joinRoom(peerId){
   // 订阅可能因网络慢而迟迟不回调，不能让历史消息一直等它（否则点开会话是空白）
   await new Promise(r=>{
     let done=false;
-    const fin=()=>{if(!done){done=true;r();}};
-    roomCh.subscribe(fin);
-    setTimeout(fin,1500);
+    const fin=(via)=>{if(!done){done=true;
+      if(via==='timeout')qhAct('room_sub_timeout',{peerTail:String(peerId).slice(-4)});
+      r();}};
+    roomCh.subscribe(function(){fin('cb');});
+    setTimeout(function(){fin('timeout');},1500);
   });
 }
 function setTyping(on){const s=$('peerSub');s.textContent=on?'对方正在输入…':'一对一私聊';s.classList.toggle('typing',on);}
@@ -3547,6 +3564,7 @@ async function loadMyReplays(){
       box.appendChild(it);
     });
   }catch(e){
+    qhAct('replay_load_fail',{msg:(e&&e.message)||''});
     box.innerHTML='<div class="list-empty">加载失败：'+esc(e.message||'网络异常')+'</div>';
   }
 }
@@ -3653,6 +3671,7 @@ $('setSaveBtn').onclick=async()=>{
 let chatOpenSeq=0; // B6: 会话切换竞态序号
 async function openChat(peer){
   const seq=++chatOpenSeq; // B6: 每次打开递增，异步返回后校验
+  qhAct('chat_open',{ai:peer&&peer.id===AI_ID,peerTail:String((peer&&peer.id)||'').slice(-4)});
   clearMuteState();
   closeMsgMenu();clearQuote();
   if(rec)stopVoice(false); // 切会话时丢弃未发送的录音
@@ -3697,7 +3716,7 @@ async function loadHistory(){
   if(!sb||!currentPeer)return;
   const {data,error}=await sb.from('messages').select('*').eq('room_id',roomIdOf(myId,currentPeer.id))
     .order('created_at',{ascending:true}).limit(300);
-  if(error){console.error('[loadHistory]',error.message);return;}
+  if(error){qhAct('history_fail',{scope:'private',err:error.message});console.error('[loadHistory]',error.message);return;}
   const box=$('messages');box.innerHTML='';
   (data||[]).forEach(m=>{seenIds.add(m.id);renderMessage(m);});
   if(!(data||[]).length){const e=document.createElement('div');e.className='empty-chat';e.innerHTML='<div class="big">👋</div><div>打个招呼开始聊天吧</div>';box.appendChild(e);}
@@ -3886,6 +3905,7 @@ async function askAI(room){
     });
     const out=await res.json();
     hint.remove();
+    qhAct('ai_call',{scope:'private',ctx:msgs.length,ok:!!out.ok,status:res.status});
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     const {data,error}=await sb.from('messages').insert({
       room_id:room,sender_id:AI_ID,sender_nickname:aiDisplayName(),
@@ -3894,7 +3914,7 @@ async function askAI(room){
     if(error){toast('保存 AI 回复失败：'+error.message);return;}
     (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});
     scrollBottom(true);
-  }catch(e){hint.remove();console.error('[askAI]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
+  }catch(e){qhAct('ai_fail',{scope:'private',msg:(e&&e.message)||''});hint.remove();console.error('[askAI]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
 }
 // 群聊 @DeepSeek：调 AI 并把纯文本回复写到群里（群聊不传图片，只传占位说明）
 async function askAIGroup(question){
@@ -3931,6 +3951,7 @@ async function askAIGroup(question){
     });
     const out=await res.json();
     hint.remove();
+    qhAct('ai_call',{scope:'group',ok:!!out.ok,status:res.status});
     if(!out.ok){toast(out.error||'AI 回复失败');return;}
     const {data,error}=await sb.from('group_messages').insert({
       group_id:currentGroup.id,sender_id:AI_ID,sender_nickname:aiDisplayName(),
@@ -3939,7 +3960,7 @@ async function askAIGroup(question){
     if(error){console.error('[askAIGroup]',error.message);return;}
     (data||[]).forEach(m=>{if(!groupSeenIds.has(m.id)){groupSeenIds.add(m.id);renderGroupMessage(m);}});
     scrollBottom(true);
-  }catch(e){hint.remove();console.error('[askAIGroup]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
+  }catch(e){qhAct('ai_fail',{scope:'group',msg:(e&&e.message)||''});hint.remove();console.error('[askAIGroup]',e);toast('AI 回复失败：'+(e.message||'网络异常'));}
 }
 async function sendMessage(){
   if(sendBusy)return; // 防连点重复发送
@@ -3949,6 +3970,7 @@ async function sendMessage(){
   if(!content)return;
   if(needNet())return;
   sendBusy=true;
+  qhAct('msg_send',{scope:groupView?'group':'private',len:content.length,quote:!!(typeof quote!=='undefined'&&quote)});
   // 群聊：检查禁言
   if(groupView&&currentGroup){
     const me=groupMembers.find(m=>m.user_id===myId);
@@ -3962,9 +3984,10 @@ async function sendMessage(){
       const {data,error}=await sb.from('group_messages').insert({
         group_id:currentGroup.id,sender_id:myId,sender_nickname:myNick,content:content.slice(0,2000),...quoteFields()
       }).select();
-      if(error){toast('发送失败：'+error.message);return;}
+      if(error){qhAct('msg_fail',{scope:'group',err:error.message});toast('发送失败：'+error.message);return;}
       (data||[]).forEach(m=>{if(!groupSeenIds.has(m.id)){groupSeenIds.add(m.id);renderGroupMessage(m);}});
       scrollBottom(true);
+      qhAct('msg_ok',{scope:'group',id:data&&data[0]?data[0].id:''});
       input.value='';clearQuote();
       $('mentionPopPrivate').classList.remove('show');
       pushNotify(groupMembers.map(m=>m.user_id).filter(x=>x&&x!==AI_ID),
@@ -3976,13 +3999,14 @@ async function sendMessage(){
         room_id:roomIdOf(myId,currentPeer.id),sender_id:myId,sender_nickname:myNick,
         receiver_id:currentPeer.id,content:content.slice(0,2000),...quoteFields()
       }).select();
-      if(error){toast('发送失败：'+error.message);return;}
+      if(error){qhAct('msg_fail',{scope:'private',err:error.message});toast('发送失败：'+error.message);return;}
       (data||[]).forEach(m=>{if(!seenIds.has(m.id)){seenIds.add(m.id);renderMessage(m);}});scrollBottom(true);
+      qhAct('msg_ok',{scope:'private',ai:isAIChat,id:data&&data[0]?data[0].id:''});
       input.value='';clearQuote();
       if(!isAIChat)pushNotify([currentPeer.id],myNick,content,'/chat.html?push_peer='+encodeURIComponent(currentPeer.id)+'&name='+encodeURIComponent(currentPeer.name||''));
       if(isAIChat)await askAI(roomIdOf(myId,AI_ID));
     }
-  }catch(e){console.error('[sendMessage]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
+  }catch(e){qhAct('msg_error',{scope:groupView?'group':'private',msg:(e&&e.message)||'网络异常'});console.error('[sendMessage]',e);toast('发送失败：'+(e.message||'网络异常')+'，内容已保留');}
   finally{sendBusy=false;}
 }
 $('sendBtn').onclick=()=>{if(sysView)sendSysChat();else sendMessage();};
@@ -4172,6 +4196,7 @@ async function handlePrivateFile(file){
   const rid=groupView?currentGroup.id:roomIdOf(myId,currentPeer.id);
   const ext=safeExt(file.name);
   const path=`${rid}/${myId}/${crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)}${ext}`;
+  qhAct('file_send',{scope:groupView?'group':'private',size:file.size,type:file.type||'?',ext:ext,count:1});
   $('uploadBar').classList.add('show');$('uploadText').textContent='正在上传 '+file.name+' …';
   $('attachBtn').disabled=true;$('sendBtn').disabled=true;
   try{
@@ -4198,6 +4223,7 @@ async function handlePrivateFile(file){
     }
     clearQuote();
     scrollBottom(true);toast('文件已发送');
+    qhAct('file_ok',{scope:groupView?'group':'private',size:file.size});
     const fHint='[文件] '+(file.name||'文件');
     if(groupView&&currentGroup){
       pushNotify(groupMembers.map(m=>m.user_id).filter(x=>x&&x!==AI_ID&&x!==myId),
@@ -4205,7 +4231,7 @@ async function handlePrivateFile(file){
     }else if(currentPeer){
       pushNotify([currentPeer.id],myNick,fHint,'/chat.html?push_peer='+encodeURIComponent(currentPeer.id)+'&name='+encodeURIComponent(currentPeer.name||''));
     }
-  }catch(err){console.error('[sendFile]',err);toast('上传失败：'+err.message);}
+  }catch(err){qhAct('file_fail',{scope:groupView?'group':'private',size:file.size,msg:(err&&err.message)||''});console.error('[sendFile]',err);toast('上传失败：'+err.message);}
   finally{$('uploadBar').classList.remove('show');$('attachBtn').disabled=false;$('sendBtn').disabled=groupView?false:(canSendPrivate?false:true);}
 }
 
@@ -4443,6 +4469,7 @@ async function loadSpace(){
     sb.from('groups').select('id, name')
   ]);
   if(privRes.error||lobbyRes.error||groupRes.error){
+    qhAct('space_fail',{err:(privRes.error||lobbyRes.error||groupRes.error).message});
     $('spaceTotal').textContent='统计失败：'+((privRes.error||lobbyRes.error||groupRes.error).message);$('spaceRank').innerHTML='';return;
   }
   const used=[...(privRes.data||[]),...(lobbyRes.data||[]),...(groupRes.data||[])].reduce((s,r)=>s+(r.file_size||0),0);

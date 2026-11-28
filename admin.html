@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/qh-log.js" data-page="admin" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>悄悄话 · 管理员后台</title>
 <style>
@@ -464,6 +466,7 @@ function applyFold(box,itemSelector,N,unitLabel){
 
 async function processRequest(req,action,rejectReason,grantRole){
   if(!confirm((action==='approve'?'确认批准':'确认驳回')+'账号「'+req.username+'」的申请？'))return;
+  qhAct('admin_process',{action:action,role:grantRole||req.requested_role||'user'});
   try{
     if(action==='approve'){
       const {data:dup}=await sb.from('accounts').select('id').eq('username',req.username).maybeSingle();
@@ -498,7 +501,7 @@ async function processRequest(req,action,rejectReason,grantRole){
       toast('已驳回并发布通知');
     }
     loadRequests();loadAccounts();
-  }catch(e){toast('处理失败：'+e.message);}
+  }catch(e){qhAct('admin_process_fail',{action:action,msg:(e&&e.message)||''});toast('处理失败：'+e.message);}
 }
 
 // 登录：查 accounts 表校验 role=admin
@@ -508,6 +511,7 @@ $('loginBtn').onclick = async () => {
   if (!u || !p) { msg.textContent='请填写账号和密码'; msg.className='msg err'; return; }
   if (!sb) { msg.textContent='SDK 未加载'; msg.className='msg err'; return; }
   $('loginBtn').disabled = true;
+  qhAct('admin_login_try',{});
   try {
     const res = await fetch(SUPABASE_URL + '/functions/v1/account-guard', {
       method:'POST',
@@ -516,14 +520,15 @@ $('loginBtn').onclick = async () => {
     });
     const data = await res.json();
     $('loginBtn').disabled = false;
-    if (data.error) { msg.textContent='登录失败：'+data.error; msg.className='msg err'; return; }
-    if (!data.ok) { msg.textContent='账号或密码错误，或该账号不是管理员'; msg.className='msg err'; return; }
+    if (data.error) { qhAct('admin_login_fail',{err:data.error}); msg.textContent='登录失败：'+data.error; msg.className='msg err'; return; }
+    if (!data.ok) { qhAct('admin_login_fail',{err:'bad_credentials'}); msg.textContent='账号或密码错误，或该账号不是管理员'; msg.className='msg err'; return; }
+    qhAct('admin_login_ok',{});
     admin = { id:data.id, username:data.username, password:p };
     localStorage.setItem(SESSION_KEY, JSON.stringify(admin));
     // 同步聊天页会话：后台跳个人主页时，聊天页需识别为管理员以显示管理操作
     localStorage.setItem('qiaohua_session', JSON.stringify({id:data.id,username:data.username,role:'admin'}));
     showAdmin();
-  } catch(e) { $('loginBtn').disabled = false; msg.textContent='登录失败：'+(e.message||'网络异常'); msg.className='msg err'; }
+  } catch(e) { qhAct('admin_login_error',{msg:(e&&e.message)||''}); $('loginBtn').disabled = false; msg.textContent='登录失败：'+(e.message||'网络异常'); msg.className='msg err'; }
 };
 $('loginPass').addEventListener('keydown', e => { if (e.key==='Enter') $('loginBtn').click(); });
 $('logoutBtn').onclick = () => { localStorage.removeItem(SESSION_KEY); localStorage.removeItem('qiaohua_session'); location.reload(); };

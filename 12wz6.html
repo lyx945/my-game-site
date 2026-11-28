@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/qh-log.js" data-page="game12" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!--
   ============================================================
@@ -925,7 +927,7 @@ function kingAdd(){
       if(!res.ok) throw new Error("http "+res.status);
       const n = await res.json();
       if(typeof n === "number"){ kingCount = Math.max(kingCount, n); updKing(); kingLocalSet(kingCount); }
-    }catch(e){ /* 断网：保留本机计数，不回滚、不重复上报 */ }
+    }catch(e){ qhAct('king_sync_fail',{msg:(e&&e.message)||''}); /* 断网：保留本机计数，不回滚、不重复上报 */ }
   });
   return kingCount;
 }
@@ -938,7 +940,7 @@ async function kingLoad(){
       if(rows && rows[0] && typeof rows[0].value === "number"){
         kingCount = rows[0].value; updKing(); kingLocalSet(kingCount);
       }
-    }catch(e){ /* 断网：沿用本机缓存 */ }
+    }catch(e){ qhAct('king_load_fail',{msg:(e&&e.message)||''}); /* 断网：沿用本机缓存 */ }
   });
 }
 updKing();
@@ -1173,6 +1175,7 @@ bgmAudio.addEventListener("error", function(){
   bgmFailed = true;
   const bad = BGM_TRACKS[bgmIndex].file;
   trackState[bgmIndex] = "missing";
+  qhAct('bgm_missing',{file:bad});
   const fb = findReadyTrack(bgmIndex);
   if(fb !== null){
     settings.bgm = fb; saveSettings();
@@ -1441,6 +1444,7 @@ function doMerge(a, b){
     floaty(mx,my-70,"🏆 高阶球解锁！" + LEVELS[nl].name,"#ffd54a");
   }
   if(nl === MAX_LEVEL){
+    qhAct('max_merge',{score:score,king:kingCount});
     kingAdd();
     shakeT = 18; burst(mx,my,"#ff4d4d",40,8);
     floaty(mx,my-70,"👑 生物之王！全班第"+kingGet()+"次合成","#ffd54a");
@@ -1810,6 +1814,7 @@ async function lbLoad(){
       return {id:x.id, n:x.name, s:x.score, acc:x.accuracy, qn:x.qcount, t:lbTime(x.created_at)};
     });
   }catch(e){
+    qhAct('lb_load_fail',{msg:(e&&e.message)||''});
     return lbLocalLoad().sort(function(a,b){ return b.s - a.s; }).slice(0,20);
   }
 }
@@ -1828,6 +1833,7 @@ async function lbAdd(name, sc, acc, qn){
     const rows = await res.json();
     if(rows && rows[0]) rec.id = rows[0].id;
   }catch(e){
+    qhAct('lb_post_fail',{score:sc,msg:(e&&e.message)||''});
     const list = lbLocalLoad(); list.push(rec); lbLocalSave(list);
   }
   return rec;
@@ -1859,6 +1865,7 @@ document.getElementById("lb-close").addEventListener("click", function(){
   document.getElementById("lb-overlay").classList.remove("show");
 });
 function openSettle(){
+  qhAct('game_over',{score:score,acc:qTotal?quizAcc():null,qTotal:qTotal,king:kingCount});
   document.getElementById("settle-score").textContent = score;
   document.getElementById("settle-acc").textContent = qTotal ? (quizAcc() + "%（" + qCorrect + "/" + qTotal + " 题）") : "本局未做题";
   document.getElementById("settle-name").value = "";
@@ -1872,6 +1879,7 @@ document.getElementById("settle-cancel").addEventListener("click", function(){
 document.getElementById("settle-ok").addEventListener("click", async function(){
   const name = document.getElementById("settle-name").value.trim();
   if(!name){ toast("要先写下你的名字哦！"); return; }
+  qhAct('lb_submit',{score:score,acc:qTotal?quizAcc():null,qTotal:qTotal,nameLen:name.length});
   // 先发起云端写入，同时立刻收起结算界面，避免网络等待时界面卡住
   const saving = lbAdd(name, score, qTotal ? quizAcc() : null, qTotal);
   document.getElementById("settle-overlay").classList.remove("show");
@@ -1946,6 +1954,7 @@ function resetGame(){
   updScore(); updProps();
 }
 function startGame(){
+  qhAct('game_start',{});
   resetGame();
   state = "playing";
   bgmStart();   // v1.2：借「开始游戏」这一用户手势启动 BGM，符合自动播放策略

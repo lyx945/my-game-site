@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/qh-log.js" data-page="live" data-ver="2026.11.28.1"></script>
+<script>window.qhAct=window.qhAct||function(){};</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#161310">
 <title>直播 · LYX STUDIO</title>
@@ -711,15 +713,18 @@
     var err=$('lgErr');err.textContent='';
     if(!u||!p){err.textContent='请填写账号和密码';return;}
     $('lgBtn').disabled=true;$('lgBtn').textContent='登录中…';
+    qhAct('live_login_try',{});
     try{
       var res=await fetch(FUNC,{method:'POST',
         headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
         body:JSON.stringify({action:'login',username:u,password:p})});
       var d=await res.json();
-      if(!d.ok){err.textContent=(d.error||'账号或密码错误');$('lgBtn').disabled=false;$('lgBtn').textContent='登录';return;}
+      if(!d.ok){qhAct('live_login_fail',{err:d.error||'bad_credentials'});err.textContent=(d.error||'账号或密码错误');$('lgBtn').disabled=false;$('lgBtn').textContent='登录';return;}
+      qhAct('live_login_ok',{role:d.role});
       localStorage.setItem(LS_SESSION,JSON.stringify({id:d.id,username:d.username,role:d.role}));
       location.reload();
     }catch(e){
+      qhAct('live_login_error',{msg:(e&&e.message)||''});
       err.textContent='登录失败：'+(e.message||'网络异常')+'，请重试';
       $('lgBtn').disabled=false;$('lgBtn').textContent='登录';
     }
@@ -933,10 +938,12 @@
     if(!sb){toast('连接服务失败，请刷新重试',true);return;}
     if(!isLoggedIn){toast('请先登录账号再开播',true);return;}
     if(!state.videoStream&&!state.micStream){toast('请先开启摄像头或麦克风',true);return;}
+    qhAct('live_go_start',{mode:state.srcMode,cam:!!state.videoStream,mic:!!state.micStream});
 
     // 额度闸门：本月中转额度用完则全服停止开播
     var q=await loadQuota();
     if(q&&q.blocked){
+      qhAct('live_go_blocked',{used:q.used,limit:q.limit});
       toast('本月中转额度已用完，暂时停止开播（下月 1 号自动重置）',true);
       return;
     }
@@ -973,9 +980,10 @@
       else if(r.error.code!=='23505'){console.error(r.error);break;}
     }
     $('goLive').disabled=false;$('goLive').textContent='开始直播';
-    if(!room){toast('开播失败，请重试',true);return;}
+    if(!room){qhAct('live_go_fail',{reason:'insert_room'});toast('开播失败，请重试',true);return;}
 
     state.room=room;state.role='host';state.hostName=myNick;
+    qhAct('live_go_ok',{code:room.code,mode:state.srcMode,title:title});
     enterRoom();
     subscribeAsHost();
     startHeartbeat();
@@ -1131,6 +1139,7 @@
     pc._createdAt=Date.now();
     pc._pending=[];
     state.peers.set(viewerId,pc);
+    qhAct('pc_host_create',{viewerTail:String(viewerId).slice(-4),relay:!!state.relayEnabled});
     try{
       var at=currentAudioTrack(),vt2=currentVideoTrack();
       var ms=new MediaStream();
@@ -1150,6 +1159,7 @@
     };
     pc.onconnectionstatechange=function(){
       renderDiag();
+      qhAct('pc_host_state',{s:pc.connectionState,viewerTail:String(viewerId).slice(-4)});
       if(pc.connectionState==='failed'){
         try{pc.close();}catch(e){}
         if(state.peers.get(viewerId)===pc){state.peers.delete(viewerId);updateViewerCount();}
@@ -1166,7 +1176,7 @@
       state.channel.send({type:'broadcast',event:'offer',
         payload:{viewerId:viewerId,sdp:pc.localDescription,gen:gen}});
       updateViewerCount();
-    }catch(e){console.warn('[offer]',e);}
+    }catch(e){qhAct('offer_fail',{msg:(e&&e.message)||''});console.warn('[offer]',e);}
   }
 
   function updateViewerCount(){
@@ -1202,6 +1212,7 @@
     var pc=new RTCPeerConnection(iceConfig());
     pc._pending=[];
     state.pc=pc;
+    qhAct('pc_viewer_create',{viewerTail:String(state.viewerId||'').slice(-4),relay:!!state.relayEnabled});
 
     pc.ontrack=function(e){
       var rv=$('remoteVideo');
@@ -1209,6 +1220,7 @@
         rv.srcObject=e.streams[0];
         tryPlay();
       }
+      qhAct('pc_track',{kind:(e.track&&e.track.kind)||'?',streams:(e.streams||[]).length});
       setHint('');
     };
     pc.onicecandidate=function(e){
@@ -1220,6 +1232,7 @@
       }
     };
     pc.onconnectionstatechange=function(){
+      qhAct('pc_viewer_state',{s:pc.connectionState,ice:pc.iceConnectionState||''});
       if(pc.connectionState==='failed'){
         setHint('连接中断，正在重新连接…');
       }
@@ -1233,6 +1246,7 @@
     var p=rv.play();
     if(p&&p.catch){
       p.catch(function(){
+        qhAct('autoplay_blocked',{});
         // 浏览器自动播放策略拦了有声播放：先静音播放，再让用户点一下开启声音
         rv.muted=true;
         rv.play().catch(function(){});
@@ -1390,6 +1404,7 @@
 
       state.failCount++;
       state.diag.attempts=state.failCount;
+      qhAct('wd_retry',{n:state.failCount,cs:cs,relay:!!state.relayEnabled});
 
       if(state.failCount>=2&&!state.relayEnabled){
         state.relayEnabled=true;
@@ -1402,6 +1417,7 @@
         setHint('连接不太顺利，正在重试…<br>如果一直停在这里，可以点下方按钮手动重连。');
       }
       if(state.failCount>=6){
+        qhAct('wd_give_up',{n:state.failCount,relay:!!state.relayEnabled});
         setHint('连接不上主播：你的网络与主播之间无法直连，中转也没有成功。<br>可以点下方按钮重试，或换个网络。');
       }
       if(state.failCount<3){
@@ -1434,6 +1450,7 @@
 
   /* ================= 无画面状态 ================= */
   function goIdle(reason){
+    qhAct('video_idle',{reason:reason});
     state.videoOn=false;
     stopTracks(state.videoStream);
     state.videoStream=null;
@@ -1552,7 +1569,8 @@
       room_id:state.room.id,sender_id:myId,sender_name:myNick,
       content:v,color:palColor(myId)
     }).select().single();
-    if(r.error){toast('发送失败：'+r.error.message,true);return;}
+    if(r.error){qhAct('dm_fail',{len:v.length,err:r.error.message});toast('发送失败：'+r.error.message,true);return;}
+    qhAct('dm_ok',{len:v.length});
     // 自己发的气泡立刻上屏（不等实时回传），并把 id 记入去重表避免自己收两遍
     if(r.data){
       state.seen.add(r.data.id);
@@ -1562,6 +1580,7 @@
 
   /* ================= 结束 / 离开 ================= */
   function onRoomClosed(msg,isBan){
+    qhAct('room_closed',{ban:!!isBan,msg:String(msg||'').slice(0,80),code:state.room&&state.room.code});
     stopWatchdog();stopWatch();stopHeartbeat();
     $('liveDot').classList.add('hidden');
     setHint('<span class="big">⏹</span><b>'+esc(msg)+'</b>');
@@ -1581,6 +1600,7 @@
   async function endLive(){
     if(state.role!=='host'||!state.room)return;
     if(!confirm('确认结束这场直播？观众会立即断开。'))return;
+    qhAct('live_end',{code:state.room.code});
     stopRecording();
     try{
       if(state.channel)state.channel.send({type:'broadcast',event:'ended',payload:{}});
@@ -1594,6 +1614,7 @@
     },260);
   }
   function leaveRoom(){
+    qhAct('room_leave',{role:state.role,code:state.room&&state.room.code});
     if(state.channel&&state.viewerId){
       try{state.channel.send({type:'broadcast',event:'leave',payload:{viewerId:state.viewerId}});}catch(e){}
     }
@@ -1632,12 +1653,14 @@
     if(!sb){toast('连接服务失败，请刷新重试',true);return;}
     code=(code||'').trim().toUpperCase();
     if(!/^[A-Z0-9]{6}$/.test(code)){toast('直播号是 6 位字母或数字',true);return;}
+    qhAct('live_join_try',{code:code});
     var r=await sb.from('live_rooms').select('*').eq('code',code).eq('status','live')
       .order('started_at',{ascending:false}).limit(1).maybeSingle();
-    if(r.error||!r.data){toast('直播不存在或已结束',true);return;}
+    if(r.error||!r.data){qhAct('live_join_fail',{code:code,reason:r.error?'query':'not_found'});toast('直播不存在或已结束',true);return;}
     var hb=new Date(r.data.last_heartbeat).getTime();
-    if(Date.now()-hb>100000){toast('该直播已结束',true);return;}
+    if(Date.now()-hb>100000){qhAct('live_join_fail',{code:code,reason:'stale',hbAgo:Date.now()-hb});toast('该直播已结束',true);return;}
     state.room=r.data;state.role='viewer';
+    qhAct('live_join_ok',{code:code,hostTail:String(r.data.host_id||'').slice(-4)});
     enterRoom();
     subscribeAsViewer();
   }
@@ -1692,13 +1715,15 @@
   async function banLive(){
     if(!isAdmin||!state.room)return;
     if(!confirm('确认封禁这场直播？主播与所有观众会立即被断开，且该场次不可恢复。'))return;
+    qhAct('live_ban_try',{code:state.room.code});
     try{
       await sb.from('live_rooms').update({
         status:'banned',banned_at:new Date().toISOString(),
         banned_by:myNick,ended_at:new Date().toISOString()
       }).eq('id',state.room.id);
       if(state.channel)state.channel.send({type:'broadcast',event:'banned',payload:{by:myNick}});
-    }catch(e){toast('封禁失败：'+e.message,true);return;}
+    }catch(e){qhAct('live_ban_fail',{msg:(e&&e.message)||''});toast('封禁失败：'+e.message,true);return;}
+    qhAct('live_ban_ok',{code:state.room.code});
     toast('已封禁该直播');
     setTimeout(function(){cleanup();show('landing');},300);
   }
@@ -1775,8 +1800,9 @@
       await acquireMic(deviceId);
       replaceAllTracks();
       refreshDevicePops();
+      qhAct('mic_switch',{ok:true});
       toast('已切换麦克风');
-    }catch(e){toast('切换麦克风失败：'+(e.message||e.name),true);}
+    }catch(e){qhAct('mic_switch',{ok:false,msg:(e&&(e.message||e.name))||''});toast('切换麦克风失败：'+(e.message||e.name),true);}
   }
   async function switchCam(deviceId){
     if(!deviceId)return;
@@ -1793,8 +1819,9 @@
       try{state.channel&&state.channel.send({type:'broadcast',event:'video-resume',payload:{}});}catch(e){}
       refreshDevicePops();
       restartRecSegment();
+      qhAct('cam_switch',{ok:true});
       toast('已切换摄像头');
-    }catch(e){toast('切换摄像头失败：'+(e.message||e.name),true);}
+    }catch(e){qhAct('cam_switch',{ok:false,msg:(e&&(e.message||e.name))||''});toast('切换摄像头失败：'+(e.message||e.name),true);}
   }
   function updateMicUI(){
     var b=$('btnMic');
@@ -1841,6 +1868,7 @@
   }
   function onQuotaExhausted(){
     if(!state.quota||!state.quota.blocked)return;
+    qhAct('quota_exhausted',{used:state.quota.used,limit:state.quota.limit_bytes,role:state.role});
     if(state.relayEnabled){
       state.relayEnabled=false;
       toast('中转额度已用完，已切回直连',true);
@@ -1857,7 +1885,7 @@
         body:JSON.stringify({p_room:state.room?state.room.id:null,p_bytes:add,
           p_code:state.room?state.room.code:null})});
       loadQuota();
-    }catch(e){state.relayPending+=add;}
+    }catch(e){qhAct('relay_flush_fail',{add:add,msg:(e&&e.message)||''});state.relayPending+=add;}
   }
   /* 只有「选中的候选对」里有 relay 才算走了中转，避免把直连流量也算进额度 */
   async function sampleRelayUsage(){
@@ -1941,6 +1969,11 @@
     if(!sb||!state.room||state.diagSent||state.role!=='viewer')return;
     state.diagSent=true;
     var pc=state.pc;
+    qhAct('diag_report',{
+      reason:reason,conn:pc?pc.connectionState:'-',ice:pc?pc.iceConnectionState:'-',
+      gather:pc?pc.iceGatheringState:'-',relay:!!state.relayEnabled,
+      attempts:state.diag.attempts,local:state.diag.local,remote:state.diag.remote
+    });
     try{
       await sb.from('live_diag_reports').insert({
         room_id:state.room.id,room_code:state.room.code,user_id:myId,role:state.role,
@@ -2126,15 +2159,15 @@
     try{
       toast('正在上传回放片段 '+part+'…');
       var up=await sb.storage.from('live-replays').upload(path,blob,{contentType:blob.type||'video/webm'});
-      if(up.error){toast('回放上传失败：'+up.error.message,true);return;}
+      if(up.error){qhAct('replay_upload_fail',{part:part,size:blob.size,err:up.error.message});toast('回放上传失败：'+up.error.message,true);return;}
       var url=sb.storage.from('live-replays').getPublicUrl(path).data.publicUrl;
       var ins=await sb.from('live_replays').insert({
         room_id:room.id,code:room.code,title:room.title,host_id:room.host_id,
         host_name:room.host_name,part:part,duration_sec:dur,size_bytes:blob.size,file_url:url
       });
       if(ins.error)console.warn('[replay row]',ins.error);
-      else toast('回放片段 '+part+' 已保存');
-    }catch(e){console.warn('[replay upload]',e);toast('回放上传异常：'+(e.message||''),true);}
+      else{qhAct('replay_ok',{part:part,dur:dur,size:blob.size});toast('回放片段 '+part+' 已保存');}
+    }catch(e){qhAct('replay_error',{part:part,msg:(e&&e.message)||''});console.warn('[replay upload]',e);toast('回放上传异常：'+(e.message||''),true);}
   }
 
   /* ================= 参与者记录（决定谁能看回放） ================= */
