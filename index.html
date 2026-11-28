@@ -1201,15 +1201,21 @@ document.getElementById('mvReset').addEventListener('click',function(){
     var wk=isoDate(mondayOf(new Date()));
     fetch(SB_URL+'/rest/v1/site_weekly_snapshots?select=*&order=week_start.asc',{headers:H})
       .then(function(r){return r.ok?r.json():[];}).then(function(rows){
+        // 先画已有数据，不被写入流程阻塞
+        renderTrend(rows);
         var has=rows.some(function(x){return x.week_start===wk;});
-        if(!has){
-          Promise.all([count('messages'),count('public_messages'),count('group_messages'),count('groups')]).then(function(a){
-            fetch(SB_URL+'/rest/v1/site_weekly_snapshots',{method:'POST',headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'}),
-              body:JSON.stringify({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0,groups_cnt:a[3]||0})})
-              .then(function(){rows.push({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0});renderTrend(rows);})
-              .catch(function(){renderTrend(rows);});
-          });
-        }else renderTrend(rows);
+        if(has)return;
+        Promise.all([count('messages'),count('public_messages'),count('group_messages'),count('groups')]).then(function(a){
+          if(a[0]==null&&a[1]==null&&a[2]==null)return;
+          fetch(SB_URL+'/rest/v1/site_weekly_snapshots',{method:'POST',headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'}),
+            body:JSON.stringify({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0,groups_cnt:a[3]||0})})
+            .then(function(r){
+              if(!r.ok)return;
+              var exists=rows.some(function(x){return x.week_start===wk;});
+              if(!exists){rows.push({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0});
+                rows.sort(function(x,y){return x.week_start<y.week_start?-1:1;});renderTrend(rows);}
+            }).catch(function(){});
+        }).catch(function(){});
       }).catch(function(){renderTrend([]);});
   }
   setTimeout(loadTrend,400);
