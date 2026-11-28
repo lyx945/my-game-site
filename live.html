@@ -413,7 +413,17 @@
         <div class="top-tools">
           <button class="tool-btn" id="dmToggle" title="弹幕开关">弹</button>
           <button class="tool-btn" id="dmSettingsBtn" title="弹幕设置">⚙</button>
+          <button class="tool-btn" id="netBtn" title="连接诊断">📶</button>
           <button class="tool-btn" id="fsBtn" title="全屏">⛶</button>
+        </div>
+
+        <div class="dm-panel" id="netPanel" style="width:270px">
+          <div class="row">
+            <div class="lbl">连接诊断</div>
+            <div id="netBody" style="font-size:11.5px;line-height:1.85;color:var(--muted)">—</div>
+          </div>
+          <button class="btn btn-sm" id="netCopy" style="width:100%">复制诊断信息</button>
+          <div class="dm-note">候选里出现 relay 说明走了中转；全是 host/srflx 说明是直连。</div>
         </div>
 
         <div class="dm-panel" id="dmPanel">
@@ -446,6 +456,8 @@
         <div class="video-hint" id="videoHint">等待主播画面…</div>
         <span class="viewer-badge" id="viewerBadge">0 人观看</span>
         <button class="unmute hidden" id="unmuteBtn">🔇 点击开启声音</button>
+        <button class="btn btn-sm hidden" id="retryBtn"
+          style="position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:9">重新连接</button>
 
         <div class="dm-bar">
           <input id="dmInput" maxlength="60" placeholder="发条弹幕…" autocomplete="off">
@@ -564,9 +576,48 @@
   var SB_URL='https://znqiksqldqthcnlbrwzi.supabase.co';
   var SB_KEY='sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
   var FUNC=SB_URL+'/functions/v1/account-guard';
-  var ICE={iceServers:[
-    {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun.cloudflare.com:3478']}
-  ]};
+  /* STUN 常开（拿到公网映射）；TURN 只在对端连不上时才启用。
+     直连能通时不走中转，省带宽也更快；走不通才退到中继。
+     这里的 TURN 是公开免费中继，够小规模用；以后换成 Cloudflare TURN 只需替换这一段。 */
+  var STUN_SERVERS=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun.cloudflare.com:3478']}];
+  var TURN_SERVERS=[
+    {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],
+     username:'openrelayproject',credential:'openrelayproject'}
+  ];
+  function iceConfig(){
+    return {
+      iceServers: state.relayEnabled ? STUN_SERVERS.concat(TURN_SERVERS) : STUN_SERVERS,
+      iceCandidatePoolSize: 0,
+      bundlePolicy:'max-bundle'
+    };
+  }
+  /* ICE 候选必须等 remoteDescription 设好再 add，否则会报错并被丢弃。
+     主播发 offer 后立刻发候选，观众往往先收到候选、后收到 offer，这是黑屏的常见原因之一。 */
+  function addIceBuf(pc,cand){
+    if(!pc||!cand)return;
+    try{
+      var c=new RTCIceCandidate(cand);
+      if(pc.remoteDescription&&pc.remoteDescription.type){
+        pc.addIceCandidate(c).catch(function(){});
+      }else{
+        (pc._pending=pc._pending||[]).push(c);
+      }
+    }catch(e){}
+  }
+  function flushIce(pc){
+    if(!pc)return;
+    var arr=pc._pending||[];pc._pending=[];
+    arr.forEach(function(c){try{pc.addIceCandidate(c).catch(function(){});}catch(e){}});
+  }
+  function countCand(store,cand){
+    if(!store||!cand)return;
+    // 兼容直接传 RTCIceCandidate 和传 event 两种调用
+    var str=(typeof cand.candidate==='string')
+      ? cand.candidate
+      : ((cand.candidate&&cand.candidate.candidate)||'');
+    var m=str.match(/ typ (host|srflx|prflx|relay)/);
+    if(m)store[m[1]]=(store[m[1]]||0)+1;
+  }
   var $=function(id){return document.getElementById(id);};
   var sb=window.supabase&&window.supabase.createClient?window.supabase.createClient(SB_URL,SB_KEY):null;
 
@@ -591,7 +642,9 @@
     offerGen:{},lastJoin:0,lastPing:0,curGen:0,
     hostName:'',hostAvatar:'',banBtnShown:false,
     dmSize:16,dmPos:'middle',pipWin:null,pipLayer:null,
-    rec:null,recParts:0,recTimer:null};
+    rec:null,recParts:0,recTimer:null,
+    relayEnabled:false,failCount:0,
+    diag:{local:{},remote:{},attempts:0}};
 
   /* ================= 基础工具 ================= */
   function toast(msg,isErr){
@@ -914,6 +967,9 @@
     $('dmSend').disabled=!isLoggedIn;
     $('dmInput').disabled=!isLoggedIn;
     $('idleBanner').classList.add('hidden');
+    $('retryBtn').classList.add('hidden');
+    state.failCount=0;
+    state.diag={local:{},remote:{},attempts:0};
 
     document.title=state.room.title+' · LYX 直播';
     if(state.role==='host'){
@@ -981,16 +1037,32 @@
       makePeerFor(vId);
     });
 
-    ch.on('broadcast',{event:'answer'},function(payload){
+    ch.on('broadcast',{event:'answer'},async function(payload){
       var d=payload&&payload.payload;if(!d||!d.viewerId||!d.sdp)return;
       var pc=state.peers.get(d.viewerId);
-      if(pc)pc.setRemoteDescription(new RTCSessionDescription(d.sdp)).catch(function(e){console.warn('[sdp]',e);});
+      if(!pc)return;
+      try{
+        await pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+        flushIce(pc);            // 先把等待中的候选补上
+        pc._remoteReady=true;
+      }catch(e){console.warn('[sdp]',e);}
     });
 
     ch.on('broadcast',{event:'ice-viewer'},function(payload){
       var d=payload&&payload.payload;if(!d||!d.viewerId||!d.candidate)return;
       var pc=state.peers.get(d.viewerId);
-      if(pc)pc.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(function(){});
+      if(!pc)return;
+      if(d.gen&&pc._gen&&d.gen!==pc._gen)return;   // 旧连接的候选直接丢
+      countCand(state.diag.remote,d.candidate,'');
+      addIceBuf(pc,d.candidate);
+    });
+
+    /* 观众直连失败后请求走中继：主播也切到 TURN，并把所有连接重建一遍 */
+    ch.on('broadcast',{event:'need-relay'},function(){
+      if(state.relayEnabled)return;
+      state.relayEnabled=true;
+      Array.from(state.peers.keys()).forEach(function(vId){makePeerFor(vId);});
+      toast('有观众直连失败，已切换为中转模式',true);
     });
 
     ch.on('broadcast',{event:'leave'},function(payload){
@@ -1017,8 +1089,9 @@
     var old=state.peers.get(viewerId);
     if(old){try{old.close();}catch(e){}state.peers.delete(viewerId);}
 
-    var pc=new RTCPeerConnection(ICE);
+    var pc=new RTCPeerConnection(iceConfig());
     pc._createdAt=Date.now();
+    pc._pending=[];
     state.peers.set(viewerId,pc);
     try{
       var at=currentAudioTrack(),vt2=currentVideoTrack();
@@ -1030,12 +1103,15 @@
     }catch(e){console.warn('[addTrack]',e);}
 
     pc.onicecandidate=function(e){
-      if(e.candidate&&state.channel){
+      if(!e.candidate)return;
+      countCand(state.diag.local,e.candidate);
+      if(state.channel){
         state.channel.send({type:'broadcast',event:'ice-host',
-          payload:{viewerId:viewerId,candidate:e.candidate}});
+          payload:{viewerId:viewerId,candidate:e.candidate,gen:pc._gen}});
       }
     };
     pc.onconnectionstatechange=function(){
+      renderDiag();
       if(pc.connectionState==='failed'){
         try{pc.close();}catch(e){}
         if(state.peers.get(viewerId)===pc){state.peers.delete(viewerId);updateViewerCount();}
@@ -1045,6 +1121,7 @@
     };
 
     var gen=++state.gen;
+    pc._gen=gen;
     try{
       var offer=await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -1084,7 +1161,8 @@
   /* ================= 观众信令 ================= */
   function createViewerPC(){
     if(state.pc){try{state.pc.close();}catch(e){}}
-    var pc=new RTCPeerConnection(ICE);
+    var pc=new RTCPeerConnection(iceConfig());
+    pc._pending=[];
     state.pc=pc;
 
     pc.ontrack=function(e){
@@ -1096,9 +1174,11 @@
       setHint('');
     };
     pc.onicecandidate=function(e){
-      if(e.candidate&&state.channel){
+      if(!e.candidate)return;
+      countCand(state.diag.local,e.candidate);
+      if(state.channel&&state.viewerId){
         state.channel.send({type:'broadcast',event:'ice-viewer',
-          payload:{viewerId:state.viewerId,candidate:e.candidate}});
+          payload:{viewerId:state.viewerId,candidate:e.candidate,gen:state.curGen}});
       }
     };
     pc.onconnectionstatechange=function(){
@@ -1138,6 +1218,7 @@
       try{
         var pc=createViewerPC();                      // 每次新 offer 重建连接，避免旧连接卡死
         await pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+        flushIce(pc);                                 // 补上先到的候选
         var ans=await pc.createAnswer();
         await pc.setLocalDescription(ans);
         ch.send({type:'broadcast',event:'answer',
@@ -1148,7 +1229,9 @@
     ch.on('broadcast',{event:'ice-host'},function(payload){
       var d=payload&&payload.payload;
       if(!d||d.viewerId!==state.viewerId||!d.candidate)return;
-      if(state.pc)state.pc.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(function(){});
+      if(d.gen&&state.curGen&&d.gen!==state.curGen)return;  // 旧连接候选
+      countCand(state.diag.remote,d.candidate);
+      addIceBuf(state.pc,d.candidate);
     });
 
     ch.on('broadcast',{event:'notice'},function(payload){
@@ -1259,12 +1342,29 @@
     state.wdTimer=setInterval(function(){
       if(state.role!=='viewer')return;
       var cs=state.pc?state.pc.connectionState:'closed';
-      if(cs==='connected')return;
-      // 正在握手时多等一会儿，别把刚建立的连接打断；失败/断开时快速重试
-      var wait=(cs==='connecting'||cs==='new')?15000:5000;
+      renderDiag();                       // 先刷新诊断，连上之后也能看到真实状态
+      if(cs==='connected'){state.failCount=0;return;}
+
+      if(cs==='failed'||cs==='disconnected'||cs==='closed')state.failCount++;
+      state.diag.attempts=state.failCount;
+
+      // 直连连续失败两次：切到中继，并请主播也切
+      if(state.failCount>=2&&!state.relayEnabled){
+        state.relayEnabled=true;
+        try{state.channel&&state.channel.send({type:'broadcast',event:'need-relay',payload:{}});}catch(e){}
+        setHint('直连失败，正在改用中转连接…');
+      }
+
+      // 失败太多次就别一直转圈了，明确告诉用户并给重试按钮
+      if(state.failCount>=6){
+        setHint('连接不上主播：你的网络与主播之间无法直连，中转也没有成功。<br>可以点下方按钮重试，或换个网络。');
+        $('retryBtn').classList.remove('hidden');
+      }
+
+      var wait=(state.failCount>=2)?15000:((cs==='connecting'||cs==='new')?15000:5000);
       if(Date.now()-state.lastJoin>wait){
         if(state.sendJoin)state.sendJoin();
-        setHint('正在重新连接主播…');
+        if(state.failCount<6)setHint('正在重新连接主播…');
       }
     },2500);
   }
@@ -1663,6 +1763,36 @@
     else{b.classList.add('muted');$('camTxt').textContent='摄像头关';}
   }
 
+  /* ================= 连接诊断 ================= */
+  function renderDiag(){
+    var b=$('netBody');if(!b)return;
+    var pc=state.pc,d=state.diag;
+    var fmt=function(o){
+      var k=Object.keys(o||{});
+      return k.length?k.map(function(x){return x+' '+o[x];}).join(' / '):'—';
+    };
+    b.innerHTML='状态：'+(pc?pc.connectionState:'无连接')+
+      '<br>ICE：'+(pc?(pc.iceConnectionState+' / 收集 '+pc.iceGatheringState):'—')+
+      '<br>本端候选：'+fmt(d.local)+
+      '<br>对端候选：'+fmt(d.remote)+
+      '<br>重试：'+d.attempts+' 次'+
+      '<br>中转：'+(state.relayEnabled?'已启用':'未启用');
+  }
+  function diagText(){
+    var pc=state.pc;
+    return [
+      '时间：'+new Date().toISOString(),
+      '角色：'+(state.role||'-'),
+      '连接：'+(pc?pc.connectionState:'-'),
+      'ICE：'+(pc?(pc.iceConnectionState+'/'+pc.iceGatheringState):'-'),
+      '本端候选：'+JSON.stringify(state.diag.local),
+      '对端候选：'+JSON.stringify(state.diag.remote),
+      '重试：'+state.diag.attempts,
+      '中转：'+state.relayEnabled,
+      'UA：'+navigator.userAgent
+    ].join('\n');
+  }
+
   /* ================= 弹幕偏好 / 设置面板 ================= */
   function loadDmPrefs(){
     try{
@@ -2041,6 +2171,28 @@
   $('dmPosSeg').addEventListener('click',function(e){
     var b=e.target.closest('button');if(!b)return;
     setDmPos(b.dataset.pos);
+  });
+  $('netBtn').addEventListener('click',function(e){
+    e.stopPropagation();
+    renderDiag();
+    $('netPanel').classList.toggle('open');
+    $('dmPanel').classList.remove('open');
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('#netPanel')&&!e.target.closest('#netBtn'))
+      $('netPanel').classList.remove('open');
+  });
+  $('netCopy').addEventListener('click',function(){
+    var txt=diagText();
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(function(){toast('诊断信息已复制');},function(){toast('复制失败',true);});
+    else toast('当前浏览器不支持自动复制',true);
+  });
+  $('retryBtn').addEventListener('click',function(){
+    $('retryBtn').classList.add('hidden');
+    state.failCount=0;state.diag.attempts=0;state.lastJoin=0;
+    if(state.sendJoin)state.sendJoin();
+    setHint('正在重新连接主播…');
   });
   $('dmPipBtn').addEventListener('click',toggleDmPip);
   $('shareChatBtn').addEventListener('click',openShareModal);
