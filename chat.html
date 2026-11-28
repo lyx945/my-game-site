@@ -251,6 +251,11 @@
   .msg-row.theirs .bubble{background:#fff;border:1px solid var(--line);border-bottom-left-radius:5px}
   .msg-sender{font-size:10px;font-weight:700;opacity:.8;margin-bottom:4px;display:flex;align-items:center;gap:6px}
   .kind-tag{font-size:9px;font-weight:600;padding:1px 6px;border-radius:10px;background:rgba(0,0,0,.08)}
+  .live-badge{font-size:9px;font-weight:700;color:#fff;background:#e5484d;border-radius:4px;padding:2px 5px;
+    letter-spacing:.06em;display:inline-flex;align-items:center;gap:3px;flex:0 0 auto}
+  .live-badge i{width:4px;height:4px;border-radius:50%;background:#fff;animation:liveBlink 1.3s infinite}
+  @keyframes liveBlink{50%{opacity:.2}}
+  .chat-sub.live{color:#e5484d;cursor:pointer;font-weight:600}
   .kind-tag.admin{background:var(--admin-bg);color:var(--admin)}
   .kind-tag.account{background:#eaf2ff;color:#3c6bb0}
   .msg-text{white-space:pre-wrap;word-break:break-word;line-height:1.55}
@@ -2212,14 +2217,14 @@ function renderMe(){
 }
 
 /* ========== 3. 状态 ========== */
-let peers=[], following=[], registered=[], searchResults=[];
+let peers=[], following=[], registered=[], searchResults=[], liveMap=new Map(), profilePeerId=null;
 let activeTab='lobby', searching=false, view='lobby';
 let currentPeer=null, unread=new Map(), seenIds=new Set(), lobbySeen=new Set();
 let presenceReady=false, presenceCh=null, msgCh=null, roomCh=null, lobbyCh=null;
 /* ===== 后台资源优化：页面隐藏时断开全部 Realtime 通道，只靠 Web Push 收消息 =====
    Chrome「继续运行后台应用」会保留整个页面进程；页面里若维持 7 条 WebSocket + Presence 心跳，
    就会白耗 CPU/内存。隐藏即断开、回前台即重建，Web Push 由 sw.js 独立处理，不受影响。 */
-var allChannels=new Set(), bgPaused=false, extraChs={mention:null,sys:null,ai:null};
+var allChannels=new Set(), bgPaused=false, extraChs={mention:null,sys:null,ai:null,live:null};
 function trackCh(ch){ if(ch)allChannels.add(ch); return ch; }
 async function pauseRealtime(){
   if(bgPaused||!sb)return;
@@ -2230,7 +2235,7 @@ async function pauseRealtime(){
   }catch(e){}
   presenceCh=null;msgCh=null;roomCh=null;lobbyCh=null;
   groupMsgCh=null;groupMemberCh=null;
-  extraChs.mention=null;extraChs.sys=null;extraChs.ai=null;
+  extraChs.mention=null;extraChs.sys=null;extraChs.ai=null;extraChs.live=null;
   presenceReady=false;
 }
 function resumeRealtime(){
@@ -2241,6 +2246,7 @@ function resumeRealtime(){
   if(currentPeer&&currentPeer.id)joinRoom(currentPeer.id);
   if(isAdmin)extraChs.ai=trackCh(sb.channel('ai-model-config')).on('postgres_changes',
     {event:'*',schema:'public',table:'ai_model_config'},function(){loadAIModelConfig();}).subscribe();
+  loadLiveMap();subscribeLiveWatch();
 }
 document.addEventListener('visibilitychange',function(){
   if(document.hidden)pauseRealtime();
@@ -2404,6 +2410,10 @@ function buildUserItem(p,{showBadge}){
   const tm=document.createElement('div');tm.className='user-time';
   tm.textContent=p.role==='admin'?'管理员':(p.id?'账号用户':'');
   meta.append(name,tm);item.append(av,meta);
+  if(liveMap.has(p.id)){
+    const lb=document.createElement('span');lb.className='live-badge';lb.innerHTML='<i></i>LIVE';
+    lb.title='正在直播：'+(liveMap.get(p.id).title||'');item.appendChild(lb);
+  }
   if(showBadge){const b=document.createElement('span');b.className='badge'+(unread.get(p.id)?' show':'');b.textContent=unread.get(p.id)||'';item.appendChild(b);}
   if(isUserOnline(p.id)){const dot=document.createElement('span');dot.className='online-dot';dot.title='在线';item.appendChild(dot);}
   item.onclick=()=>openChat({id:p.id,name:p.username||p.name});
@@ -2440,6 +2450,43 @@ function buildAIItem(){
   item.appendChild(tag);
   item.onclick=()=>openChat({id:AI_ID,name:'DeepSeek'});
   return item;
+}
+/* ===== 直播状态（供列表标记与个人资料页使用） ===== */
+async function loadLiveMap(){
+  if(!sb){liveMap=new Map();return;}
+  try{
+    const {data}=await sb.from('live_rooms').select('code,host_id,title,last_heartbeat').eq('status','live');
+    const now=Date.now();
+    liveMap=new Map((data||[]).filter(r=>now-new Date(r.last_heartbeat).getTime()<100000).map(r=>[r.host_id,r]));
+  }catch(e){liveMap=new Map();}
+  renderList();
+  refreshPeerLive();
+  // 资料页可能比直播状态先打开，数据到位后补一次「加入直播间」按钮
+  if(profilePeerId&&$('profileView').classList.contains('show'))openProfile(profilePeerId);
+}
+function subscribeLiveWatch(){
+  if(!sb)return;
+  if(extraChs.live)return;
+  extraChs.live=trackCh(sb.channel('live-rooms-watch')
+    .on('postgres_changes',{event:'*',schema:'public',table:'live_rooms'},()=>{loadLiveMap();})
+  ).subscribe();
+}
+function refreshPeerLive(){
+  const sub=$('peerSub');
+  if(!sub)return;
+  if(!currentPeer||currentPeer.id===AI_ID||currentPeer.id===SYS_ID){
+    sub.textContent='在线即可聊天';sub.classList.remove('live');sub.onclick=null;return;
+  }
+  const r=liveMap.get(currentPeer.id);
+  if(r){
+    sub.textContent='🔴 正在直播 · '+(r.title||'')+'（点击加入）';
+    sub.classList.add('live');
+    sub.onclick=()=>{location.href='/live.html?code='+r.code;};
+  }else{
+    sub.textContent='在线即可聊天';
+    sub.classList.remove('live');
+    sub.onclick=null;
+  }
 }
 function renderList(){
   const box=$('userList');box.innerHTML='';
@@ -3293,6 +3340,7 @@ async function processAvatarToWebP(file){
 }
 async function openProfile(peerId){
   if(!peerId)return;
+  profilePeerId=peerId;
   // 总是查库取最新资料，避免缓存导致看不到对方刚换的头像
   let acct=profileAccounts.get(peerId)||null;
   if(sb){
@@ -3330,6 +3378,14 @@ async function openProfile(peerId){
   }else{
     const b=document.createElement('button');b.className='primary';b.textContent='💬 发消息';
     b.onclick=()=>openChat({id:peerId,name:name});acts.appendChild(b);
+    const liveRoom=liveMap.get(peerId);
+    if(liveRoom){
+      const lb=document.createElement('button');lb.className='primary';
+      lb.style.background='linear-gradient(135deg,#e5484d,#c9353a)';lb.style.borderColor='#e5484d';
+      lb.textContent='🔴 加入直播间';
+      lb.onclick=()=>{location.href='/live.html?code='+liveRoom.code;};
+      acts.appendChild(lb);
+    }
     // 管理员：删除账号按钮（AI 账号不可删）
     if(isAdmin&&acct&&acct.id!==AI_ID){
       const del=document.createElement('button');del.style.color='var(--danger)';del.textContent='🗑️ 删除账号';
@@ -3475,7 +3531,7 @@ async function openChat(peer){
   const isAI=peer.id===AI_ID;
   const canChat=canSendPrivate||isAI; // AI 会话对所有人生效（含游客）
   $('app').classList.add('chat-open');
-  $('peerName').textContent=peer.name;setTyping(false);
+  $('peerName').textContent=peer.name;refreshPeerLive();setTyping(false);
   if(isAI){setProfileAvatar($('peerAvatar'),AI_ACCOUNT,'DeepSeek');$('aiBalance').style.display='';loadAIBalance();}
   else{setAvatarSmart($('peerAvatar'),peer.id,peer.name);$('aiBalance').style.display='none';}
   $('peerOnlineDot').style.display=isUserOnline(peer.id)?'':'none'; // 在线绿点
@@ -4297,6 +4353,7 @@ if(sb){
   ).subscribe();
   switchView('lobby'); // 默认进入公共房间，内部拉大厅历史（只此一次）
   renderList();
+  loadLiveMap();subscribeLiveWatch();   // 直播状态（很轻：一次查询 + 一条订阅）
   deferLazy();         // 其余请求延后到空闲，不再与首屏抢带宽
   // 管理员后台跳转：?profile=群主id → 直接打开该账号的个人资料页
   const profileParam=new URLSearchParams(location.search).get('profile');
