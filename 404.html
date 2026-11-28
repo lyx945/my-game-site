@@ -35,6 +35,10 @@
   .btn-ghost{border:1px solid var(--line);color:var(--muted)}
   .btn:hover{transform:translateY(-2px)}
   .btn-ghost:hover{color:var(--gold);border-color:var(--gold)}
+  .toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%) translateY(12px);z-index:40;
+    background:rgba(22,19,16,.96);border:1px solid var(--gold);color:var(--gold);border-radius:999px;
+    padding:10px 20px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .foot{position:absolute;bottom:16px;font-size:10px;color:var(--muted);opacity:.5;letter-spacing:.12em}
   @media(max-width:640px){#game{height:190px}.sub{font-size:12px}}
 </style>
@@ -57,8 +61,9 @@
 <p class="tips">按 <kbd>空格</kbd> / <kbd>↑</kbd> / 点击屏幕 跳跃 · <kbd>R</kbd> 重新开始</p>
 <div class="actions">
   <a class="btn btn-primary" href="/">返回首页</a>
-  <a class="btn btn-ghost" href="/chat.html">去悄悄话</a>
+  <button class="btn btn-ghost" id="feedbackBtn" type="button">向站长反馈</button>
 </div>
+<div class="toast" id="toast">邮箱已复制</div>
 <p class="foot">LYX STUDIO · 内蒙古包头</p>
 
 <script>
@@ -169,6 +174,24 @@
   });
   cv.addEventListener('pointerdown',function(e){e.preventDefault();if(dead)reset();else jump();});
   overlay.addEventListener('click',function(){if(dead)reset();else jump();});
+})();
+(function(){
+  var EMAIL='2442311042@qq.com',btn=document.getElementById('feedbackBtn'),toast=document.getElementById('toast');
+  function show(msg){
+    toast.textContent=msg;toast.classList.add('show');
+    clearTimeout(show._t);show._t=setTimeout(function(){toast.classList.remove('show');},2600);
+  }
+  function fallback(){
+    var ta=document.createElement('textarea');ta.value=EMAIL;
+    ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');show('邮箱已复制：'+EMAIL);}catch(e){show('请手动复制：'+EMAIL);}
+    ta.remove();
+  }
+  btn.addEventListener('click',function(){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(EMAIL).then(function(){show('邮箱已复制：'+EMAIL);},fallback);
+    }else{fallback();}
+  });
 })();
 </script>
 </body>

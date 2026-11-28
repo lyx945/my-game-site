@@ -1834,7 +1834,7 @@ function renderGroupMessage(m){
 function subscribeGroup(gid){
   if(groupMsgCh)sb.removeChannel(groupMsgCh);
   if(groupMemberCh)sb.removeChannel(groupMemberCh);
-  groupMsgCh=sb.channel('group-msg-'+gid)
+  groupMsgCh=trackCh(sb.channel('group-msg-'+gid))
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages',filter:'group_id=eq.'+gid},({new:m})=>{
       if(groupSeenIds.has(m.id))return; // B3: 与本地渲染去重
       groupSeenIds.add(m.id);
@@ -1846,7 +1846,7 @@ function subscribeGroup(gid){
       const row=document.querySelector('.msg-row[data-id="'+m.id+'"][data-scope="g"]');
       if(row&&row._msg){Object.assign(row._msg,m);renderRevokedRow(row,row._msg,'g');}
     }).subscribe();
-  groupMemberCh=sb.channel('group-mem-'+gid)
+  groupMemberCh=trackCh(sb.channel('group-mem-'+gid))
     .on('postgres_changes',{event:'*',schema:'public',table:'group_members',filter:'group_id=eq.'+gid},()=>{
       loadGroupMembers(gid).then(()=>{renderGroupPanel();applyMuteState();});
     }).subscribe();
@@ -2216,6 +2216,36 @@ let peers=[], following=[], registered=[], searchResults=[];
 let activeTab='lobby', searching=false, view='lobby';
 let currentPeer=null, unread=new Map(), seenIds=new Set(), lobbySeen=new Set();
 let presenceReady=false, presenceCh=null, msgCh=null, roomCh=null, lobbyCh=null;
+/* ===== 后台资源优化：页面隐藏时断开全部 Realtime 通道，只靠 Web Push 收消息 =====
+   Chrome「继续运行后台应用」会保留整个页面进程；页面里若维持 7 条 WebSocket + Presence 心跳，
+   就会白耗 CPU/内存。隐藏即断开、回前台即重建，Web Push 由 sw.js 独立处理，不受影响。 */
+var allChannels=new Set(), bgPaused=false, extraChs={mention:null,sys:null,ai:null};
+function trackCh(ch){ if(ch)allChannels.add(ch); return ch; }
+async function pauseRealtime(){
+  if(bgPaused||!sb)return;
+  bgPaused=true;
+  try{
+    var arr=Array.from(allChannels);allChannels.clear();
+    for(var i=0;i<arr.length;i++){ try{await sb.removeChannel(arr[i]);}catch(e){} }
+  }catch(e){}
+  presenceCh=null;msgCh=null;roomCh=null;lobbyCh=null;
+  groupMsgCh=null;groupMemberCh=null;
+  extraChs.mention=null;extraChs.sys=null;extraChs.ai=null;
+  presenceReady=false;
+}
+function resumeRealtime(){
+  if(!bgPaused||!sb)return;
+  bgPaused=false;
+  initPresence();initMessageChanges();
+  if(currentGroup&&currentGroup.id)subscribeGroup(currentGroup.id);
+  if(currentPeer&&currentPeer.id)joinRoom(currentPeer.id);
+  if(isAdmin)extraChs.ai=trackCh(sb.channel('ai-model-config')).on('postgres_changes',
+    {event:'*',schema:'public',table:'ai_model_config'},function(){loadAIModelConfig();}).subscribe();
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden)pauseRealtime();
+  else resumeRealtime();
+});
 let typingTimer=null, searchTimer=null, emojiTarget=null;
 let announcements=[], readCounts=new Map(), annReadCounts=new Map(), allAccounts=[];
 const SYS_ID='__system__';
@@ -2275,7 +2305,7 @@ async function ensurePdfLibs(){
 
 /* ========== 4. Presence ========== */
 function initPresence(){
-  presenceCh=sb.channel('lobby',{config:{presence:{key:myId}}});
+  presenceCh=trackCh(sb.channel('lobby',{config:{presence:{key:myId}}}));
   presenceCh.on('presence',{event:'sync'},()=>{
     const state=presenceCh.presenceState(), map=new Map();
     Object.values(state).flat().forEach(p=>{if(p.id&&p.id!==myId)map.set(p.id,p);});
@@ -3045,7 +3075,7 @@ const roomIdOf=(a,b)=>[a,b].sort().join('__');
 async function joinRoom(peerId){
   if(roomCh){await sb.removeChannel(roomCh);roomCh=null;}
   const rid=roomIdOf(myId,peerId);
-  roomCh=sb.channel('room-'+rid);
+  roomCh=trackCh(sb.channel('room-'+rid));
   roomCh.on('broadcast',{event:'typing'},({payload})=>{if(payload.from===peerId)setTyping(!!payload.typing);});
   await new Promise(r=>roomCh.subscribe(r));
 }
@@ -4119,7 +4149,7 @@ function buildPdfDoc(rows,peerName){
 /* ========== 12. Postgres Changes ========== */
 function initMessageChanges(){
   // 全局监听群消息：检测 @我 的群并高亮（当前打开的群不算）
-  sb.channel('group-mention-watch')
+  extraChs.mention=trackCh(sb.channel('group-mention-watch'))
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages'},({new:m})=>{
       if(m.sender_id===myId||!m.content)return;
       if(!(groupView&&currentGroup&&currentGroup.id===m.group_id)){
@@ -4131,7 +4161,7 @@ function initMessageChanges(){
         }
       }
     }).subscribe();
-  msgCh=sb.channel('messages-stream')
+  msgCh=trackCh(sb.channel('messages-stream'))
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>{
       if(seenIds.has(m.id))return;seenIds.add(m.id);
       if(m.receiver_id===myId)notifyNewMessage(m.sender_id,m.sender_nickname);
@@ -4163,7 +4193,7 @@ function initMessageChanges(){
       }
     })
     .subscribe();
-  lobbyCh=sb.channel('lobby-stream')
+  lobbyCh=trackCh(sb.channel('lobby-stream'))
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'public_messages'},({new:m})=>{
       if(lobbySeen.has(m.id))return;lobbySeen.add(m.id);
       renderLobbyMsg(m);if(view==='lobby')scrollLobby();
@@ -4181,7 +4211,7 @@ function initMessageChanges(){
       if(view==='lobby')loadAnnouncements();
     })
     .subscribe();
-  sb.channel('system-notices-stream')
+  extraChs.sys=trackCh(sb.channel('system-notices-stream'))
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'system_notices'},()=>{
       loadSystemNotices();toast('收到一条系统消息，请在「系统消息」查看');
     })
@@ -4262,7 +4292,7 @@ if(sb){
   initPresence();initMessageChanges();
   loadSystemNotices();          // 系统消息角标：首屏需要
   // 模型配置变更时实时同步昵称（订阅很轻，保留首屏）
-  sb.channel('ai-model-config').on('postgres_changes',
+  extraChs.ai=trackCh(sb.channel('ai-model-config')).on('postgres_changes',
     {event:'*',schema:'public',table:'ai_model_config'},()=>{loadAIModelConfig();}
   ).subscribe();
   switchView('lobby'); // 默认进入公共房间，内部拉大厅历史（只此一次）

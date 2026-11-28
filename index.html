@@ -268,6 +268,18 @@ h1{font-family:var(--font-display);font-weight:300;font-size:clamp(3rem,9vw,7.5r
 .cost-txt small{font-size:.78rem;color:var(--muted-foreground)}
 .cost-entry svg{color:var(--gold);opacity:.8}
 @media (max-width:767px){.cost-entry .cost-card{padding:.9rem 1rem}.cost-txt small{font-size:.72rem}}
+/* 双击图片放大灯箱 */
+#imgLightbox{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;
+  background:rgba(10,9,8,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:5vmin}
+#imgLightbox.open{display:flex}
+#imgLightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:.4rem;
+  box-shadow:0 24px 80px rgba(0,0,0,.6);animation:lbIn .28s var(--ease)}
+@keyframes lbIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+#imgLightbox .lb-close{position:absolute;top:max(18px,3vmin);right:max(18px,3vmin);z-index:2;
+  width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);background:color-mix(in oklab,var(--popover) 88%,transparent);
+  color:var(--foreground);cursor:pointer;transition:color .2s,border-color .2s,transform .2s}
+#imgLightbox .lb-close:hover{color:var(--gold);border-color:var(--gold);transform:rotate(90deg)}
 #dialog .d-cta{margin-top:1.5rem}
 
 /* 3D 模型预览弹层 */
@@ -605,6 +617,14 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg></a></div>
     </div>
   </div>
+</div>
+
+<!-- 双击图片放大 -->
+<div id="imgLightbox" role="dialog" aria-modal="true" aria-label="图片放大预览">
+  <button type="button" class="lb-close" id="lbClose" aria-label="关闭">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+  </button>
+  <img id="lbImg" src="" alt="放大预览"/>
 </div>
 
 <!-- 3D 模型预览弹层 -->
@@ -1011,6 +1031,29 @@ document.getElementById('mvReset').addEventListener('click',function(){
   });
 })();
 
+
+/* 双击图片放大：作品卡片封面 + 详情轮播图，无提示文字 */
+(function(){
+  var box=document.getElementById('imgLightbox'),img=document.getElementById('lbImg');
+  function openLb(src){
+    if(!src)return;
+    img.src=src;box.classList.add('open');document.body.style.overflow='hidden';
+  }
+  function closeLb(){
+    box.classList.remove('open');img.src='';
+    if(!dialog.classList.contains('open')&&!modelDialog.classList.contains('open'))document.body.style.overflow='';
+  }
+  document.getElementById('lbClose').addEventListener('click',closeLb);
+  box.addEventListener('click',function(e){if(e.target===box)closeLb();});
+  document.addEventListener('dblclick',function(e){
+    var t=e.target&&e.target.closest?e.target.closest('.work-cover img, .dc-slide img'):null;
+    if(!t)return;
+    e.preventDefault();openLb(t.getAttribute('src'));
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&box.classList.contains('open')){e.stopPropagation();closeLb();}
+  },true);
+})();
 /* 顶栏 + 移动菜单 */
 var header=document.getElementById('header');
 window.addEventListener('scroll',function(){header.classList.toggle('scrolled',window.scrollY>24);},{passive:true});
