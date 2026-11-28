@@ -1243,9 +1243,14 @@ document.getElementById('mvReset').addEventListener('click',function(){
   document.getElementById('lbClose').addEventListener('click',closeLb);
   box.addEventListener('click',function(e){if(e.target===box)closeLb();});
   document.addEventListener('dblclick',function(e){
-    var t=e.target&&e.target.closest?e.target.closest('.work-cover img, .dc-slide img'):null;
-    if(!t)return;
-    e.preventDefault();openLb(t.getAttribute('src'));
+    if(!e.target||!e.target.closest)return;
+    // 图片上方有 .shade / badge 等覆盖层，用户实际点到的往往不是 img 本身，
+    // 所以匹配整个卡片容器，再从里面取真正的 img。
+    var host=e.target.closest('.work-cover, .dc-slide');
+    if(!host)return;
+    var im=host.tagName==='IMG'?host:host.querySelector('img');
+    if(!im)return;
+    e.preventDefault();openLb(im.getAttribute('src'));
   });
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'&&box.classList.contains('open')){e.stopPropagation();closeLb();}
