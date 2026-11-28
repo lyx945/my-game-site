@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#161310">
+<title>直播 · LYX STUDIO</title>
+<style>
+  :root{--gold:#c9a961;--gold-dim:#8a7440;--bg:#161310;--panel:#1e1a16;--panel2:#241f1a;
+    --fg:#f4eee2;--muted:#a89f8c;--line:rgba(201,169,97,.22);--danger:#e5484d;--ok:#30c48d}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;overflow-x:hidden}
+  button{font:inherit;color:inherit;cursor:pointer}
+  input,select{font:inherit}
+  .hidden{display:none!important}
+
+  .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;background:rgba(22,19,16,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .brand{font-family:Georgia,serif;letter-spacing:.18em;color:var(--gold);font-size:14px}
+  .topbar a{color:var(--muted);text-decoration:none;font-size:12px;border:1px solid var(--line);
+    padding:7px 13px;border-radius:999px;transition:color .2s,border-color .2s}
+  .topbar a:hover{color:var(--gold);border-color:var(--gold)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 40px}
+  .screen{animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  h1{font-family:Georgia,serif;font-weight:400;font-size:30px;margin:0 0 6px;letter-spacing:.02em}
+  .lead{color:var(--muted);font-size:13px;line-height:1.8;margin:0 0 26px}
+
+  .cards{display:grid;gap:16px}
+  @media(min-width:760px){.cards{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;position:relative;overflow:hidden}
+  .card h2{font-family:Georgia,serif;font-weight:400;font-size:19px;margin:0 0 8px;color:var(--gold)}
+  .card p{color:var(--muted);font-size:12.5px;line-height:1.8;margin:0 0 18px}
+  .card .ico{position:absolute;right:16px;top:14px;font-size:26px;opacity:.18}
+
+  .btn{border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:9px;
+    padding:11px 18px;font-size:13px;transition:all .2s}
+  .btn:hover{border-color:var(--gold);color:var(--gold)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn:disabled:hover{border-color:var(--line);color:var(--fg)}
+  .btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-dim));color:#1a150e;border:1px solid var(--gold);font-weight:500}
+  .btn-gold:hover{filter:brightness(1.08);color:#1a150e}
+  .btn-danger{border-color:rgba(229,72,77,.5);color:#ff8b8e}
+  .btn-danger:hover{border-color:var(--danger);color:#fff;background:rgba(229,72,77,.14)}
+  .btn-sm{padding:8px 13px;font-size:12px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap}
+
+  .code-input{display:flex;gap:10px;margin-bottom:14px}
+  .code-input input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+    padding:12px 14px;color:var(--fg);letter-spacing:.28em;text-transform:uppercase;font-size:15px;outline:none;min-width:0}
+  .code-input input:focus{border-color:var(--gold)}
+  .code-input input::placeholder{letter-spacing:normal;text-transform:none;color:#6f695c;font-size:13px}
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:11.5px;letter-spacing:.12em;color:var(--muted);margin-bottom:7px}
+  .field input[type=text],.field select{width:100%;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:11px 13px;color:var(--fg);outline:none;font-size:13px}
+  .field input[type=text]:focus,.field select:focus{border-color:var(--gold)}
+  .field select option{background:#241f1a;color:var(--fg)}
+
+  .switch-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(201,169,97,.1)}
+  .switch-row:last-of-type{border-bottom:none}
+  .switch-row .sw-lbl{font-size:13px}
+  .switch-row .sw-sub{font-size:11px;color:var(--muted);margin-top:3px}
+  .sw{position:relative;width:44px;height:24px;flex:0 0 44px}
+  .sw input{opacity:0;width:0;height:0;position:absolute}
+  .sw i{position:absolute;inset:0;border-radius:999px;background:#3a342c;transition:background .2s;cursor:pointer}
+  .sw i::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;
+    background:#a89f8c;transition:transform .2s,background .2s}
+  .sw input:checked+i{background:var(--gold-dim)}
+  .sw input:checked+i::after{transform:translateX(20px);background:var(--gold)}
+  .sw input:disabled+i{opacity:.4;cursor:not-allowed}
+
+  .preview-box{background:#0d0b09;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    aspect-ratio:16/9;position:relative;margin-bottom:18px}
+  .preview-box video{width:100%;height:100%;object-fit:contain;display:block;background:#0d0b09}
+  .preview-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#6f695c;font-size:12.5px;text-align:center;padding:20px;line-height:1.8}
+
+  .warn{background:rgba(201,169,97,.08);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;font-size:12px;line-height:1.8;color:var(--muted);margin-bottom:18px}
+  .warn b{color:var(--gold);font-weight:500}
+  .warn.err{background:rgba(229,72,77,.1);border-color:rgba(229,72,77,.35);color:#ff9b9e}
+
+  .room-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .live-dot{display:inline-flex;align-items:center;gap:6px;background:rgba(229,72,77,.16);
+    border:1px solid rgba(229,72,77,.45);color:#ff8b8e;border-radius:6px;padding:4px 9px;font-size:11px;letter-spacing:.1em}
+  .live-dot i{width:6px;height:6px;border-radius:50%;background:var(--danger);animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .room-title{font-family:Georgia,serif;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .room-code{font-size:12px;color:var(--muted);letter-spacing:.16em}
+  .room-code b{color:var(--gold);letter-spacing:.24em;font-family:Georgia,serif}
+
+  .stage{display:grid;gap:14px}
+  @media(min-width:900px){.stage{grid-template-columns:1fr 320px}}
+  .video-wrap{background:#0d0b09;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    aspect-ratio:16/9;position:relative}
+  .video-wrap video{width:100%;height:100%;object-fit:contain;background:#0d0b09;display:block}
+  .video-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;color:#6f695c;font-size:12.5px;text-align:center;padding:20px;line-height:1.8}
+  .viewer-badge{position:absolute;top:10px;right:10px;background:rgba(13,11,9,.78);border:1px solid var(--line);
+    border-radius:999px;padding:5px 11px;font-size:11.5px;color:var(--gold)}
+
+  .chat-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    display:flex;flex-direction:column;height:360px}
+  @media(min-width:900px){.chat-panel{height:auto}}
+  .chat-panel .ch-head{padding:11px 14px;border-bottom:1px solid var(--line);font-size:11.5px;
+    letter-spacing:.14em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+  .chat-list{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px;
+    scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent}
+  .chat-list::-webkit-scrollbar{width:5px}
+  .chat-list::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:3px}
+  .dm{font-size:12.5px;line-height:1.6;padding:6px 10px;border-radius:8px;
+    background:rgba(255,255,255,.045);cursor:pointer;transition:background .18s;word-break:break-word;animation:dmIn .22s ease}
+  @keyframes dmIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+  .dm:hover{background:rgba(201,169,97,.12)}
+  .chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+  .chat-input input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:9px 12px;color:var(--fg);outline:none;font-size:12.5px}
+  .chat-input input:focus{border-color:var(--gold)}
+  .chat-input button{padding:9px 14px;font-size:12.5px;border-radius:8px}
+
+  .controls{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+  .modal{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;
+    background:rgba(10,9,8,.86);backdrop-filter:blur(6px);padding:20px}
+  .modal.open{display:flex}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px;max-width:400px;width:100%;animation:fade .22s ease}
+  .modal h3{margin:0 0 14px;font-family:Georgia,serif;font-weight:400;font-size:17px;color:var(--gold)}
+  .modal .kv{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid rgba(201,169,97,.1);font-size:12.5px}
+  .modal .kv:last-of-type{border-bottom:none}
+  .modal .kv span:first-child{color:var(--muted);flex:0 0 auto}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(14px);
+    background:rgba(30,26,22,.97);border:1px solid var(--gold);color:var(--gold);border-radius:999px;
+    padding:10px 20px;font-size:12.5px;z-index:120;opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;max-width:calc(100vw - 40px);text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{border-color:var(--danger);color:#ff9b9e}
+
+  .share-row{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:9px 12px;margin-top:12px}
+  .share-row input{flex:1;min-width:0;background:transparent;border:none;color:var(--muted);font-size:12px;outline:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">LYX STUDIO · 直播</span>
+  <a href="/">← 返回网站</a>
+</div>
+
+<div class="wrap">
+
+  <!-- ① 落地页 -->
+  <section id="landing" class="screen">
+    <h1>直播</h1>
+    <p class="lead">发起一场直播，或者用直播号加入别人的房间。<br/>画面走点对点直连，延迟低、无需服务器中转。</p>
+    <div id="capWarn" class="warn hidden"></div>
+    <div class="cards">
+      <div class="card">
+        <span class="ico">◉</span>
+        <h2>发起直播</h2>
+        <p>用摄像头或共享屏幕开播，可自选设备与是否开麦。开播后会得到一个 6 位直播号。</p>
+        <button class="btn btn-gold" id="toSetup">开始设置</button>
+      </div>
+      <div class="card">
+        <span class="ico">◎</span>
+        <h2>加入直播</h2>
+        <p>输入主播给你的 6 位直播号即可进入观看，登录后还能发弹幕。</p>
+        <div class="code-input">
+          <input id="joinCode" maxlength="6" placeholder="输入 6 位直播号" autocomplete="off" spellcheck="false">
+        </div>
+        <button class="btn" id="doJoin">加入直播</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② 开播设置 -->
+  <section id="setup" class="screen hidden">
+    <h1>开播设置</h1>
+    <p class="lead">先配置好画面与声音，确认预览正常再开始直播。</p>
+    <div id="setupWarn" class="warn hidden"></div>
+
+    <div class="preview-box">
+      <video id="preview" autoplay muted playsinline></video>
+      <div class="preview-hint" id="previewHint">正在准备预览…</div>
+    </div>
+
+    <div class="field">
+      <label for="liveTitle">直播标题</label>
+      <input type="text" id="liveTitle" maxlength="40" placeholder="给这场直播起个名字">
+    </div>
+
+    <div class="field">
+      <label for="srcMode">画面来源</label>
+      <select id="srcMode">
+        <option value="camera">摄像头</option>
+        <option value="screen">共享屏幕 / 窗口</option>
+      </select>
+    </div>
+
+    <div class="field" id="camField">
+      <label for="camSel">摄像头</label>
+      <select id="camSel"></select>
+    </div>
+
+    <div class="field">
+      <label for="micSel">麦克风</label>
+      <select id="micSel"></select>
+    </div>
+
+    <div>
+      <div class="switch-row">
+        <div><div class="sw-lbl">开启摄像头</div><div class="sw-sub">关闭后观众只听到声音</div></div>
+        <label class="sw"><input type="checkbox" id="swCam" checked><i></i></label>
+      </div>
+      <div class="switch-row">
+        <div><div class="sw-lbl">开启麦克风</div><div class="sw-sub">关闭后观众听不到你说话</div></div>
+        <label class="sw"><input type="checkbox" id="swMic" checked><i></i></label>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:22px">
+      <button class="btn btn-gold" id="goLive">开始直播</button>
+      <button class="btn" id="backFromSetup">返回</button>
+    </div>
+  </section>
+
+  <!-- ③ 直播间（主播 / 观众共用） -->
+  <section id="room" class="screen hidden">
+    <div class="room-head">
+      <span class="live-dot" id="liveDot"><i></i>LIVE</span>
+      <span class="room-title" id="roomTitle">直播</span>
+      <span class="room-code">直播号 <b id="roomCode">------</b></span>
+    </div>
+
+    <div class="stage">
+      <div class="video-wrap">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="video-hint" id="videoHint">等待主播画面…</div>
+        <span class="viewer-badge" id="viewerBadge">0 人观看</span>
+      </div>
+
+      <div class="chat-panel">
+        <div class="ch-head"><span>弹幕</span><span id="chatTip">点击弹幕看详情</span></div>
+        <div class="chat-list" id="chatList"></div>
+        <div class="chat-input">
+          <input id="chatInput" maxlength="100" placeholder="发条弹幕…" autocomplete="off">
+          <button class="btn btn-sm btn-gold" id="chatSend">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls" id="hostControls">
+      <button class="btn btn-sm" id="btnMic">关闭麦克风</button>
+      <button class="btn btn-sm" id="btnCam">关闭摄像头</button>
+      <button class="btn btn-sm" id="btnSrc">切换画面来源</button>
+      <button class="btn btn-sm btn-danger" id="endLive">结束直播</button>
+    </div>
+
+    <div class="controls" id="viewerControls">
+      <button class="btn btn-sm" id="leaveRoom">离开直播间</button>
+    </div>
+
+    <div class="share-row">
+      <input id="shareLink" readonly>
+      <button class="btn btn-sm" id="copyLink">复制链接</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- 弹幕详情 -->
+<div class="modal" id="dmModal">
+  <div class="box">
+    <h3>弹幕详情</h3>
+    <div class="kv"><span>发送者</span><span id="dmWho">—</span></div>
+    <div class="kv"><span>发送时间</span><span id="dmTime">—</span></div>
+    <div class="kv"><span>内容</span><span id="dmText">—</span></div>
+    <div class="btn-row" style="margin-top:18px;justify-content:flex-end">
+      <button class="btn btn-sm" id="dmClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/assets/supabase.umd.js"></script>
+<script>
+(function(){
+  'use strict';
+  var SB_URL='https://znqiksqldqthcnlbrwzi.supabase.co';
+  var SB_KEY='sb_publishable_6xDYfTT4kSIpa5uzxO3WVg_UdTHsCyg';
+  var ICE={iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]};
+  var $=function(id){return document.getElementById(id);};
+  var sb=window.supabase&&window.supabase.createClient?window.supabase.createClient(SB_URL,SB_KEY):null;
+
+  var LS_SESSION='qiaohua_session';
+  var session=null;
+  try{session=JSON.parse(localStorage.getItem(LS_SESSION)||'null');}catch(e){}
+  var isLoggedIn=!!session;
+  var myId=session?session.id:null;
+  var myNick=session?session.username:'游客';
+
+  var state={role:null,room:null,channel:null,localStream:null,peers:new Map(),
+    viewerId:null,hbTimer:null,watchTimer:null,chatCh:null,camDevice:null,micDevice:null,
+    micOn:true,camOn:true,srcMode:'camera'};
+
+  function toast(msg,isErr){
+    var t=$('toast');t.textContent=msg;t.className='toast show'+(isErr?' err':'');
+    clearTimeout(toast._t);toast._t=setTimeout(function(){t.className='toast';},2800);
+  }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function show(id){
+    ['landing','setup','room'].forEach(function(k){$(k).classList.toggle('hidden',k!==id);});
+  }
+  function cap(){
+    var md=navigator.mediaDevices||{};
+    return {cam:!!md.getUserMedia,screen:!!md.getDisplayMedia,
+      wechat:/MicroMessenger/i.test(navigator.userAgent),
+      secure:window.isSecureContext!==false};
+  }
+
+  /* ============ 能力检测 ============ */
+  (function initCap(){
+    var c=cap(),msgs=[];
+    if(!c.secure)msgs.push('<b>当前不是 HTTPS 环境</b>，浏览器会拒绝访问摄像头/麦克风。');
+    if(c.wechat)msgs.push('<b>你正在微信内置浏览器中打开</b>，摄像头与屏幕共享很可能不可用。<br/>建议点右上角「···」→「在浏览器中打开」。');
+    if(!c.cam)msgs.push('<b>当前浏览器不支持摄像头采集</b>，只能观看直播。');
+    if(!c.screen)msgs.push('当前浏览器不支持屏幕共享，只能用摄像头开播。');
+    if(msgs.length){
+      var w=$('capWarn');w.innerHTML=msgs.join('<br/>');w.classList.remove('hidden');
+    }
+    if(!c.cam){
+      $('toSetup').disabled=true;
+      $('toSetup').textContent='当前环境无法开播';
+    }
+  })();
+
+  /* ============ 设备枚举 ============ */
+  async function listDevices(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices)return;
+    try{
+      var ds=await navigator.mediaDevices.enumerateDevices();
+      var cams=ds.filter(function(d){return d.kind==='videoinput';});
+      var mics=ds.filter(function(d){return d.kind==='audioinput';});
+      var cs=$('camSel'),ms=$('micSel');
+      cs.innerHTML='';ms.innerHTML='';
+      if(!cams.length){cs.innerHTML='<option value="">未检测到摄像头</option>';}
+      cams.forEach(function(d,i){
+        var o=document.createElement('option');
+        o.value=d.deviceId;o.textContent=d.label||('摄像头 '+(i+1));cs.appendChild(o);
+      });
+      if(!mics.length){ms.innerHTML='<option value="">未检测到麦克风</option>';}
+      mics.forEach(function(d,i){
+        var o=document.createElement('option');
+        o.value=d.deviceId;o.textContent=d.label||('麦克风 '+(i+1));ms.appendChild(o);
+      });
+    }catch(e){console.warn('[devices]',e);}
+  }
+
+  /* ============ 预览 ============ */
+  async function startPreview(){
+    stopStream();
+    var mode=$('srcMode').value;
+    var camOn=$('swCam').checked,micOn=$('swMic').checked;
+    var v=$('preview'),hint=$('previewHint');
+    hint.classList.remove('hidden');hint.textContent='正在打开设备…';
+    try{
+      var stream;
+      if(mode==='screen'){
+        if(!navigator.mediaDevices.getDisplayMedia)throw new Error('当前浏览器不支持屏幕共享');
+        stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+        hint.textContent='已选择共享内容';
+      }else{
+        var cons={video:camOn?{deviceId:$('camSel').value?{exact:$('camSel').value}:undefined}:false,
+                  audio:micOn?{deviceId:$('micSel').value?{exact:$('micSel').value}:undefined}:false};
+        if(!camOn&&!micOn)throw new Error('至少需要开启摄像头或麦克风');
+        stream=await navigator.mediaDevices.getUserMedia(cons);
+      }
+      state.localStream=stream;
+      v.srcObject=stream;
+      hint.classList.add('hidden');
+      // 屏幕共享被用户主动停止
+      var vt=stream.getVideoTracks()[0];
+      if(vt)vt.addEventListener('ended',function(){
+        if(state.role==='host'){toast('共享已停止',true);endLive();}
+        else{hint.textContent='共享已停止';hint.classList.remove('hidden');}
+      });
+    }catch(err){
+      console.error('[preview]',err);
+      hint.textContent='无法打开设备：'+(err.message||err.name||'未知错误');
+      hint.classList.remove('hidden');
+      toast('无法打开设备：'+(err.name||err.message),true);
+    }
+  }
+  function stopStream(){
+    if(state.localStream){state.localStream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});state.localStream=null;}
+    var v=$('preview');if(v)v.srcObject=null;
+    var rv=$('remoteVideo');if(rv)rv.srcObject=null;
+  }
+
+  /* ============ 直播号 ============ */
+  function genCode(){
+    var cs='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',s='';
+    for(var i=0;i<6;i++)s+=cs[Math.floor(Math.random()*cs.length)];
+    return s;
+  }
+
+  /* ============ 开播 ============ */
+  async function goLive(){
+    if(!sb){toast('连接服务失败，请刷新重试',true);return;}
+    if(!isLoggedIn){toast('请先登录账号再开播',true);return;}
+    if(!state.localStream){toast('请先等待预览准备好',true);return;}
+    var title=($('liveTitle').value||'').trim()||(myNick+' 的直播');
+
+    // 清理超过 60 秒无心跳的僵尸直播
+    try{
+      await sb.from('live_rooms').update({status:'ended',ended_at:new Date().toISOString()})
+        .eq('status','live').lt('last_heartbeat',new Date(Date.now()-60000).toISOString());
+    }catch(e){}
+
+    // 一人只能开一个
+    try{
+      var mine=await sb.from('live_rooms').select('id,code').eq('host_id',myId).eq('status','live');
+      if(mine.data&&mine.data.length){
+        toast('你已在直播中（直播号 '+mine.data[0].code+'），请先结束',true);
+        return;
+      }
+    }catch(e){}
+
+    // 同时最多 3 场
+    try{
+      var cnt=await sb.from('live_rooms').select('id',{count:'exact',head:true}).eq('status','live');
+      if((cnt.count||0)>=3){toast('当前直播较多（最多 3 场），请稍后再试',true);return;}
+    }catch(e){}
+
+    $('goLive').disabled=true;$('goLive').textContent='正在开播…';
+    var room=null;
+    for(var attempt=0;attempt<6&&!room;attempt++){
+      var code=genCode();
+      var r=await sb.from('live_rooms').insert({
+        code:code,host_id:myId,host_name:myNick,title:title,
+        status:'live',mode:$('srcMode').value,last_heartbeat:new Date().toISOString()
+      }).select().single();
+      if(!r.error)room=r.data;
+      else if(r.error.code!=='23505'){console.error(r.error);break;}
+    }
+    if(!room){
+      $('goLive').disabled=false;$('goLive').textContent='开始直播';
+      toast('开播失败，请重试',true);return;
+    }
+    state.room=room;state.role='host';state.srcMode=room.mode;
+    $('goLive').disabled=false;$('goLive').textContent='开始直播';
+    enterRoom();
+    subscribeAsHost();
+    startHeartbeat();
+    toast('已开播，直播号 '+room.code);
+  }
+
+  /* ============ 进入房间 UI ============ */
+  function enterRoom(){
+    show('room');
+    $('roomTitle').textContent=state.room.title;
+    $('roomCode').textContent=state.room.code;
+    $('shareLink').value=location.origin+'/live.html?code='+state.room.code;
+    $('hostControls').classList.toggle('hidden',state.role!=='host');
+    $('viewerControls').classList.toggle('hidden',state.role!=='viewer');
+    $('liveDot').classList.toggle('hidden',state.role!=='host');
+    $('chatInput').disabled=!isLoggedIn;
+    $('chatSend').disabled=!isLoggedIn;
+    $('chatInput').placeholder=isLoggedIn?'发条弹幕…':'登录后才能发弹幕';
+    if(state.role==='host'){
+      var rv=$('remoteVideo');rv.muted=true;
+      rv.srcObject=state.localStream;
+      $('videoHint').classList.add('hidden');
+    }else{
+      $('videoHint').classList.remove('hidden');
+      $('videoHint').textContent='正在连接主播…';
+    }
+    loadDanmu();
+  }
+
+  /* ============ 主播端信令 ============ */
+  function subscribeAsHost(){
+    var ch=sb.channel('live-room-'+state.room.id,{config:{broadcast:{self:false}}});
+    state.channel=ch;
+
+    ch.on('broadcast',{event:'join'},function(payload){
+      var vId=payload&&payload.payload&&payload.payload.viewerId;
+      if(!vId||state.peers.has(vId))return;
+      makePeerFor(vId);
+    });
+
+    ch.on('broadcast',{event:'answer'},function(payload){
+      var d=payload&&payload.payload;if(!d||!d.viewerId)return;
+      var peer=state.peers.get(d.viewerId);
+      if(peer&&d.sdp)peer.setRemoteDescription(new RTCSessionDescription(d.sdp)).catch(function(e){console.warn(e);});
+    });
+
+    ch.on('broadcast',{event:'ice-viewer'},function(payload){
+      var d=payload&&payload.payload;if(!d||!d.viewerId||!d.candidate)return;
+      var peer=state.peers.get(d.viewerId);
+      if(peer)peer.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(function(){});
+    });
+
+    ch.on('broadcast',{event:'leave'},function(payload){
+      var vId=payload&&payload.payload&&payload.payload.viewerId;
+      if(vId&&state.peers.has(vId)){
+        try{state.peers.get(vId).close();}catch(e){}
+        state.peers.delete(vId);updateViewerCount();
+      }
+    });
+
+    ch.subscribe(function(status){
+      if(status==='SUBSCRIBED')updateViewerCount();
+    });
+  }
+
+  async function makePeerFor(viewerId){
+    var pc=new RTCPeerConnection(ICE);
+    state.peers.set(viewerId,pc);
+    state.localStream.getTracks().forEach(function(t){pc.addTrack(t,state.localStream);});
+
+    pc.onicecandidate=function(e){
+      if(e.candidate&&state.channel){
+        state.channel.send({type:'broadcast',event:'ice-host',
+          payload:{viewerId:viewerId,candidate:e.candidate}});
+      }
+    };
+    pc.onconnectionstatechange=function(){
+      if(['failed','closed','disconnected'].indexOf(pc.connectionState)>=0){
+        try{pc.close();}catch(e){}
+        if(state.peers.get(viewerId)===pc){state.peers.delete(viewerId);updateViewerCount();}
+      }
+    };
+    try{
+      var offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      state.channel.send({type:'broadcast',event:'offer',
+        payload:{viewerId:viewerId,sdp:pc.localDescription}});
+      updateViewerCount();
+    }catch(e){console.warn('[offer]',e);}
+  }
+
+  function updateViewerCount(){
+    var n=state.peers.size;
+    $('viewerBadge').textContent=n+' 人观看';
+    if(state.role==='host'&&sb&&state.room){
+      sb.from('live_rooms').update({viewer_count:n}).eq('id',state.room.id).then(function(){},function(){});
+    }
+  }
+
+  /* ============ 观众端信令 ============ */
+  function subscribeAsViewer(){
+    state.viewerId='v-'+Math.random().toString(36).slice(2,10);
+    var pc=new RTCPeerConnection(ICE);
+    state.pc=pc;
+
+    pc.ontrack=function(e){
+      var rv=$('remoteVideo');rv.muted=false;
+      rv.srcObject=e.streams[0];
+      $('videoHint').classList.add('hidden');
+      rv.play().catch(function(){ rv.muted=true;rv.play().catch(function(){}); });
+    };
+    pc.onicecandidate=function(e){
+      if(e.candidate&&state.channel){
+        state.channel.send({type:'broadcast',event:'ice-viewer',
+          payload:{viewerId:state.viewerId,candidate:e.candidate}});
+      }
+    };
+    pc.onconnectionstatechange=function(){
+      if(pc.connectionState==='failed'){
+        $('videoHint').classList.remove('hidden');
+        $('videoHint').textContent='连接失败，可能是网络限制。请刷新重试。';
+      }
+    };
+
+    var ch=sb.channel('live-room-'+state.room.id,{config:{broadcast:{self:false}}});
+    state.channel=ch;
+
+    ch.on('broadcast',{event:'offer'},async function(payload){
+      var d=payload&&payload.payload;
+      if(!d||d.viewerId!==state.viewerId||!d.sdp)return;
+      if(state.joinTimerClear)state.joinTimerClear();
+      try{
+        await pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+        var ans=await pc.createAnswer();
+        await pc.setLocalDescription(ans);
+        ch.send({type:'broadcast',event:'answer',
+          payload:{viewerId:state.viewerId,sdp:pc.localDescription}});
+      }catch(e){console.warn('[answer]',e);}
+    });
+
+    ch.on('broadcast',{event:'ice-host'},function(payload){
+      var d=payload&&payload.payload;
+      if(!d||d.viewerId!==state.viewerId||!d.candidate)return;
+      pc.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(function(){});
+    });
+
+    ch.on('broadcast',{event:'ended'},function(){
+      toast('主播已结束直播',true);
+      showEnded();
+    });
+
+    var joinTries=0,joinTimer=null;
+    function sendJoin(){
+      if(!state.channel)return;
+      try{ch.send({type:'broadcast',event:'join',payload:{viewerId:state.viewerId}});}catch(e){}
+      joinTries++;
+      if(joinTries>=4&&joinTimer){clearInterval(joinTimer);joinTimer=null;
+        $('videoHint').classList.remove('hidden');
+        $('videoHint').textContent='暂时连不上主播，可尝试刷新页面重新加入。';}
+    }
+    state.joinTimerClear=function(){if(joinTimer){clearInterval(joinTimer);joinTimer=null;}};
+
+    ch.subscribe(function(status){
+      if(status==='SUBSCRIBED'){
+        sendJoin();
+        joinTimer=setInterval(sendJoin,4000);   // 主播可能晚一步订阅，重发几次
+      }
+    });
+
+    startWatch();
+  }
+
+  /* ============ 心跳与自愈 ============ */
+  function startHeartbeat(){
+    stopHeartbeat();
+    state.hbTimer=setInterval(async function(){
+      if(!sb||!state.room)return;
+      await sb.from('live_rooms').update({
+        last_heartbeat:new Date().toISOString(),viewer_count:state.peers.size
+      }).eq('id',state.room.id).then(function(){},function(){});
+    },10000);
+  }
+  function stopHeartbeat(){
+    if(state.hbTimer){clearInterval(state.hbTimer);state.hbTimer=null;}
+  }
+  function startWatch(){
+    stopWatch();
+    state.watchTimer=setInterval(async function(){
+      if(!sb||!state.room)return;
+      var r=await sb.from('live_rooms').select('status,last_heartbeat').eq('id',state.room.id).maybeSingle();
+      if(r.error||!r.data){showEnded();return;}
+      var hb=new Date(r.data.last_heartbeat).getTime();
+      if(r.data.status!=='live'||Date.now()-hb>30000){showEnded();}
+    },5000);
+  }
+  function stopWatch(){
+    if(state.watchTimer){clearInterval(state.watchTimer);state.watchTimer=null;}
+  }
+  function showEnded(){
+    stopWatch();stopHeartbeat();
+    $('videoHint').classList.remove('hidden');
+    $('videoHint').textContent='直播已结束';
+    $('liveDot').classList.add('hidden');
+    if(state.pc){try{state.pc.close();}catch(e){}}
+    if(state.channel){try{sb.removeChannel(state.channel);}catch(e){}state.channel=null;}
+  }
+
+  /* ============ 弹幕 ============ */
+  function danmuColor(id){
+    var pal=['#c9a961','#7fb3d5','#d98880','#a3d9a5','#c39bd3','#f0b27a'];
+    var h=0,s=String(id||'x');
+    for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+    return pal[h%pal.length];
+  }
+  async function loadDanmu(){
+    if(!sb||!state.room)return;
+    var r=await sb.from('live_messages').select('*').eq('room_id',state.room.id)
+      .order('created_at',{ascending:false}).limit(30);
+    if(r.error)return;
+    var rows=(r.data||[]).slice().reverse();
+    rows.forEach(function(m){addDanmu(m,true);});
+    scrollChat();
+    subscribeDanmu();
+  }
+  function subscribeDanmu(){
+    if(!sb||!state.room)return;
+    if(state.chatCh){try{sb.removeChannel(state.chatCh);}catch(e){}}
+    state.chatCh=sb.channel('live-chat-'+state.room.id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'live_messages',
+        filter:'room_id=eq.'+state.room.id},function(p){addDanmu(p.new,false);})
+      .subscribe();
+  }
+  function addDanmu(m,initial){
+    var box=$('chatList');
+    if(box.children.length>=30)box.removeChild(box.firstChild);
+    var d=document.createElement('div');
+    d.className='dm';
+    d.style.color=m.color||danmuColor(m.sender_id);
+    d.dataset.who=m.sender_name||'匿名';
+    d.dataset.time=m.created_at||'';
+    d.dataset.text=m.content||'';
+    d.textContent=m.content||'';
+    d.addEventListener('click',function(){
+      $('dmWho').textContent=d.dataset.who;
+      $('dmTime').textContent=fmtTime(d.dataset.time);
+      $('dmText').textContent=d.dataset.text;
+      $('dmModal').classList.add('open');
+    });
+    box.appendChild(d);
+    scrollChat();
+  }
+  function scrollChat(){
+    var box=$('chatList');
+    if(box)box.scrollTop=box.scrollHeight;
+  }
+  function fmtTime(iso){
+    if(!iso)return '—';
+    var d=new Date(iso);if(isNaN(d.getTime()))return iso;
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+
+      ' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+  }
+  async function sendDanmu(){
+    if(!isLoggedIn){toast('请先登录账号再发弹幕',true);return;}
+    var v=($('chatInput').value||'').trim();
+    if(!v)return;
+    if(v.length>100){toast('弹幕最多 100 字',true);return;}
+    $('chatInput').value='';
+    var r=await sb.from('live_messages').insert({
+      room_id:state.room.id,sender_id:myId,sender_name:myNick,
+      content:v,color:danmuColor(myId)
+    });
+    if(r.error){toast('发送失败：'+r.error.message,true);}
+  }
+
+  /* ============ 结束 / 离开 ============ */
+  async function endLive(){
+    if(state.role!=='host'||!state.room)return;
+    try{
+      if(state.channel)state.channel.send({type:'broadcast',event:'ended',payload:{}});
+      await sb.from('live_rooms').update({status:'ended',ended_at:new Date().toISOString()})
+        .eq('id',state.room.id);
+    }catch(e){}
+    cleanup();
+    toast('直播已结束');
+    show('landing');
+  }
+  function leaveRoom(){
+    if(state.channel&&state.viewerId){
+      try{state.channel.send({type:'broadcast',event:'leave',payload:{viewerId:state.viewerId}});}catch(e){}
+    }
+    cleanup();
+    show('landing');
+  }
+  function cleanup(){
+    stopHeartbeat();stopWatch();
+    if(state.joinTimerClear)state.joinTimerClear();
+    state.peers.forEach(function(pc){try{pc.close();}catch(e){}});
+    state.peers.clear();
+    if(state.pc){try{state.pc.close();}catch(e){}state.pc=null;}
+    if(state.chatCh){try{sb.removeChannel(state.chatCh);}catch(e){}state.chatCh=null;}
+    if(state.channel){try{sb.removeChannel(state.channel);}catch(e){}state.channel=null;}
+    stopStream();
+    $('chatList').innerHTML='';
+    state.room=null;state.role=null;state.viewerId=null;
+  }
+
+  /* ============ 加入直播 ============ */
+  async function joinByCode(code){
+    if(!sb){toast('连接服务失败，请刷新重试',true);return;}
+    code=(code||'').trim().toUpperCase();
+    if(!/^[A-Z0-9]{6}$/.test(code)){toast('直播号是 6 位字母或数字',true);return;}
+    var r=await sb.from('live_rooms').select('*').eq('code',code).eq('status','live')
+      .order('started_at',{ascending:false}).limit(1).maybeSingle();
+    if(r.error||!r.data){toast('直播不存在或已结束',true);return;}
+    var hb=new Date(r.data.last_heartbeat).getTime();
+    if(Date.now()-hb>30000){toast('该直播已结束',true);return;}
+    state.room=r.data;state.role='viewer';
+    enterRoom();
+    subscribeAsViewer();
+  }
+
+  /* ============ 事件绑定 ============ */
+  $('toSetup').addEventListener('click',async function(){
+    if(!isLoggedIn){toast('请先登录账号再开播',true);return;}
+    show('setup');
+    $('liveTitle').value=myNick+' 的直播';
+    var c=cap();
+    if(!c.screen){
+      var op=$('srcMode').querySelector('option[value=screen]');
+      if(op){op.disabled=true;op.textContent='共享屏幕（当前浏览器不支持）';}
+    }
+    await listDevices();
+    await startPreview();
+  });
+  $('backFromSetup').addEventListener('click',function(){
+    stopStream();show('landing');
+  });
+  $('srcMode').addEventListener('change',function(){
+    var m=$('srcMode').value;
+    $('camField').classList.toggle('hidden',m==='screen');
+    startPreview();
+  });
+  $('camSel').addEventListener('change',startPreview);
+  $('micSel').addEventListener('change',startPreview);
+  $('swCam').addEventListener('change',startPreview);
+  $('swMic').addEventListener('change',startPreview);
+  $('goLive').addEventListener('click',goLive);
+  $('doJoin').addEventListener('click',function(){joinByCode($('joinCode').value);});
+  $('joinCode').addEventListener('keydown',function(e){if(e.key==='Enter')joinByCode($('joinCode').value);});
+  $('chatSend').addEventListener('click',sendDanmu);
+  $('chatInput').addEventListener('keydown',function(e){if(e.key==='Enter')sendDanmu();});
+  $('endLive').addEventListener('click',endLive);
+  $('leaveRoom').addEventListener('click',leaveRoom);
+  $('dmClose').addEventListener('click',function(){$('dmModal').classList.remove('open');});
+  $('dmModal').addEventListener('click',function(e){if(e.target===$('dmModal'))$('dmModal').classList.remove('open');});
+  $('copyLink').addEventListener('click',function(){
+    var v=$('shareLink').value;
+    function done(){toast('链接已复制');}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v).then(done,fallback);}
+    else fallback();
+    function fallback(){
+      var ta=document.createElement('textarea');ta.value=v;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');done();}catch(e){toast('复制失败，请手动复制',true);}
+      ta.remove();
+    }
+  });
+  $('btnMic').addEventListener('click',function(){
+    if(!state.localStream)return;
+    state.micOn=!state.micOn;
+    state.localStream.getAudioTracks().forEach(function(t){t.enabled=state.micOn;});
+    this.textContent=state.micOn?'关闭麦克风':'开启麦克风';
+    toast(state.micOn?'麦克风已开启':'麦克风已关闭');
+  });
+  $('btnCam').addEventListener('click',function(){
+    if(!state.localStream)return;
+    var vts=state.localStream.getVideoTracks();
+    if(!vts.length){toast('当前没有摄像头画面',true);return;}
+    state.camOn=!state.camOn;
+    vts.forEach(function(t){t.enabled=state.camOn;});
+    this.textContent=state.camOn?'关闭摄像头':'开启摄像头';
+    toast(state.camOn?'摄像头已开启':'摄像头已关闭');
+  });
+  $('btnSrc').addEventListener('click',async function(){
+    if(state.role!=='host')return;
+    var next=state.srcMode==='camera'?'screen':'camera';
+    if(next==='screen'&&!navigator.mediaDevices.getDisplayMedia){toast('当前浏览器不支持屏幕共享',true);return;}
+    var old=state.localStream;
+    try{
+      var ns;
+      if(next==='screen'){
+        ns=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+      }else{
+        ns=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+      }
+      state.localStream=ns;state.srcMode=next;
+      var rv=$('remoteVideo');rv.srcObject=ns;
+      // 替换所有 peer 的 video track
+      var newTrack=ns.getVideoTracks()[0];
+      state.peers.forEach(function(pc){
+        var sender=pc.getSenders().find(function(s){return s.track&&s.track.kind==='video';});
+        if(sender&&newTrack)sender.replaceTrack(newTrack);
+      });
+      if(old)old.getTracks().forEach(function(t){if(!ns.getTracks().includes(t))try{t.stop();}catch(e){}});
+      var vt=ns.getVideoTracks()[0];
+      if(vt)vt.addEventListener('ended',function(){if(state.role==='host'){toast('共享已停止',true);endLive();}});
+      toast(next==='screen'?'已切换到屏幕共享':'已切换到摄像头');
+    }catch(e){
+      if(e&&e.name!=='NotAllowedError')toast('切换失败：'+(e.message||e.name),true);
+    }
+  });
+
+  /* 主播直接关页面/刷新时，尽力通知观众并标记下播 */
+  window.addEventListener('beforeunload',function(e){
+    if(state.role!=='host'||!state.room)return;
+    try{
+      if(state.channel)state.channel.send({type:'broadcast',event:'ended',payload:{}});
+    }catch(err){}
+    try{
+      var url=SB_URL+'/rest/v1/live_rooms?id=eq.'+state.room.id;
+      fetch(url,{method:'PATCH',keepalive:true,
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({status:'ended',ended_at:new Date().toISOString()})});
+    }catch(err){}
+  });
+
+  /* ============ 从链接进入 ============ */
+  (function boot(){
+    if(!sb){toast('Supabase 加载失败，请刷新',true);}
+    var code=new URLSearchParams(location.search).get('code');
+    if(code){
+      $('joinCode').value=code.toUpperCase();
+      joinByCode(code);
+    }
+    if(!isLoggedIn){
+      $('chatInput').disabled=true;$('chatSend').disabled=true;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
