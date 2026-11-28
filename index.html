@@ -630,7 +630,7 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
               <div class="vs-spark-x"><span>14 天前</span><span>今天</span></div>
             </div>
           </div>
-          <div class="dash-foot">IP 仅记录前两段（如 110.17.x.x）用于地区与规模统计，不保存完整地址。</div>
+          <div class="dash-foot">页面上的地区与独立 IP 统计均按 IP 前两段聚合展示；完整 IP 仅保存在数据库中用于安全审计，不对外公开。</div>
         </div>
 
         <div class="dash-card">
@@ -1257,7 +1257,8 @@ document.getElementById('mvReset').addEventListener('click',function(){
       sessionStorage.setItem('qh_visit_ts',String(Date.now()));
     }catch(e){}
     var head={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-    var payload={path:location.pathname||'/',device:devInfo(),ip_prefix:null,region:null};
+    // ip 存完整地址（仅入库做安全审计，页面不展示）；ip_prefix 只用于地区与独立 IP 统计
+    var payload={path:location.pathname||'/',device:devInfo(),ip_prefix:null,region:null,ip:null};
     var post=function(){
       return fetch(SB_URL+'/rest/v1/site_visits',{
         method:'POST',headers:Object.assign({},head,{'Prefer':'return=minimal'}),
@@ -1267,7 +1268,11 @@ document.getElementById('mvReset').addEventListener('click',function(){
     fetch(SB_URL+'/functions/v1/get-ip',{method:'POST',headers:head,body:'{}'})
       .then(function(r){return r.ok?r.json():null;})
       .then(function(d){
-        if(d&&d.ip){payload.ip_prefix=ipPrefix(d.ip);payload.region=d.ip_location||null;}
+        if(d&&d.ip){
+          payload.ip=d.ip;
+          payload.ip_prefix=ipPrefix(d.ip);
+          payload.region=d.ip_location||null;
+        }
         return post();
       })
       .catch(function(){return post();})
