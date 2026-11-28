@@ -1,1480 +1,175 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>404 - 页面未找到</title>
-    <style>
-        /* ===== 全局重置 & 字体 ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 · 页面走丢了</title>
+<style>
+  :root{--gold:#c9a961;--gold-dim:#8a7440;--bg:#161310;--fg:#f4eee2;--muted:#a89f8c;--line:rgba(201,169,97,.22)}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;-webkit-tap-highlight-color:transparent}
+  .glow{position:fixed;left:50%;top:46%;width:520px;height:520px;transform:translate(-50%,-50%);
+    background:radial-gradient(circle,color-mix(in oklab,var(--gold) 12%,transparent),transparent 68%);filter:blur(70px);pointer-events:none}
+  .eyebrow{font-size:10px;letter-spacing:.32em;color:var(--gold);opacity:.85;text-align:center}
+  h1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(72px,15vw,150px);line-height:1;margin:8px 0 0;
+    background:linear-gradient(180deg,#f7e9c8,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:13px;color:var(--muted);margin-top:10px;text-align:center;line-height:1.8;letter-spacing:.04em}
 
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(145deg, #0f0c29, #302b63, #24243e);
-            padding: 20px;
-            overflow: hidden;
-        }
-
-        /* ===== 背景动态光晕 ===== */
-        body::before {
-            content: '';
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at 30% 40%, rgba(120, 80, 255, 0.15), transparent 60%),
-                radial-gradient(circle at 70% 60%, rgba(255, 100, 200, 0.10), transparent 50%);
-            animation: aurora 12s ease-in-out infinite alternate;
-            z-index: 0;
-        }
-
-        @keyframes aurora {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-            100% {
-                transform: translate(3%, 2%) scale(1.1);
-            }
-        }
-
-        /* ===== 主卡片 ===== */
-        .error-container {
-            position: relative;
-            z-index: 1;
-            max-width: 720px;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.04);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border-radius: 48px;
-            padding: 48px 48px 42px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .error-container:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 48px 96px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        }
-
-        /* ===== 全屏遮罩 ===== */
-        .fullscreen-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(15, 12, 41, 0.92);
-            backdrop-filter: blur(20px);
-            z-index: 999;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .fullscreen-overlay.active {
-            display: flex;
-        }
-
-        .fullscreen-overlay .game-wrapper-full {
-            width: 80%;
-            max-width: 900px;
-            background: rgba(0, 0, 0, 0.30);
-            border-radius: 32px;
-            padding: 24px 28px 20px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            position: relative;
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-container {
-            position: relative;
-            width: 100%;
-            height: 50vh;
-            max-height: 500px;
-            min-height: 200px;
-            overflow: hidden;
-            border-radius: 16px;
-            background: rgba(0, 0, 0, 0.20);
-            cursor: pointer;
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-container canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            border-radius: 16px;
-            image-rendering: pixelated;
-            background: rgba(0, 0, 0, 0.15);
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-container .game-overlay {
-            border-radius: 16px;
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-top-buttons {
-            top: 16px;
-            right: 20px;
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-top-btn {
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-top-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-controls {
-            margin-top: 14px;
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-score {
-            font-size: 15px;
-        }
-
-        .fullscreen-overlay .game-wrapper-full .game-restart-btn {
-            font-size: 14px;
-            padding: 8px 22px;
-        }
-
-        /* ===== 关闭全屏按钮 ===== */
-        .fullscreen-close-btn {
-            position: absolute;
-            top: -14px;
-            right: -14px;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            background: rgba(255, 255, 255, 0.08);
-            color: rgba(255, 255, 255, 0.50);
-            font-size: 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .fullscreen-close-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: rgba(255, 255, 255, 0.80);
-            transform: scale(1.05);
-        }
-
-        /* ===== 404 大号数字 ===== */
-        .error-code {
-            font-size: 140px;
-            font-weight: 800;
-            line-height: 1;
-            letter-spacing: -4px;
-            background: linear-gradient(135deg, #a78bfa, #7c3aed, #6d28d9);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            text-shadow: 0 12px 48px rgba(124, 58, 237, 0.30);
-            margin-bottom: 8px;
-            animation: float 4s ease-in-out infinite;
-            position: relative;
-        }
-
-        .error-code::after {
-            content: '404';
-            position: absolute;
-            top: 8px;
-            left: 8px;
-            z-index: -1;
-            background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), transparent);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            filter: blur(16px);
-            transform: translateX(-4px);
-        }
-
-        @keyframes float {
-            0%,
-            100% {
-                transform: translateY(0px) rotate(-1deg);
-            }
-            50% {
-                transform: translateY(-12px) rotate(1deg);
-            }
-        }
-
-        /* ===== 标题 ===== */
-        .error-title {
-            font-size: 28px;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 10px;
-            letter-spacing: -0.5px;
-        }
-
-        .error-title span {
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        /* ===== 描述文字 ===== */
-        .error-message {
-            font-size: 16px;
-            color: rgba(255, 255, 255, 0.55);
-            line-height: 1.6;
-            max-width: 420px;
-            margin: 0 auto 28px;
-            font-weight: 400;
-        }
-
-        /* ===== 游戏容器 ===== */
-        .game-wrapper {
-            background: rgba(0, 0, 0, 0.25);
-            border-radius: 24px;
-            padding: 16px 20px 14px;
-            margin-bottom: 28px;
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            position: relative;
-        }
-
-        .game-container {
-            position: relative;
-            width: 100%;
-            height: 150px;
-            overflow: hidden;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.20);
-            cursor: pointer;
-        }
-
-        /* ===== Canvas ===== */
-        #gameCanvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            border-radius: 12px;
-            image-rendering: pixelated;
-            background: rgba(0, 0, 0, 0.15);
-        }
-
-        /* ===== 游戏状态覆盖层 ===== */
-        .game-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(4px);
-            border-radius: 12px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease;
-            z-index: 5;
-        }
-
-        .game-overlay.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .game-overlay .overlay-icon {
-            font-size: 36px;
-            margin-bottom: 6px;
-            opacity: 0.8;
-        }
-
-        .game-overlay .overlay-text {
-            color: rgba(255, 255, 255, 0.70);
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
-
-        .game-overlay .overlay-hint {
-            color: rgba(255, 255, 255, 0.30);
-            font-size: 12px;
-            margin-top: 4px;
-        }
-
-        /* ===== 右上角按钮组 ===== */
-        .game-top-buttons {
-            position: absolute;
-            top: 10px;
-            right: 14px;
-            z-index: 10;
-            display: flex;
-            gap: 8px;
-        }
-
-        .game-top-btn {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 50%;
-            width: 34px;
-            height: 34px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            color: rgba(255, 255, 255, 0.40);
-            font-size: 16px;
-            backdrop-filter: blur(4px);
-        }
-
-        .game-top-btn:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: rgba(255, 255, 255, 0.70);
-            border-color: rgba(255, 255, 255, 0.15);
-            transform: scale(1.05);
-        }
-
-        .game-top-btn .btn-icon {
-            line-height: 1;
-            pointer-events: none;
-        }
-
-        /* ===== 游戏控制栏 ===== */
-        .game-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 10px;
-            padding: 0 4px;
-        }
-
-        .game-score {
-            color: rgba(255, 255, 255, 0.40);
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
-
-        .game-score span {
-            color: rgba(255, 255, 255, 0.70);
-            font-weight: 600;
-        }
-
-        .game-restart-btn {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: rgba(255, 255, 255, 0.40);
-            padding: 6px 18px;
-            border-radius: 40px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            font-family: inherit;
-        }
-
-        .game-restart-btn:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: rgba(255, 255, 255, 0.70);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        /* ===== 按钮组 ===== */
-        .button-group {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 32px;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 40px;
-            border-radius: 60px;
-            font-size: 16px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.25s ease;
-            cursor: pointer;
-            border: none;
-            background: linear-gradient(135deg, #7c3aed, #6d28d9);
-            color: #fff;
-            box-shadow: 0 8px 28px rgba(124, 58, 237, 0.30);
-        }
-
-        .btn:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.45);
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-        }
-
-        .btn svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 2.2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        /* ===== 底部 ===== */
-        .footer-note {
-            color: rgba(255, 255, 255, 0.20);
-            font-size: 13px;
-            letter-spacing: 0.3px;
-            border-top: 1px solid rgba(255, 255, 255, 0.04);
-            padding-top: 24px;
-            margin-top: 2px;
-        }
-
-        .footer-note .email-link {
-            color: rgba(255, 255, 255, 0.35);
-            text-decoration: none;
-            transition: all 0.25s ease;
-            cursor: pointer;
-            font-weight: 500;
-            border-bottom: 1.5px solid rgba(167, 139, 250, 0.30);
-            padding-bottom: 1px;
-        }
-
-        .footer-note .email-link:hover {
-            color: #a78bfa;
-            border-bottom-color: #a78bfa;
-        }
-
-        /* ===== Toast ===== */
-        .toast {
-            position: fixed;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%) translateY(80px);
-            background: rgba(255, 255, 255, 0.10);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            padding: 14px 32px;
-            border-radius: 40px;
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            color: #ffffff;
-            font-size: 15px;
-            font-weight: 500;
-            opacity: 0;
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            pointer-events: none;
-            z-index: 999;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .toast .highlight {
-            color: #a78bfa;
-            font-weight: 600;
-        }
-
-        /* ===== 浮动装饰 ===== */
-        .floating-dots {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            display: flex;
-            gap: 10px;
-            opacity: 0.20;
-        }
-        .floating-dots span {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #a78bfa;
-            animation: pulse-dot 3s ease-in-out infinite;
-        }
-        .floating-dots span:nth-child(2) {
-            animation-delay: 0.6s;
-            background: #fbbf24;
-        }
-        .floating-dots span:nth-child(3) {
-            animation-delay: 1.2s;
-            background: #f472b6;
-        }
-
-        @keyframes pulse-dot {
-            0%,
-            100% {
-                transform: scale(1);
-                opacity: 0.4;
-            }
-            50% {
-                transform: scale(1.8);
-                opacity: 1;
-            }
-        }
-
-        /* ===== 响应式 ===== */
-        @media (max-width: 600px) {
-            .error-container {
-                padding: 32px 20px 28px;
-                border-radius: 32px;
-            }
-            .error-code {
-                font-size: 100px;
-            }
-            .error-title {
-                font-size: 22px;
-            }
-            .error-message {
-                font-size: 15px;
-            }
-            .game-container {
-                height: 120px;
-            }
-            .game-wrapper {
-                padding: 12px 14px 10px;
-            }
-            .btn {
-                padding: 12px 32px;
-                font-size: 15px;
-                width: 100%;
-                justify-content: center;
-            }
-            .button-group {
-                flex-direction: column;
-                align-items: center;
-            }
-            .floating-dots {
-                display: none;
-            }
-            .toast {
-                font-size: 14px;
-                padding: 12px 22px;
-                bottom: 24px;
-                width: 90%;
-                text-align: center;
-            }
-            .game-controls {
-                flex-wrap: wrap;
-                gap: 8px;
-                justify-content: center;
-            }
-            .game-top-btn {
-                width: 28px;
-                height: 28px;
-                font-size: 13px;
-            }
-            .game-top-buttons {
-                top: 6px;
-                right: 10px;
-                gap: 6px;
-            }
-
-            .fullscreen-overlay .game-wrapper-full {
-                width: 95%;
-                padding: 16px 16px 14px;
-            }
-            .fullscreen-overlay .game-wrapper-full .game-container {
-                height: 40vh;
-                min-height: 150px;
-            }
-            .fullscreen-overlay .game-wrapper-full .game-top-btn {
-                width: 32px;
-                height: 32px;
-                font-size: 15px;
-            }
-            .fullscreen-close-btn {
-                width: 32px;
-                height: 32px;
-                font-size: 16px;
-                top: -10px;
-                right: -10px;
-            }
-        }
-
-        @media (max-width: 400px) {
-            .error-code {
-                font-size: 72px;
-            }
-            .error-container {
-                padding: 24px 14px 20px;
-            }
-            .game-container {
-                height: 100px;
-            }
-            .game-top-btn {
-                width: 24px;
-                height: 24px;
-                font-size: 11px;
-            }
-            .game-top-buttons {
-                top: 4px;
-                right: 6px;
-                gap: 4px;
-            }
-
-            .fullscreen-overlay .game-wrapper-full {
-                width: 98%;
-                padding: 12px 10px 10px;
-            }
-            .fullscreen-overlay .game-wrapper-full .game-container {
-                height: 35vh;
-                min-height: 120px;
-            }
-        }
-    </style>
+  #stage{margin-top:26px;width:min(860px,94vw);border:1px solid var(--line);border-radius:12px;
+    background:linear-gradient(180deg,rgba(201,169,97,.05),rgba(0,0,0,.12));position:relative;overflow:hidden}
+  #game{display:block;width:100%;height:220px;touch-action:manipulation}
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;
+    background:rgba(22,19,16,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);cursor:pointer;text-align:center;padding:16px}
+  #overlay.hide{display:none}
+  #overlay .big{font-family:Georgia,serif;font-size:22px;color:var(--gold)}
+  #overlay .small{font-size:12px;color:var(--muted);line-height:1.8}
+  #score{position:absolute;top:10px;right:14px;font-family:Georgia,serif;font-size:14px;color:var(--gold);opacity:.9;letter-spacing:.1em}
+  .tips{margin-top:14px;font-size:11px;color:var(--muted);text-align:center;line-height:1.9}
+  .tips kbd{border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--gold);font-family:inherit;font-size:11px}
+  .actions{margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:11px 20px;font-size:13px;letter-spacing:.06em;
+    text-decoration:none;transition:transform .25s,border-color .25s,color .25s}
+  .btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold-dim));color:#1a150e;border:1px solid var(--gold)}
+  .btn-ghost{border:1px solid var(--line);color:var(--muted)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-ghost:hover{color:var(--gold);border-color:var(--gold)}
+  .foot{position:absolute;bottom:16px;font-size:10px;color:var(--muted);opacity:.5;letter-spacing:.12em}
+  @media(max-width:640px){#game{height:190px}.sub{font-size:12px}}
+</style>
 </head>
 <body>
+<div class="glow"></div>
+<p class="eyebrow">404 · PAGE NOT FOUND</p>
+<h1>404</h1>
+<p class="sub">这个页面大概去旅行了。<br/>不如先陪小恐龙跑一会儿，等它回来。</p>
 
-    <div class="error-container">
+<div id="stage">
+  <canvas id="game"></canvas>
+  <div id="score">SCORE 0</div>
+  <div id="overlay">
+    <div class="big">准备奔跑</div>
+    <div class="small">按 <kbd>空格</kbd> 或点击画面，让小恐龙跳起来<br/>躲开前面的障碍</div>
+  </div>
+</div>
 
-        <!-- 装饰小点 -->
-        <div class="floating-dots">
-            <span></span>
-            <span></span>
-            <span></span>
-        </div>
+<p class="tips">按 <kbd>空格</kbd> / <kbd>↑</kbd> / 点击屏幕 跳跃 · <kbd>R</kbd> 重新开始</p>
+<div class="actions">
+  <a class="btn btn-primary" href="/">返回首页</a>
+  <a class="btn btn-ghost" href="/chat.html">去悄悄话</a>
+</div>
+<p class="foot">LYX STUDIO · 内蒙古包头</p>
 
-        <!-- 404 数字 -->
-        <div class="error-code">404</div>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var overlay=document.getElementById('overlay'),scoreEl=document.getElementById('score');
+  var W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,2);
+  var GROUND_Y=0,started=false,dead=false,score=0,best=0;
+  var dino={x:70,y:0,w:44,h:46,vy:0,jumping:false,frame:0};
+  var obstacles=[],clouds=[],ticks=0,speed=6.4,speedUp=0;
 
-        <!-- 标题 -->
-        <h1 class="error-title">
-            哎呀，<span>迷路</span>了
-        </h1>
+  function resize(){
+    var r=cv.getBoundingClientRect();W=r.width;H=r.height;
+    cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);GROUND_Y=H-42;
+    if(!dino.y)dino.y=GROUND_Y-dino.h;
+  }
+  window.addEventListener('resize',resize);resize();
 
-        <!-- 描述 -->
-        <p class="error-message">
-            页面不见了，不如玩个小游戏等一等？
-        </p>
-
-        <!-- 游戏区域 -->
-        <div class="game-wrapper">
-            <div class="game-container" id="gameContainer">
-                <canvas id="gameCanvas"></canvas>
-                <div class="game-top-buttons">
-                    <button class="game-top-btn" id="soundToggle" title="切换声音">
-                        <span class="btn-icon" id="soundIcon">🔇</span>
-                    </button>
-                    <button class="game-top-btn" id="fullscreenToggle" title="全屏">
-                        <span class="btn-icon" id="fullscreenIcon">⛶</span>
-                    </button>
-                </div>
-                <div class="game-overlay visible" id="gameOverlay">
-                    <div class="overlay-icon">🦖</div>
-                    <div class="overlay-text">点击开始游戏</div>
-                    <div class="overlay-hint">空格 / 点击跳跃 · 躲避障碍</div>
-                </div>
-            </div>
-            <div class="game-controls">
-                <div class="game-score">🏆 得分 <span id="scoreDisplay">0</span></div>
-                <button class="game-restart-btn" id="restartBtn">↻ 重来</button>
-            </div>
-        </div>
-
-        <!-- 按钮组 -->
-        <div class="button-group">
-            <a href="https://303329.xyz" class="btn">
-                <svg viewBox="0 0 24 24">
-                    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                回到首页
-            </a>
-        </div>
-
-        <!-- 底部 -->
-        <div class="footer-note">
-            ✦ 如果这是网站的 bug，欢迎 <span class="email-link" id="emailLink">联系我们</span> ✦
-        </div>
-    </div>
-
-    <!-- 全屏遮罩 -->
-    <div class="fullscreen-overlay" id="fullscreenOverlay">
-        <div class="game-wrapper-full">
-            <button class="fullscreen-close-btn" id="fullscreenCloseBtn" title="退出全屏">✕</button>
-            <div class="game-container" id="fullscreenGameContainer">
-                <canvas id="fullscreenCanvas"></canvas>
-                <div class="game-top-buttons">
-                    <button class="game-top-btn" id="fullscreenSoundToggle" title="切换声音">
-                        <span class="btn-icon" id="fullscreenSoundIcon">🔇</span>
-                    </button>
-                </div>
-                <div class="game-overlay visible" id="fullscreenOverlay">
-                    <div class="overlay-icon">🦖</div>
-                    <div class="overlay-text">点击开始游戏</div>
-                    <div class="overlay-hint">空格 / 点击跳跃 · 躲避障碍</div>
-                </div>
-            </div>
-            <div class="game-controls">
-                <div class="game-score">🏆 得分 <span id="fullscreenScoreDisplay">0</span></div>
-                <button class="game-restart-btn" id="fullscreenRestartBtn">↻ 重来</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast -->
-    <div class="toast" id="toast">
-        📧 已复制邮箱：<span class="highlight">2442311042@qq.com</span>
-    </div>
-
-    <script>
-        // ============================================================
-        //  邮箱复制
-        // ============================================================
-        const email = '2442311042@qq.com';
-        const emailLink = document.getElementById('emailLink');
-        const toast = document.getElementById('toast');
-        let toastTimer = null;
-
-        emailLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(email).then(showToast).catch(fallbackCopy);
-            } else {
-                fallbackCopy();
-            }
-        });
-
-        function fallbackCopy() {
-            const input = document.createElement('input');
-            input.value = email;
-            input.style.position = 'fixed';
-            input.style.opacity = '0';
-            input.style.pointerEvents = 'none';
-            document.body.appendChild(input);
-            input.select();
-            try {
-                document.execCommand('copy');
-                showToast();
-            } catch (_) {
-                alert('复制失败，请手动复制：' + email);
-            }
-            document.body.removeChild(input);
+  // 像素恐龙（用矩形拼，风格贴近谷歌离线恐龙）
+  function drawDino(){
+    var x=Math.round(dino.x),y=Math.round(dino.y),u=3,c='#c9a961',c2='#8a7440';
+    // 身体
+    ctx.fillStyle=c;
+    ctx.fillRect(x+9*u,y+6*u,8*u,7*u);   // 躯干
+    ctx.fillRect(x+13*u,y+2*u,6*u,5*u);   // 头
+    ctx.fillRect(x+17*u,y+3*u,3*u,2*u);   // 嘴
+    ctx.fillRect(x+7*u,y+3*u,2*u,3*u);    // 尾
+    ctx.fillRect(x+11*u,y+13*u,3*u,5*u);  // 腿
+    ctx.fillRect(x+16*u,y+13*u,3*u,5*u);
+    ctx.fillStyle=c2;
+    ctx.fillRect(x+16*u,y+3*u,1*u,1*u);   // 眼
+    if(!dino.jumping&&Math.floor(dino.frame/7)%2===0){
+      ctx.fillStyle=c2;ctx.fillRect(x+11*u,y+18*u,3*u,2*u);ctx.fillRect(x+16*u,y+18*u,3*u,2*u);
+    }
+  }
+  function drawCactus(o){
+    var c='#a88f55',u=3,x=Math.round(o.x),y=Math.round(GROUND_Y-o.h);
+    ctx.fillStyle=c;
+    ctx.fillRect(x+3*u,y,3*u,o.h);
+    ctx.fillRect(x,y+7*u,3*u,5*u);
+    ctx.fillRect(x+6*u,y+4*u,3*u,5*u);
+  }
+  function drawCloud(cl){
+    ctx.fillStyle='rgba(201,169,97,.10)';
+    ctx.fillRect(cl.x,cl.y,34,8);ctx.fillRect(cl.x+8,cl.y-7,20,8);
+  }
+  function jump(){
+    if(dead)return;
+    if(!started){started=true;overlay.classList.add('hide');}
+    if(!dino.jumping){dino.vy=-13.5;dino.jumping=true;}
+  }
+  function reset(){
+    dead=false;started=true;score=0;speed=6.4;speedUp=0;obstacles=[];
+    dino.y=GROUND_Y-dino.h;dino.vy=0;dino.jumping=false;dino.frame=0;
+    overlay.classList.add('hide');scoreEl.textContent='SCORE 0';
+  }
+  function tick(){
+    if(!dead){
+      ticks++;dino.frame++;
+      if(started){
+        score+=speed*0.055;speedUp++;
+        if(speedUp%180===0)speed=Math.min(12.5,speed+0.45);
+        if(ticks%Math.max(46,Math.round(100-speed*4))===0){
+          var tall=Math.random()>0.45;
+          obstacles.push({x:W+20,h:tall?46:32});
         }
-
-        function showToast() {
-            toast.classList.remove('show');
-            clearTimeout(toastTimer);
-            void toast.offsetWidth;
-            toast.classList.add('show');
-            toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+        for(var i=obstacles.length-1;i>=0;i--){
+          var o=obstacles[i];o.x-=speed;
+          // 碰撞盒（留一点宽容度）
+          var dx=dino.x+8, dw=dino.w-16;
+          if(o.x<dx+dw&&o.x+12>dx&&dino.y+dino.h-4>GROUND_Y-o.h+3){
+            dead=true;overlay.classList.remove('hide');
+            overlay.querySelector('.big').textContent='撞到了';
+            overlay.querySelector('.small').innerHTML='本次得分 '+Math.floor(score)+' · 最高 '+best+'<br/>点击画面或按 <kbd>空格</kbd> 再来一次';
+            break;
+          }
+          if(o.x<-30)obstacles.splice(i,1);
         }
-
-        // ============================================================
-        //  小恐龙游戏（支持全屏 80% 模式）
-        // ============================================================
-        (function() {
-            // ---- DOM 元素 ----
-            const mainCanvas = document.getElementById('gameCanvas');
-            const mainCtx = mainCanvas.getContext('2d');
-            const mainContainer = document.getElementById('gameContainer');
-            const mainOverlay = document.getElementById('gameOverlay');
-            const mainScore = document.getElementById('scoreDisplay');
-            const mainRestart = document.getElementById('restartBtn');
-
-            const fsCanvas = document.getElementById('fullscreenCanvas');
-            const fsCtx = fsCanvas.getContext('2d');
-            const fsContainer = document.getElementById('fullscreenGameContainer');
-            const fsOverlay = document.getElementById('fullscreenOverlay');
-            const fsScore = document.getElementById('fullscreenScoreDisplay');
-            const fsRestart = document.getElementById('fullscreenRestartBtn');
-
-            const soundToggle = document.getElementById('soundToggle');
-            const soundIcon = document.getElementById('soundIcon');
-            const fsSoundToggle = document.getElementById('fullscreenSoundToggle');
-            const fsSoundIcon = document.getElementById('fullscreenSoundIcon');
-            const fullscreenToggle = document.getElementById('fullscreenToggle');
-            const fullscreenOverlay = document.getElementById('fullscreenOverlay');
-            const fullscreenCloseBtn = document.getElementById('fullscreenCloseBtn');
-
-            // ---- 游戏核心数据 ----
-            let gameRunning = false;
-            let gameOver = false;
-            let score = 0;
-            let frameId = null;
-            let speed = 4.5;
-            let obstacleSpawnCounter = 0;
-            let obstacleSpawnInterval = 80;
-            let gameInitialized = false;
-            let isFullscreen = false;
-
-            // ---- 恐龙 ----
-            const dino = {
-                x: 30,
-                y: 100,
-                w: 24,
-                h: 30,
-                vy: 0,
-                gravity: 0.45,
-                jumpPower: -8.5,
-                grounded: true,
-                legFrame: 0,
-                legTimer: 0
-            };
-
-            // ---- 障碍物 ----
-            let obstacles = [];
-            let clouds = [];
-            let stars = [];
-
-            // ---- 声音 ----
-            let soundEnabled = false;
-            let audioCtx = null;
-
-            // ---- 当前使用的上下文 ----
-            let currentCtx = mainCtx;
-            let currentCanvas = mainCanvas;
-            let currentContainer = mainContainer;
-            let currentOverlay = mainOverlay;
-            let currentScore = mainScore;
-            let currentRestart = mainRestart;
-            let W = 640,
-                H = 150,
-                scale = 1,
-                groundY = 130;
-
-            // ==========================================
-            //  声音引擎
-            // ==========================================
-            function initAudio() {
-                try {
-                    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
-                } catch (_) {
-                    audioCtx = null;
-                }
-            }
-
-            function playScoreSound() {
-                if (!soundEnabled || !audioCtx) return;
-                try {
-                    if (audioCtx.state === 'suspended') audioCtx.resume();
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.08);
-                    osc.type = 'sine';
-                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
-                    osc.start(audioCtx.currentTime);
-                    osc.stop(audioCtx.currentTime + 0.12);
-                } catch (_) {}
-            }
-
-            function playJumpSound() {
-                if (!soundEnabled || !audioCtx) return;
-                try {
-                    if (audioCtx.state === 'suspended') audioCtx.resume();
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.06);
-                    osc.type = 'sine';
-                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-                    osc.start(audioCtx.currentTime);
-                    osc.stop(audioCtx.currentTime + 0.08);
-                } catch (_) {}
-            }
-
-            function playGameOverSound() {
-                if (!soundEnabled || !audioCtx) return;
-                try {
-                    if (audioCtx.state === 'suspended') audioCtx.resume();
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.3);
-                    osc.type = 'sawtooth';
-                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-                    osc.start(audioCtx.currentTime);
-                    osc.stop(audioCtx.currentTime + 0.3);
-                } catch (_) {}
-            }
-
-            function updateSoundIcons() {
-                const icon = soundEnabled ? '🔊' : '🔇';
-                soundIcon.textContent = icon;
-                fsSoundIcon.textContent = icon;
-            }
-
-            // ---- 扬声器切换 ----
-            soundToggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                soundEnabled = !soundEnabled;
-                updateSoundIcons();
-                if (soundEnabled && !audioCtx) initAudio();
-                if (soundEnabled && audioCtx && audioCtx.state === 'suspended') {
-                    audioCtx.resume().catch(function() {});
-                }
-            });
-
-            fsSoundToggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                soundEnabled = !soundEnabled;
-                updateSoundIcons();
-                if (soundEnabled && !audioCtx) initAudio();
-                if (soundEnabled && audioCtx && audioCtx.state === 'suspended') {
-                    audioCtx.resume().catch(function() {});
-                }
-            });
-
-            // ==========================================
-            //  全屏切换
-            // ==========================================
-            function toggleFullscreen() {
-                isFullscreen = !isFullscreen;
-                fullscreenOverlay.classList.toggle('active', isFullscreen);
-                if (isFullscreen) {
-                    // 同步游戏状态到全屏
-                    syncGameToFullscreen();
-                    setupFullscreenCanvas();
-                }
-            }
-
-            fullscreenToggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleFullscreen();
-            });
-
-            fullscreenCloseBtn.addEventListener('click', function() {
-                if (isFullscreen) toggleFullscreen();
-            });
-
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && isFullscreen) {
-                    toggleFullscreen();
-                }
-            });
-
-            // ==========================================
-            //  同步游戏状态到全屏
-            // ==========================================
-            function syncGameToFullscreen() {
-                // 同步得分
-                fsScore.textContent = mainScore.textContent;
-                // 同步覆盖层
-                if (gameOver) {
-                    fsOverlay.classList.add('visible');
-                    fsOverlay.querySelector('.overlay-icon').textContent = '💥';
-                    fsOverlay.querySelector('.overlay-text').textContent = '游戏结束';
-                    fsOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
-                } else if (!gameRunning) {
-                    fsOverlay.classList.add('visible');
-                    fsOverlay.querySelector('.overlay-icon').textContent = '🦖';
-                    fsOverlay.querySelector('.overlay-text').textContent = '点击开始游戏';
-                    fsOverlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
-                } else {
-                    fsOverlay.classList.remove('visible');
-                }
-            }
-
-            // ==========================================
-            //  设置全屏 Canvas
-            // ==========================================
-            function setupFullscreenCanvas() {
-                const rect = fsContainer.getBoundingClientRect();
-                const dpr = window.devicePixelRatio || 1;
-                W = Math.max(200, Math.floor(rect.width * dpr));
-                H = Math.max(80, Math.floor(rect.height * dpr));
-                fsCanvas.width = W;
-                fsCanvas.height = H;
-                fsCanvas.style.width = rect.width + 'px';
-                fsCanvas.style.height = rect.height + 'px';
-
-                scale = H / 150;
-                groundY = H - 12 * scale;
-
-                dino.x = 28 * scale;
-                dino.w = 22 * scale;
-                dino.h = 28 * scale;
-                dino.gravity = 0.45 * scale * 0.6;
-                dino.jumpPower = -8.5 * scale * 0.6;
-                dino.y = groundY - dino.h;
-
-                // 生成星星（如果还没有）
-                if (stars.length === 0) {
-                    for (let i = 0; i < 30; i++) {
-                        stars.push({
-                            x: Math.random() * W,
-                            y: Math.random() * (H * 0.6),
-                            r: (0.5 + Math.random() * 1.2) * scale * 0.5,
-                            a: 0.2 + Math.random() * 0.3
-                        });
-                    }
-                }
-
-                if (clouds.length === 0) {
-                    for (let i = 0; i < 3; i++) {
-                        clouds.push({
-                            x: Math.random() * W,
-                            y: 10 * scale + Math.random() * 30 * scale,
-                            w: 40 * scale + Math.random() * 30 * scale,
-                            speed: 0.15 + Math.random() * 0.25
-                        });
-                    }
-                }
-
-                currentCtx = fsCtx;
-                currentCanvas = fsCanvas;
-                currentContainer = fsContainer;
-                currentOverlay = fsOverlay;
-                currentScore = fsScore;
-                currentRestart = fsRestart;
-
-                gameInitialized = true;
-                draw();
-            }
-
-            // ==========================================
-            //  设置主 Canvas
-            // ==========================================
-            function setupMainCanvas() {
-                const rect = mainContainer.getBoundingClientRect();
-                const dpr = window.devicePixelRatio || 1;
-                W = Math.max(200, Math.floor(rect.width * dpr));
-                H = Math.max(80, Math.floor(rect.height * dpr));
-                mainCanvas.width = W;
-                mainCanvas.height = H;
-                mainCanvas.style.width = rect.width + 'px';
-                mainCanvas.style.height = rect.height + 'px';
-
-                scale = H / 150;
-                groundY = H - 12 * scale;
-
-                dino.x = 28 * scale;
-                dino.w = 22 * scale;
-                dino.h = 28 * scale;
-                dino.gravity = 0.45 * scale * 0.6;
-                dino.jumpPower = -8.5 * scale * 0.6;
-                dino.y = groundY - dino.h;
-
-                if (stars.length === 0) {
-                    for (let i = 0; i < 30; i++) {
-                        stars.push({
-                            x: Math.random() * W,
-                            y: Math.random() * (H * 0.6),
-                            r: (0.5 + Math.random() * 1.2) * scale * 0.5,
-                            a: 0.2 + Math.random() * 0.3
-                        });
-                    }
-                }
-
-                if (clouds.length === 0) {
-                    for (let i = 0; i < 3; i++) {
-                        clouds.push({
-                            x: Math.random() * W,
-                            y: 10 * scale + Math.random() * 30 * scale,
-                            w: 40 * scale + Math.random() * 30 * scale,
-                            speed: 0.15 + Math.random() * 0.25
-                        });
-                    }
-                }
-
-                currentCtx = mainCtx;
-                currentCanvas = mainCanvas;
-                currentContainer = mainContainer;
-                currentOverlay = mainOverlay;
-                currentScore = mainScore;
-                currentRestart = mainRestart;
-
-                gameInitialized = true;
-                draw();
-            }
-
-            // ==========================================
-            //  游戏逻辑（保持不变）
-            // ==========================================
-            function spawnObstacle() {
-                const types = [
-                    { w: 10, h: 16 },
-                    { w: 14, h: 22 },
-                    { w: 12, h: 18 }
-                ];
-                const type = types[Math.floor(Math.random() * types.length)];
-                const w = type.w * scale * 0.9;
-                const h = type.h * scale * 0.9;
-                obstacles.push({
-                    x: W + 30 * scale,
-                    y: groundY - h,
-                    w: w,
-                    h: h,
-                    scored: false
-                });
-            }
-
-            function resetGame() {
-                gameOver = false;
-                gameRunning = true;
-                score = 0;
-                speed = 4.5;
-                obstacles = [];
-                obstacleSpawnCounter = 0;
-                obstacleSpawnInterval = 80;
-
-                dino.y = groundY - dino.h;
-                dino.vy = 0;
-                dino.grounded = true;
-                dino.legFrame = 0;
-
-                currentOverlay.classList.remove('visible');
-                currentScore.textContent = '0';
-
-                setTimeout(function() {
-                    if (gameRunning && !gameOver && gameInitialized) {
-                        spawnObstacle();
-                    }
-                }, 500);
-            }
-
-            function jump() {
-                if (!gameRunning || gameOver) return;
-                if (dino.grounded) {
-                    dino.vy = dino.jumpPower;
-                    dino.grounded = false;
-                    playJumpSound();
-                }
-            }
-
-            function update() {
-                if (!gameRunning || gameOver) return;
-
-                dino.vy += dino.gravity * 0.8;
-                dino.y += dino.vy;
-
-                if (dino.y >= groundY - dino.h) {
-                    dino.y = groundY - dino.h;
-                    dino.vy = 0;
-                    dino.grounded = true;
-                } else {
-                    dino.grounded = false;
-                }
-
-                if (dino.grounded) {
-                    dino.legTimer++;
-                    if (dino.legTimer > 10) {
-                        dino.legTimer = 0;
-                        dino.legFrame = (dino.legFrame + 1) % 2;
-                    }
-                } else {
-                    dino.legFrame = 0;
-                }
-
-                obstacleSpawnCounter++;
-                const currentInterval = Math.max(50, obstacleSpawnInterval - Math.floor(score / 150));
-                if (obstacleSpawnCounter >= currentInterval) {
-                    obstacleSpawnCounter = 0;
-                    if (obstacles.length < 3) {
-                        spawnObstacle();
-                    }
-                }
-
-                const currentSpeed = speed + Math.floor(score / 80) * 0.15;
-                for (let i = obstacles.length - 1; i >= 0; i--) {
-                    const ob = obstacles[i];
-                    ob.x -= currentSpeed * scale * 0.5;
-
-                    if (!ob.scored && ob.x + ob.w < dino.x) {
-                        ob.scored = true;
-                        score++;
-                        if (score % 20 === 0) {
-                            speed += 0.15;
-                        }
-                        currentScore.textContent = Math.floor(score);
-                        // 同步主屏幕得分
-                        if (isFullscreen) {
-                            mainScore.textContent = Math.floor(score);
-                        } else {
-                            fsScore.textContent = Math.floor(score);
-                        }
-                        playScoreSound();
-                    }
-
-                    if (ob.x + ob.w < -10 * scale) {
-                        obstacles.splice(i, 1);
-                        continue;
-                    }
-
-                    const px = dino.x + 4 * scale;
-                    const py = dino.y + 3 * scale;
-                    const pw = dino.w - 8 * scale;
-                    const ph = dino.h - 6 * scale;
-
-                    if (px < ob.x + ob.w && px + pw > ob.x &&
-                        py < ob.y + ob.h && py + ph > ob.y) {
-                        gameOver = true;
-                        gameRunning = false;
-                        currentOverlay.classList.add('visible');
-                        currentOverlay.querySelector('.overlay-icon').textContent = '💥';
-                        currentOverlay.querySelector('.overlay-text').textContent = '游戏结束';
-                        currentOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
-                        // 同步覆盖层
-                        if (isFullscreen) {
-                            mainOverlay.classList.add('visible');
-                            mainOverlay.querySelector('.overlay-icon').textContent = '💥';
-                            mainOverlay.querySelector('.overlay-text').textContent = '游戏结束';
-                            mainOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
-                        } else {
-                            fsOverlay.classList.add('visible');
-                            fsOverlay.querySelector('.overlay-icon').textContent = '💥';
-                            fsOverlay.querySelector('.overlay-text').textContent = '游戏结束';
-                            fsOverlay.querySelector('.overlay-hint').textContent = '点击或按空格重试';
-                        }
-                        playGameOverSound();
-                        return;
-                    }
-                }
-
-                clouds.forEach(c => {
-                    c.x -= c.speed * scale * 0.2;
-                    if (c.x + c.w < -20 * scale) {
-                        c.x = W + 20 * scale;
-                        c.y = 10 * scale + Math.random() * 30 * scale;
-                        c.w = 40 * scale + Math.random() * 30 * scale;
-                    }
-                });
-            }
-
-            function draw() {
-                if (W === 0 || H === 0 || !gameInitialized) return;
-
-                const ctx = currentCtx;
-                ctx.clearRect(0, 0, W, H);
-
-                stars.forEach(s => {
-                    ctx.beginPath();
-                    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(255,255,255,${s.a * 0.5})`;
-                    ctx.fill();
-                });
-
-                clouds.forEach(c => {
-                    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-                    const r = c.w * 0.4;
-                    ctx.beginPath();
-                    ctx.ellipse(c.x, c.y, r, r * 0.5, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.ellipse(c.x - r * 0.5, c.y + r * 0.2, r * 0.6, r * 0.4, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.ellipse(c.x + r * 0.5, c.y + r * 0.2, r * 0.6, r * 0.4, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-
-                ctx.fillStyle = 'rgba(255,255,255,0.04)';
-                ctx.fillRect(0, groundY + 2 * scale, W, 2 * scale);
-
-                const currentSpeed = speed + Math.floor(score / 80) * 0.15;
-                for (let i = 0; i < W; i += 20 * scale) {
-                    const offset = (Date.now() * 0.02 * currentSpeed * 0.15) % (20 * scale);
-                    const x = (i - offset + W) % W;
-                    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-                    ctx.fillRect(x, groundY + 6 * scale, 3 * scale, 2 * scale);
-                }
-
-                obstacles.forEach(ob => {
-                    ctx.fillStyle = 'rgba(200,180,255,0.25)';
-                    const r = 2 * scale;
-                    ctx.beginPath();
-                    ctx.moveTo(ob.x + r, ob.y);
-                    ctx.lineTo(ob.x + ob.w - r, ob.y);
-                    ctx.quadraticCurveTo(ob.x + ob.w, ob.y, ob.x + ob.w, ob.y + r);
-                    ctx.lineTo(ob.x + ob.w, ob.y + ob.h - r);
-                    ctx.quadraticCurveTo(ob.x + ob.w, ob.y + ob.h, ob.x + ob.w - r, ob.y + ob.h);
-                    ctx.lineTo(ob.x + r, ob.y + ob.h);
-                    ctx.quadraticCurveTo(ob.x, ob.y + ob.h, ob.x, ob.y + ob.h - r);
-                    ctx.lineTo(ob.x, ob.y + r);
-                    ctx.quadraticCurveTo(ob.x, ob.y, ob.x + r, ob.y);
-                    ctx.fill();
-
-                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-                    ctx.fillRect(ob.x + 2 * scale, ob.y + 2 * scale, ob.w * 0.3, 3 * scale);
-                });
-
-                const dx = dino.x,
-                    dy = dino.y,
-                    dw = dino.w,
-                    dh = dino.h;
-
-                ctx.fillStyle = 'rgba(180,160,255,0.30)';
-                const r2 = 3 * scale;
-                ctx.beginPath();
-                ctx.moveTo(dx + r2, dy);
-                ctx.lineTo(dx + dw - r2, dy);
-                ctx.quadraticCurveTo(dx + dw, dy, dx + dw, dy + r2);
-                ctx.lineTo(dx + dw, dy + dh - r2);
-                ctx.quadraticCurveTo(dx + dw, dy + dh, dx + dw - r2, dy + dh);
-                ctx.lineTo(dx + r2, dy + dh);
-                ctx.quadraticCurveTo(dx, dy + dh, dx, dy + dh - r2);
-                ctx.lineTo(dx, dy + r2);
-                ctx.quadraticCurveTo(dx, dy, dx + r2, dy);
-                ctx.fill();
-
-                ctx.fillStyle = 'rgba(255,255,255,0.40)';
-                ctx.beginPath();
-                ctx.arc(dx + dw * 0.75, dy + dh * 0.20, 2.5 * scale, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.15)';
-                ctx.beginPath();
-                ctx.arc(dx + dw * 0.65, dy + dh * 0.20, 2 * scale, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-                ctx.lineWidth = 1.5 * scale;
-                ctx.beginPath();
-                ctx.moveTo(dx + dw * 0.85, dy + dh * 0.35);
-                ctx.lineTo(dx + dw * 0.98, dy + dh * 0.35);
-                ctx.stroke();
-
-                ctx.fillStyle = 'rgba(180,160,255,0.25)';
-                const legOffset = dino.grounded ? (dino.legFrame === 0 ? 2 * scale : -2 * scale) : 0;
-                ctx.fillRect(dx + dw * 0.15, dy + dh * 0.75, 4 * scale, dh * 0.25 + legOffset * 0.3);
-                ctx.fillRect(dx + dw * 0.65, dy + dh * 0.75, 4 * scale, dh * 0.25 - legOffset * 0.3);
-
-                ctx.fillStyle = 'rgba(180,160,255,0.20)';
-                ctx.fillRect(dx - 2 * scale, dy + dh * 0.30, 3 * scale, 6 * scale);
-                ctx.fillRect(dx + dw - 1 * scale, dy + dh * 0.30, 3 * scale, 6 * scale);
-
-                ctx.fillStyle = 'rgba(255,255,255,0.06)';
-                ctx.font = `${12 * scale}px "Segoe UI", system-ui, sans-serif`;
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'top';
-                ctx.fillText('🏆 ' + Math.floor(score), W - 60 * scale, 8 * scale);
-            }
-
-            function gameLoop() {
-                update();
-                draw();
-                // 如果全屏模式，同步绘制到主 Canvas
-                if (isFullscreen) {
-                    // 已经使用 fsCtx 绘制
-                }
-                frameId = requestAnimationFrame(gameLoop);
-            }
-
-            function startGame() {
-                if (frameId) {
-                    cancelAnimationFrame(frameId);
-                    frameId = null;
-                }
-                if (!gameInitialized) {
-                    setupMainCanvas();
-                }
-                resetGame();
-                currentOverlay.classList.remove('visible');
-                currentOverlay.querySelector('.overlay-icon').textContent = '🦖';
-                currentOverlay.querySelector('.overlay-text').textContent = '点击开始游戏';
-                currentOverlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
-                if (!frameId) {
-                    gameLoop();
-                }
-            }
-
-            // ---- 事件绑定 ----
-            function bindEvents(containerEl, overlayEl) {
-                containerEl.addEventListener('click', function(e) {
-                    if (e.target.closest('.game-top-btn')) return;
-                    if (!gameRunning && !gameOver) {
-                        startGame();
-                        return;
-                    }
-                    if (gameOver) {
-                        startGame();
-                        return;
-                    }
-                    jump();
-                });
-            }
-
-            bindEvents(mainContainer, mainOverlay);
-            bindEvents(fsContainer, fsOverlay);
-
-            document.addEventListener('keydown', function(e) {
-                if (e.key === ' ' || e.key === 'Space' || e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    if (!gameRunning && !gameOver) {
-                        startGame();
-                        return;
-                    }
-                    if (gameOver) {
-                        startGame();
-                        return;
-                    }
-                    jump();
-                }
-            });
-
-            mainRestart.addEventListener('click', function(e) {
-                e.stopPropagation();
-                startGame();
-            });
-
-            fsRestart.addEventListener('click', function(e) {
-                e.stopPropagation();
-                startGame();
-            });
-
-            // ---- 窗口变化 ----
-            let resizeTimer;
-            window.addEventListener('resize', function() {
-                clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function() {
-                    if (isFullscreen) {
-                        setupFullscreenCanvas();
-                    } else {
-                        setupMainCanvas();
-                    }
-                    draw();
-                }, 150);
-            });
-
-            // ---- 初始化 ----
-            function init() {
-                initAudio();
-                setupMainCanvas();
-                mainOverlay.classList.add('visible');
-                mainOverlay.querySelector('.overlay-icon').textContent = '🦖';
-                mainOverlay.querySelector('.overlay-text').textContent = '点击开始游戏';
-                mainOverlay.querySelector('.overlay-hint').textContent = '空格 / 点击跳跃 · 躲避障碍';
-                gameRunning = false;
-                if (!frameId) {
-                    gameLoop();
-                }
-            }
-
-            if (document.readyState === 'complete') {
-                init();
-            } else {
-                window.addEventListener('load', init);
-            }
-        })();
-    </script>
-
+      }
+      // 物理
+      dino.vy+=0.72;dino.y+=dino.vy;
+      if(dino.y>=GROUND_Y-dino.h){dino.y=GROUND_Y-dino.h;dino.vy=0;dino.jumping=false;}
+      // 云
+      if(ticks%140===0)clouds.push({x:W+20,y:30+Math.random()*60});
+      clouds.forEach(function(c){c.x-=speed*0.28;});clouds=clouds.filter(function(c){return c.x>-60;});
+      scoreEl.textContent='SCORE '+Math.floor(score);
+      best=Math.max(best,Math.floor(score));
+    }
+    // 绘制
+    ctx.clearRect(0,0,W,H);
+    clouds.forEach(drawCloud);
+    ctx.strokeStyle='rgba(201,169,97,.28)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,GROUND_Y+1);ctx.lineTo(W,GROUND_Y+1);ctx.stroke();
+    var seg=Math.floor(ticks*speed/24)%40;
+    ctx.strokeStyle='rgba(201,169,97,.12)';
+    for(var x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x-seg,GROUND_Y+7);ctx.lineTo(x-seg+16,GROUND_Y+7);ctx.stroke();}
+    obstacles.forEach(drawCactus);drawDino();
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  document.addEventListener('keydown',function(e){
+    if(e.code==='Space'||e.code==='ArrowUp'){
+      e.preventDefault();
+      if(dead)reset();else jump();
+    }else if(e.key==='r'||e.key==='R'){reset();}
+  });
+  cv.addEventListener('pointerdown',function(e){e.preventDefault();if(dead)reset();else jump();});
+  overlay.addEventListener('click',function(){if(dead)reset();else jump();});
+})();
+</script>
 </body>
 </html>
