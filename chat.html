@@ -2624,6 +2624,7 @@ function deferLazy(){
   else setTimeout(run,300);
 }
 function setTab(t){
+  if(activeTab!==t)qhAct('tab_switch',{tab:t});
   activeTab=t;searching=false;searchResults=[];$('searchInput').value='';
   if(t==='lobby'){switchView('lobby');}
   else if(t==='groups'){
