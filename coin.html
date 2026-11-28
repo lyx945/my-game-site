@@ -39,14 +39,19 @@
     #ledger{top:auto;right:12px;left:12px;bottom:12px;transform:none;width:auto;padding:14px;max-height:38vh;overflow:auto}
     .page-title{left:16px;top:66px;max-width:60vw}.page-title h1{font-size:20px}
     .topbar{padding:12px 16px}
+    #hud{top:60px;right:12px;padding:8px 12px}
+    #hud .amount{font-size:18px}
+    #tips{display:none}
+    #hint{bottom:calc(38vh + 20px);right:12px;font-size:11px}
+    #gyroBtn{bottom:12px;right:12px}
   }
   #app { position: relative; width: 100vw; height: 100vh; }
   canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
   #hud {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 68px;
+    right: 20px;
     padding: 12px 20px;
     background: rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(10px);
@@ -82,7 +87,7 @@
 
   #hint {
     position: absolute;
-    bottom: 16px;
+    bottom: 58px;
     right: 16px;
     padding: 10px 14px;
     background: rgba(255, 215, 0, 0.1);
@@ -180,6 +185,41 @@ const COIN_CONFIG = {
   yuan: { radius: 1.3, thickness: 0.25, mass: 8, value: 1.0, count: 15, color: 0xf0d98c },
   jiao: { radius: 0.9, thickness: 0.15, mass: 3, value: 0.1, count: 8, color: 0xb87333 }
 };
+/* 真实硬币贴图：预加载四张图，裁成圆形透明纹理 */
+const COIN_IMG={yuan:{front:'/coin-assets/yuan-front.jpg',back:'/coin-assets/yuan-back.jpg'},
+                jiao:{front:'/coin-assets/jiao-front.jpg',back:'/coin-assets/jiao-back.jpg'}};
+const texCache={};
+function loadCoinTextures(){
+  Object.keys(COIN_IMG).forEach(function(type){
+    ['front','back'].forEach(function(face){
+      var img=new Image();
+      img.onload=function(){
+        var S=1024,c=document.createElement('canvas');c.width=S;c.height=S;
+        var x=c.getContext('2d');
+        x.clearRect(0,0,S,S);
+        // 圆形裁剪：硬币恰好占满方形图，按内切圆裁切
+        x.save();x.beginPath();x.arc(S/2,S/2,S/2,0,Math.PI*2);x.closePath();x.clip();
+        x.drawImage(img,0,0,S,S);
+        x.restore();
+        var t=new THREE.CanvasTexture(c);
+        t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;t.flipY=false;
+        texCache[type+'-'+face]=t;
+        applyTextures();
+      };
+      img.src=COIN_IMG[type][face];
+    });
+  });
+}
+function applyTextures(){
+  coinMeshes.forEach(function(mesh,i){
+    var data=coinData[i];if(!data)return;
+    var f=texCache[data.type+'-front'],b=texCache[data.type+'-back'];
+    if(f)mesh.material[1].map=f;
+    if(b)mesh.material[2].map=b;
+    if(f||b){mesh.material[1].needsUpdate=true;mesh.material[2].needsUpdate=true;}
+  });
+}
+
 const TABLE_SIZE = { w: 16, h: 12, thickness: 0.3 };
 const GRAVITY = new CANNON.Vec3(0, -9.82, 0);
 
@@ -506,6 +546,7 @@ function initCoins() {
 }
 
 initCoins();
+loadCoinTextures();
 
 let audioCtx = null;
 
