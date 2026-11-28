@@ -1194,7 +1194,8 @@ document.getElementById('mvReset').addEventListener('click',function(){
     var dots=pts.map(function(p){return '<circle class="pt" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2"/>';}).join('');
     body.innerHTML='<svg class="trend-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+
       '<path class="ar" d="'+area+'"/><polyline class="ln" points="'+poly+'"/>'+dots+'</svg>';
-    $('trendRange').textContent=isoDate(rows[0].week_start)+' → '+isoDate(rows[rows.length-1].week_start)+
+    var d0=rows[0].week_start,d1=rows[rows.length-1].week_start;
+    $('trendRange').textContent=(typeof d0==='string'?d0:isoDate(d0))+' → '+(typeof d1==='string'?d1:isoDate(d1))+
       ' · '+(vals[vals.length-1]-vals[0]>=0?'+':'')+(vals[vals.length-1]-vals[0]);
   }
   function loadTrend(){
