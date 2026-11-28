@@ -211,6 +211,13 @@
     border-radius:9px;padding:9px 12px;margin-top:12px}
   .share-row input{flex:1;min-width:0;background:transparent;border:none;color:var(--muted);font-size:12px;outline:none}
 
+  .quota-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:11.5px;color:var(--muted)}
+  .quota-row .track{flex:1;height:5px;border-radius:4px;background:rgba(201,169,97,.16);overflow:hidden}
+  .quota-row .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold-dim),var(--gold));transition:width .6s}
+  .quota-row.warn .track i{background:linear-gradient(90deg,#c98a2b,#e5484d)}
+  .quota-row.over{color:#ff8b8e}
+  .quota-row.over .track i{background:#e5484d}
+
   .idle-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(201,169,97,.1);
     border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:12.5px;line-height:1.7;color:var(--muted)}
   .idle-banner b{color:var(--gold);font-weight:500}
@@ -500,6 +507,11 @@
     <div class="controls" style="margin-top:8px">
       <span class="rec-dot hidden" id="recDot"><i></i>正在录制回放</span>
     </div>
+
+    <div class="quota-row" id="quotaRow">
+      <span id="quotaText">中转额度 —</span>
+      <span class="track"><i id="quotaBar"></i></span>
+    </div>
   </section>
 
 </div>
@@ -660,6 +672,7 @@
     dmSize:16,dmPos:'middle',pipWin:null,pipLayer:null,
     rec:null,recParts:0,recTimer:null,
     relayEnabled:false,failCount:0,turnServers:null,diagSent:false,
+    quota:null,peerBytes:new Map(),relayPending:0,quotaTimer:null,usageTimer:null,
     diag:{local:{},remote:{},attempts:0}};
 
   /* ================= 基础工具 ================= */
@@ -920,6 +933,13 @@
     if(!sb){toast('连接服务失败，请刷新重试',true);return;}
     if(!isLoggedIn){toast('请先登录账号再开播',true);return;}
     if(!state.videoStream&&!state.micStream){toast('请先开启摄像头或麦克风',true);return;}
+
+    // 额度闸门：本月中转额度用完则全服停止开播
+    var q=await loadQuota();
+    if(q&&q.blocked){
+      toast('本月中转额度已用完，暂时停止开播（下月 1 号自动重置）',true);
+      return;
+    }
     var title=($('liveTitle').value||'').trim()||(myNick+' 的直播');
 
     try{
@@ -984,6 +1004,8 @@
     $('dmInput').disabled=!isLoggedIn;
     $('idleBanner').classList.add('hidden');
     $('retryBtn').classList.add('hidden');
+    state.peerBytes=new Map();state.relayPending=0;
+    startQuotaTimers();
     state.failCount=0;state.diagSent=false;
     state.diag={local:{},remote:{},attempts:0};
 
@@ -1579,6 +1601,8 @@
     show('landing');
   }
   function cleanup(){
+    stopQuotaTimers();
+    state.peerBytes=new Map();state.relayPending=0;
     stopRecording();
     stopHeartbeat();stopWatch();stopWatchdog();stopWaveform();
     if(state.chatCh){try{sb.removeChannel(state.chatCh);}catch(e){}state.chatCh=null;}
@@ -1781,6 +1805,104 @@
     var b=$('btnCam');
     if(state.videoOn){b.classList.remove('muted');$('camTxt').textContent='摄像头开';}
     else{b.classList.add('muted');$('camTxt').textContent='摄像头关';}
+  }
+
+  /* ================= 中转额度（本月累计，超限禁止开播） ================= */
+  function fmtBytes(b){
+    if(!b)return '0 MB';
+    var gb=b/1073741824;
+    if(gb>=1)return gb.toFixed(2)+' GB';
+    return (b/1048576).toFixed(1)+' MB';
+  }
+  function quotaHeaders(){
+    return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+  }
+  async function loadQuota(){
+    try{
+      var r=await fetch(SB_URL+'/rest/v1/rpc/relay_quota',{method:'POST',headers:quotaHeaders(),body:'{}'});
+      if(!r.ok)return null;
+      var d=await r.json();
+      state.quota=d;renderQuota();
+      if(d&&d.blocked)onQuotaExhausted();
+      return d;
+    }catch(e){return null;}
+  }
+  function renderQuota(){
+    var el=$('quotaText'),bar=$('quotaBar'),row=$('quotaRow');
+    if(!el||!bar||!row)return;
+    var q=state.quota;
+    if(!q){el.textContent='中转额度 —';return;}
+    var used=q.used||0,lim=q.limit_bytes||1;
+    var pct=Math.min(100,Math.round(used/lim*1000)/10);
+    el.textContent='中转额度 '+fmtBytes(used)+' / '+(q.limit_gb||0)+' GB（本月）';
+    bar.style.width=pct+'%';
+    row.classList.toggle('warn',pct>=70&&pct<100);
+    row.classList.toggle('over',pct>=100);
+  }
+  function onQuotaExhausted(){
+    if(!state.quota||!state.quota.blocked)return;
+    if(state.relayEnabled){
+      state.relayEnabled=false;
+      toast('中转额度已用完，已切回直连',true);
+    }
+    if(state.role==='host'){
+      setHint('本月中转额度已用完，新观众可能连不上。<br>额度会在下月 1 号自动重置。');
+    }
+  }
+  async function flushRelayBytes(){
+    if(state.relayPending<=0)return;
+    var add=Math.round(state.relayPending);state.relayPending=0;
+    try{
+      await fetch(SB_URL+'/rest/v1/rpc/relay_add',{method:'POST',headers:quotaHeaders(),
+        body:JSON.stringify({p_room:state.room?state.room.id:null,p_bytes:add,
+          p_code:state.room?state.room.code:null})});
+      loadQuota();
+    }catch(e){state.relayPending+=add;}
+  }
+  /* 只有「选中的候选对」里有 relay 才算走了中转，避免把直连流量也算进额度 */
+  async function sampleRelayUsage(){
+    if(state.role!=='host'||!state.peers.size)return;
+    var deltaTotal=0;
+    for(var entry of state.peers){
+      var vid=entry[0],pc=entry[1];
+      try{
+        var st=await pc.getStats();
+        var cands={},pairs=[],out=0;
+        st.forEach(function(r){
+          if(r.type==='local-candidate'||r.type==='remote-candidate')cands[r.id]=r;
+          if(r.type==='candidate-pair')pairs.push(r);
+          if(r.type==='outbound-rtp'&&r.bytesSent)out+=r.bytesSent;
+        });
+        var sel=null;
+        for(var i=0;i<pairs.length;i++){if(pairs[i].nominated===true){sel=pairs[i];break;}}
+        if(!sel&&pairs.length)sel=pairs.sort(function(a,b){return (b.bytesSent||0)-(a.bytesSent||0);})[0];
+        var relayed=false;
+        if(sel){
+          var lc=cands[sel.localCandidateId],rc=cands[sel.remoteCandidateId];
+          relayed=(lc&&lc.candidateType==='relay')||(rc&&rc.candidateType==='relay');
+        }
+        var prev=state.peerBytes.get(vid)||0;
+        var delta=out-prev;
+        if(delta<0)delta=0;
+        state.peerBytes.set(vid,out);
+        if(relayed&&delta>0)deltaTotal+=delta;
+      }catch(e){}
+    }
+    if(deltaTotal>0){
+      state.relayPending+=deltaTotal;
+      if(state.relayPending>=524288)flushRelayBytes();
+    }
+  }
+  function startQuotaTimers(){
+    stopQuotaTimers();
+    loadQuota();
+    state.quotaTimer=setInterval(loadQuota,60000);
+    state.usageTimer=setInterval(sampleRelayUsage,10000);
+  }
+  function stopQuotaTimers(){
+    if(state.quotaTimer){clearInterval(state.quotaTimer);state.quotaTimer=null;}
+    if(state.usageTimer){clearInterval(state.usageTimer);state.usageTimer=null;}
+    flushRelayBytes();
   }
 
   /* ================= 连接诊断 ================= */
