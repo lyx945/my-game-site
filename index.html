@@ -292,6 +292,16 @@ h1{font-family:var(--font-display);font-weight:300;font-size:clamp(3rem,9vw,7.5r
 .dash-live.on i{background:#30c48d;box-shadow:0 0 0 4px color-mix(in oklab,#30c48d 18%,transparent);
   animation:livePulse 1.8s infinite}
 @keyframes livePulse{50%{opacity:.45}}
+/* 周度快照趋势 */
+.trend{margin-top:1.2rem;border-top:1px solid var(--border);padding-top:1rem}
+.trend-head{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin-bottom:.6rem}
+.trend-head b{font-size:.72rem;font-weight:500;color:var(--foreground);letter-spacing:.06em}
+.trend-head span{font-size:.64rem;color:var(--muted-foreground)}
+.trend-svg{width:100%;height:56px;display:block;overflow:visible}
+.trend-svg .ln{fill:none;stroke:var(--gold);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.trend-svg .ar{fill:color-mix(in oklab,var(--gold) 12%,transparent)}
+.trend-svg .pt{fill:var(--gold)}
+.trend-empty{font-size:.68rem;color:var(--muted-foreground);line-height:1.7}
 .dash-foot{font-size:.65rem;color:var(--muted-foreground);opacity:.7;margin-top:1rem;line-height:1.6}
 
 /* 更新日志时间线 */
@@ -576,6 +586,10 @@ footer{border-top:1px solid var(--border);padding:2.5rem 0}
             <div><div class="dash-num" id="dProj">6</div><div class="dash-lbl">上线项目</div><div class="dash-bar"><i data-bar="proj"></i></div></div>
           </div>
           <div class="dash-live" id="liveRow"><i></i><span id="liveTxt">在线状态检测中…</span></div>
+          <div class="trend">
+            <div class="trend-head"><b>消息增长趋势</b><span id="trendRange">每周自动记录</span></div>
+            <div id="trendBody"><div class="trend-empty">首次访问将记录本周快照，之后每周自动累积。</div></div>
+          </div>
           <div class="dash-foot">数据实时读取自 Supabase；访问量等无后端统计的指标未列入。</div>
         </div>
         <div class="dash-card">
@@ -1157,6 +1171,48 @@ document.getElementById('mvReset').addEventListener('click',function(){
   }
   // 看板数据直接加载（count 查询很轻），避免用户已经滚到却还没出数字
   try{loadDash();}catch(e){console.warn('[dash]',e);}
+
+
+  /* 周度快照：打开主页时懒记录本周数据，并画增长趋势 */
+  function mondayOf(d){var x=new Date(d);var day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);
+    x.setHours(0,0,0,0);return x;}
+  function isoDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function renderTrend(rows){
+    var body=$('trendBody');
+    if(!rows.length){body.innerHTML='<div class="trend-empty">首次访问将记录本周快照，之后每周自动累积。</div>';return;}
+    rows=rows.slice(-12);
+    var vals=rows.map(function(r){return r.messages+r.lobby_msgs+r.group_msgs;});
+    var max=Math.max.apply(null,vals),min=Math.min.apply(null,vals),span=Math.max(1,max-min);
+    var W=300,H=54,pad=4;
+    var pts=vals.map(function(v,i){
+      var x=rows.length===1?W/2:pad+i*(W-pad*2)/(rows.length-1);
+      var y=H-pad-((v-min)/span)*(H-pad*2);
+      return [x,y];
+    });
+    var poly=pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+    var area='M'+pts[0][0].toFixed(1)+','+H+' L'+poly.replace(/ /g,' L')+' L'+pts[pts.length-1][0].toFixed(1)+','+H+' Z';
+    var dots=pts.map(function(p){return '<circle class="pt" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2"/>';}).join('');
+    body.innerHTML='<svg class="trend-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+
+      '<path class="ar" d="'+area+'"/><polyline class="ln" points="'+poly+'"/>'+dots+'</svg>';
+    $('trendRange').textContent=isoDate(rows[0].week_start)+' → '+isoDate(rows[rows.length-1].week_start)+
+      ' · '+(vals[vals.length-1]-vals[0]>=0?'+':'')+(vals[vals.length-1]-vals[0]);
+  }
+  function loadTrend(){
+    var wk=isoDate(mondayOf(new Date()));
+    fetch(SB_URL+'/rest/v1/site_weekly_snapshots?select=*&order=week_start.asc',{headers:H})
+      .then(function(r){return r.ok?r.json():[];}).then(function(rows){
+        var has=rows.some(function(x){return x.week_start===wk;});
+        if(!has){
+          Promise.all([count('messages'),count('public_messages'),count('group_messages'),count('groups')]).then(function(a){
+            fetch(SB_URL+'/rest/v1/site_weekly_snapshots',{method:'POST',headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'}),
+              body:JSON.stringify({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0,groups_cnt:a[3]||0})})
+              .then(function(){rows.push({week_start:wk,messages:a[0]||0,lobby_msgs:a[1]||0,group_msgs:a[2]||0});renderTrend(rows);})
+              .catch(function(){renderTrend(rows);});
+          });
+        }else renderTrend(rows);
+      }).catch(function(){renderTrend([]);});
+  }
+  setTimeout(loadTrend,400);
 
   /* 实时在线：只在该板块可见时订阅 Presence，离开即断开，避免后台常驻 */
   var presenceCh=null,sb=null,createClient=null,sdkWaiters=[];
