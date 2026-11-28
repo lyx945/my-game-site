@@ -585,11 +585,27 @@
      username:'openrelayproject',credential:'openrelayproject'}
   ];
   function iceConfig(){
-    return {
-      iceServers: state.relayEnabled ? STUN_SERVERS.concat(TURN_SERVERS) : STUN_SERVERS,
-      iceCandidatePoolSize: 0,
-      bundlePolicy:'max-bundle'
-    };
+    var servers=STUN_SERVERS.slice();
+    if(state.relayEnabled){
+      // 优先用服务端签发的 Cloudflare 凭据；没有才退回内置的公共中继
+      var extra=(state.turnServers&&state.turnServers.length)?state.turnServers:TURN_SERVERS;
+      servers=servers.concat(extra);
+    }
+    return {iceServers:servers,iceCandidatePoolSize:0,bundlePolicy:'max-bundle'};
+  }
+  async function loadTurnCreds(){
+    try{
+      var r=await fetch(SB_URL+'/functions/v1/turn-credentials',{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+        body:'{}'
+      });
+      if(!r.ok)return;
+      var d=await r.json();
+      var list=d&&d.iceServers;
+      if(list&&!Array.isArray(list))list=[list];
+      if(list&&list.length)state.turnServers=list;
+    }catch(e){}
   }
   /* ICE 候选必须等 remoteDescription 设好再 add，否则会报错并被丢弃。
      主播发 offer 后立刻发候选，观众往往先收到候选、后收到 offer，这是黑屏的常见原因之一。 */
@@ -643,7 +659,7 @@
     hostName:'',hostAvatar:'',banBtnShown:false,
     dmSize:16,dmPos:'middle',pipWin:null,pipLayer:null,
     rec:null,recParts:0,recTimer:null,
-    relayEnabled:false,failCount:0,
+    relayEnabled:false,failCount:0,turnServers:null,diagSent:false,
     diag:{local:{},remote:{},attempts:0}};
 
   /* ================= 基础工具 ================= */
@@ -968,7 +984,7 @@
     $('dmInput').disabled=!isLoggedIn;
     $('idleBanner').classList.add('hidden');
     $('retryBtn').classList.add('hidden');
-    state.failCount=0;
+    state.failCount=0;state.diagSent=false;
     state.diag={local:{},remote:{},attempts:0};
 
     document.title=state.room.title+' · LYX 直播';
@@ -1339,33 +1355,37 @@
   /* 观众看门狗：连不上就重发 join，回到前台立刻重试 */
   function startWatchdog(){
     stopWatchdog();
+    /* 看门狗：以「重发 join 的次数」计失败，而不是看 connectionState——
+       主播没上线时 pc 会一直停在 new，只看状态永远判不出失败。 */
     state.wdTimer=setInterval(function(){
       if(state.role!=='viewer')return;
-      var cs=state.pc?state.pc.connectionState:'closed';
-      renderDiag();                       // 先刷新诊断，连上之后也能看到真实状态
-      if(cs==='connected'){state.failCount=0;return;}
+      var pc=state.pc,cs=pc?pc.connectionState:'closed';
+      renderDiag();
+      if(cs==='connected'){state.failCount=0;state.diag.attempts=0;return;}
 
-      if(cs==='failed'||cs==='disconnected'||cs==='closed')state.failCount++;
+      var wait=state.failCount>=2?12000:5000;
+      if(Date.now()-state.lastJoin<=wait)return;
+
+      state.failCount++;
       state.diag.attempts=state.failCount;
 
-      // 直连连续失败两次：切到中继，并请主播也切
       if(state.failCount>=2&&!state.relayEnabled){
         state.relayEnabled=true;
         try{state.channel&&state.channel.send({type:'broadcast',event:'need-relay',payload:{}});}catch(e){}
-        setHint('直连失败，正在改用中转连接…');
       }
 
-      // 失败太多次就别一直转圈了，明确告诉用户并给重试按钮
+      if(state.failCount===3){
+        reportDiag('connect_timeout');
+        $('retryBtn').classList.remove('hidden');
+        setHint('连接不太顺利，正在重试…<br>如果一直停在这里，可以点下方按钮手动重连。');
+      }
       if(state.failCount>=6){
         setHint('连接不上主播：你的网络与主播之间无法直连，中转也没有成功。<br>可以点下方按钮重试，或换个网络。');
-        $('retryBtn').classList.remove('hidden');
       }
-
-      var wait=(state.failCount>=2)?15000:((cs==='connecting'||cs==='new')?15000:5000);
-      if(Date.now()-state.lastJoin>wait){
-        if(state.sendJoin)state.sendJoin();
-        if(state.failCount<6)setHint('正在重新连接主播…');
+      if(state.failCount<3){
+        setHint(state.relayEnabled?'正在通过中转连接主播…':'正在重新连接主播…');
       }
+      if(state.sendJoin)state.sendJoin();
     },2500);
   }
   function stopWatchdog(){
@@ -1776,7 +1796,8 @@
       '<br>本端候选：'+fmt(d.local)+
       '<br>对端候选：'+fmt(d.remote)+
       '<br>重试：'+d.attempts+' 次'+
-      '<br>中转：'+(state.relayEnabled?'已启用':'未启用');
+      '<br>中转：'+(state.relayEnabled?'已启用':'未启用')+
+      '<br>中继服务器：'+(state.turnServers?'已配置':'未配置');
   }
   function diagText(){
     var pc=state.pc;
@@ -1791,6 +1812,25 @@
       '中转：'+state.relayEnabled,
       'UA：'+navigator.userAgent
     ].join('\n');
+  }
+
+  /* 连不上时把诊断快照写进库，方便排查；每场只报一次 */
+  async function reportDiag(reason){
+    if(!sb||!state.room||state.diagSent||state.role!=='viewer')return;
+    state.diagSent=true;
+    var pc=state.pc;
+    try{
+      await sb.from('live_diag_reports').insert({
+        room_id:state.room.id,room_code:state.room.code,user_id:myId,role:state.role,
+        connection:pc?pc.connectionState:'-',ice:pc?pc.iceConnectionState:'-',
+        gathering:pc?pc.iceGatheringState:'-',
+        local_cand:state.diag.local,remote_cand:state.diag.remote,
+        relay:state.relayEnabled,attempts:state.diag.attempts,
+        ua:navigator.userAgent,ua_mobile:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent),
+        online:(typeof navigator.onLine==='boolean'?navigator.onLine:null),
+        reason:reason
+      });
+    }catch(e){}
   }
 
   /* ================= 弹幕偏好 / 设置面板 ================= */
@@ -2242,6 +2282,7 @@
     },function(){mav.textContent=(myNick||'?').charAt(0).toUpperCase();});
 
     loadDmPrefs();
+    loadTurnCreds();
     show('landing');
     var c=cap(),msgs=[];
     if(!c.secure)msgs.push('<b>当前不是 HTTPS 环境</b>，浏览器会拒绝访问摄像头/麦克风。');
